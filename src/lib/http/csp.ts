@@ -10,7 +10,15 @@
  *      does not give you "nonce, and inline as a fallback"; it gives you nonce
  *      only, and every inline style or script is silently blocked.
  *
- *   2. Next.js in DEVELOPMENT evaluates strings as JavaScript for hot module
+ *   2. A nonce only works on a DYNAMICALLY rendered response. A statically
+ *      prerendered page is built once, with no request in scope, so Next.js has
+ *      no nonce to stamp onto its scripts. Serving such a page with a
+ *      per-request nonce in the CSP blocks every script it contains, including
+ *      the inline RSC payload: the HTML arrives complete, nothing hydrates, and
+ *      the console shows only "Connection closed". `nonce: null` exists for
+ *      exactly that case.
+ *
+ *   3. Next.js in DEVELOPMENT evaluates strings as JavaScript for hot module
  *      replacement. Without `'unsafe-eval'` the dev bundle throws an EvalError
  *      before React hydrates, so the page renders but nothing is interactive
  *      and the failure looks like "the button does nothing".
@@ -19,7 +27,12 @@
  */
 
 export interface CspOptions {
-  readonly nonce: string;
+  /**
+   * The per-request nonce, or null when the response may be statically
+   * prerendered and therefore cannot carry one. Null trades the nonce for
+   * 'unsafe-inline' on scripts; see the note in buildCsp.
+   */
+  readonly nonce: string | null;
   /**
    * Development needs 'unsafe-eval' for HMR. Production must never have it:
    * it re-opens the main injection vector a strict script-src exists to close.
@@ -28,11 +41,23 @@ export interface CspOptions {
 }
 
 export function buildCsp({ nonce, isDevelopment }: CspOptions): string {
-  // Scripts stay strict: a per-request nonce, plus Paddle.js. 'unsafe-eval' is
-  // added ONLY in development, and only because Next's HMR requires it.
+  // With a nonce, scripts are strict. Without one, the only way a prerendered
+  // page can run its own inline RSC payload is 'unsafe-inline'.
+  //
+  // That weakening is confined to pages that render no user data and no user
+  // input: the public marketing and tool pages. Everything that touches an
+  // account, a document or money is dynamically rendered, gets a real nonce,
+  // and never reaches this branch. The alternative was to force dynamic
+  // rendering site-wide, which would drop CDN caching on precisely the pages
+  // whose speed the organic-search strategy depends on.
+  //
+  // It is a genuine reduction in defence depth and is recorded in
+  // docs/LIMITATIONS.md rather than glossed over. React escapes by default and
+  // `dangerouslySetInnerHTML` is blocked by a build gate, so the inline-script
+  // injection route this would otherwise open has no obvious entry point.
   const scriptSrc = [
     "'self'",
-    `'nonce-${nonce}'`,
+    ...(nonce === null ? ["'unsafe-inline'"] : [`'nonce-${nonce}'`]),
     'https://cdn.paddle.com',
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
   ].join(' ');

@@ -113,3 +113,43 @@ describe('directive parsing', () => {
     expect(directive(csp, 'script-src')).toBeNull();
   });
 });
+
+/**
+ * The prerender trap.
+ *
+ * A statically prerendered page has no request in scope when it is built, so
+ * Next.js cannot stamp a nonce onto its scripts. Serving it a per-request nonce
+ * blocks every script it contains: the HTML arrives whole, nothing hydrates, and
+ * the only clue in the console is "Connection closed". This shipped to
+ * production once. These tests exist so it cannot ship again.
+ */
+describe('static rendering compatibility', () => {
+  it('falls back to unsafe-inline for scripts when there is no nonce', () => {
+    const csp = buildCsp({ nonce: null, isDevelopment: false });
+    const scriptSrc = directive(csp, 'script-src') ?? '';
+
+    expect(scriptSrc).toContain("'unsafe-inline'");
+    expect(scriptSrc).not.toContain('nonce-');
+  });
+
+  it('never emits both a nonce and unsafe-inline, which would disable the inline allowance', () => {
+    const withNonce = directive(buildCsp({ nonce: 'abc', isDevelopment: false }), 'script-src') ?? '';
+
+    expect(withNonce).toContain("'nonce-abc'");
+    expect(withNonce).not.toContain("'unsafe-inline'");
+  });
+
+  it('still refuses unsafe-eval in production without a nonce', () => {
+    const csp = buildCsp({ nonce: null, isDevelopment: false });
+    expect(directive(csp, 'script-src') ?? '').not.toContain("'unsafe-eval'");
+  });
+
+  it('keeps every other directive identical with and without a nonce', () => {
+    const a = buildCsp({ nonce: 'abc', isDevelopment: false });
+    const b = buildCsp({ nonce: null, isDevelopment: false });
+
+    for (const name of ['default-src', 'style-src', 'img-src', 'connect-src', 'frame-src', 'frame-ancestors', 'object-src', 'base-uri', 'form-action']) {
+      expect(directive(b, name), `${name} must not differ`).toBe(directive(a, name));
+    }
+  });
+});

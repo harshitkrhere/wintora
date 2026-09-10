@@ -21,14 +21,27 @@ const PRIVATE_PREFIXES = [
 ];
 
 export function middleware(request: NextRequest): NextResponse {
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  const path = request.nextUrl.pathname;
+
+  // Every private surface reads cookies or search params, so Next renders it
+  // dynamically and CAN stamp a nonce. Public pages are prerendered at build
+  // time and cannot, so they must not be sent a nonce they will never match.
+  //
+  // The coupling to worry about: if a page under PRIVATE_PREFIXES ever becomes
+  // statically prerenderable, it will be served a nonce it does not carry and
+  // will stop hydrating. That is why these surfaces also set `Cache-Control:
+  // no-store` below, and why none of them may be made static without revisiting
+  // this.
+  const isPrivate = PRIVATE_PREFIXES.some((prefix) => path.startsWith(prefix));
+
+  const nonce = isPrivate ? Buffer.from(crypto.randomUUID()).toString('base64') : null;
   const csp = buildCsp({
     nonce,
     isDevelopment: process.env.NODE_ENV !== 'production',
   });
 
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
+  if (nonce !== null) requestHeaders.set('x-nonce', nonce);
 
   // BOTH headers are required, and the second one is easy to miss.
   //
@@ -40,7 +53,7 @@ export function middleware(request: NextRequest): NextResponse {
   //
   // `script-src 'self'` does not save you here. It covers same-origin script
   // FILES; an inline script needs a nonce or 'unsafe-inline'.
-  requestHeaders.set('Content-Security-Policy', csp);
+  if (nonce !== null) requestHeaders.set('Content-Security-Policy', csp);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
 
@@ -61,8 +74,7 @@ export function middleware(request: NextRequest): NextResponse {
 
   // Private surfaces are never indexed. Belt and braces alongside the per-page
   // robots metadata and robots.txt. See docs/SEO.md section 6.
-  const path = request.nextUrl.pathname;
-  if (PRIVATE_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+  if (isPrivate) {
     response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
     response.headers.set('Cache-Control', 'no-store, max-age=0');
   }
