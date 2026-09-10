@@ -27,7 +27,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 interface PaddleCheckoutInstance {
   Environment: { set(environment: string): void };
   Initialize(options: { token: string; eventCallback?: (event: unknown) => void }): void;
-  Checkout: { open(options: { transactionId: string }): void };
+  Checkout: {
+    open(options: {
+      transactionId: string;
+      /**
+       * Where Paddle sends the customer after a successful payment. Optional in
+       * Paddle's API and effectively required here: without it the overlay
+       * closes on a spent transaction and the customer is left on a payment
+       * form for something they have already bought.
+       */
+      settings?: { successUrl?: string };
+    }): void;
+  };
 }
 
 declare global {
@@ -97,14 +108,30 @@ export function PaddleCheckout({
               setMessage('Checkout was closed before payment completed.');
             }
             if (name === 'checkout.completed') {
+              // Paddle's own redirect can be slow, and on some flows does not
+              // fire at all. Move the customer ourselves rather than leaving
+              // them looking at a spent payment form wondering whether they
+              // were charged.
               setPhase('open');
               setMessage(null);
+              window.location.assign('/billing/success');
             }
           },
         });
 
         setPhase('opening');
-        paddle.Checkout.open({ transactionId });
+        // successUrl is what sends the customer somewhere after paying. Without
+        // it the overlay simply closes on a spent transaction: the payment has
+        // gone through and the page still shows a payment form, which reads as
+        // "it failed" and produces a second attempt or a support ticket.
+        //
+        // Absolute, because Paddle redirects the top-level window. Built from
+        // the live origin so it follows whichever host the customer is actually
+        // on rather than a value compiled in at build time.
+        paddle.Checkout.open({
+          transactionId,
+          settings: { successUrl: `${window.location.origin}/billing/success` },
+        });
         setPhase('open');
       } catch {
         fail('We could not open the payment form. Please refresh and try again.');
