@@ -144,7 +144,12 @@ function checkNoPlanComparisons(files) {
 function checkNoDangerousHtml(files) {
   for (const file of files) {
     const content = readFileSync(file, 'utf8');
-    if (content.includes('dangerouslySetInnerHTML')) {
+    // Match a real USE of the prop, not a mention of its name. JSX writes
+    // `dangerouslySetInnerHTML={...}` and an object literal writes
+    // `dangerouslySetInnerHTML: {...}`; prose about why it is banned writes
+    // neither. A bare substring check flags the security comments that explain
+    // the rule, which trains people to ignore the gate.
+    if (/dangerouslySetInnerHTML\s*[=:]/.test(content)) {
       fail(
         'xss',
         rel(file),
