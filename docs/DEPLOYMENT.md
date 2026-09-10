@@ -250,6 +250,117 @@ going live even though sandbox does not need it.
 
 ---
 
+## 4b. Domain and URL wiring
+
+Every external service that needs to know where Wintora lives, and the exact
+value each one wants.
+
+**Pick the canonical host once and use that exact string everywhere.** Vercel
+serves `www.wintora.online` as Production and 308-redirects the apex to it, so
+`www` is canonical. Mixing the two is not cosmetic: `NEXT_PUBLIC_APP_URL` is what
+the CSRF origin check compares against, so setting the apex while the browser is
+on `www` rejects every POST with a bare 403 and no clue why. Sign-in, sign-up and
+checkout all fail while the pages render normally.
+
+Substitute your Supabase project ref for `<ref>` (find it in the Supabase
+dashboard URL, or as the subdomain of `NEXT_PUBLIC_SUPABASE_URL`).
+
+### 1. DNS, at the registrar
+
+| Action | Type | Name | Value |
+| --- | --- | --- | --- |
+| Keep | A | `@` | `216.198.79.1` |
+| **Delete** | A | `@` | any other IP, e.g. a parking address |
+| Keep | CNAME | `www` | `<hash>.vercel-dns-017.com` |
+| Leave alone | MX / TXT | `@`, `_dmarc` | mail records are unrelated |
+
+Two A records on the apex is the usual mistake. DNS round-robins between them, so
+a share of traffic reaches the old host, and Vercel cannot verify the domain or
+issue a certificate while a foreign IP answers for it. The symptom is "Invalid
+Configuration" even though the correct record is present.
+
+### 2. Vercel
+
+- **Settings -> Environment Variables:** `NEXT_PUBLIC_APP_URL=https://www.wintora.online`
+- **Redeploy afterwards.** `NEXT_PUBLIC_*` is inlined at build time; saving the
+  variable changes nothing until a new build runs.
+- **Settings -> Domains:** `www.wintora.online` as Production, apex redirecting to it.
+
+### 3. Paddle -> Checkout settings
+
+| Field | Value |
+| --- | --- |
+| Approved domain | `www.wintora.online` |
+| Default payment link | `https://www.wintora.online/checkout` |
+
+`/checkout` is the page that reads `?_ptxn=` and opens the overlay. It is not
+`/billing/success`: Paddle appends the transaction reference to the payment link
+and sends the customer there **to pay**. Pointing it at the success page shows a
+"thank you" for a transaction nobody paid. An unapproved domain fails earlier,
+with `transaction_checkout_url_domain_is_not_approved`.
+
+Approval is per domain. Moving from a `.vercel.app` host to a custom domain means
+approving the new one before checkout works again.
+
+### 4. Paddle -> Notifications
+
+| Field | Value |
+| --- | --- |
+| Destination | `https://www.wintora.online/api/webhooks/paddle` |
+| Signing secret | copy into `PADDLE_WEBHOOK_SECRET` in Vercel |
+
+The secret belongs to the destination. Creating a new destination issues a new
+secret, and a stale one fails signature verification on every delivery: the
+customer pays and is never granted the plan.
+
+### 5. Supabase -> Authentication -> URL Configuration
+
+| Field | Value |
+| --- | --- |
+| Site URL | `https://www.wintora.online` |
+| Redirect URLs | `https://www.wintora.online/auth/callback` |
+| Redirect URLs | `http://localhost:3000/auth/callback` (keep, for local work) |
+
+`/auth/callback` is where `src/app/api/auth/oauth/route.ts` sends the provider,
+as `${appUrl}/auth/callback?next=...`. A redirect URL missing from this allowlist
+makes Supabase refuse the exchange after the user has already approved at Google,
+which reads as "sign-in does nothing".
+
+### 6. Google Cloud -> APIs & Services -> Credentials -> OAuth 2.0 Client
+
+| Field | Value |
+| --- | --- |
+| Authorized redirect URI | `https://<ref>.supabase.co/auth/v1/callback` |
+| Authorized JavaScript origin | `https://www.wintora.online` |
+
+The redirect URI is **Supabase's**, not the application's. Google returns the code
+to Supabase, which exchanges it and then redirects to `/auth/callback`. Entering
+the application URL here is the single most common Google OAuth mistake and
+produces `redirect_uri_mismatch`.
+
+Then paste the Client ID and Secret into Supabase -> Authentication -> Providers
+-> Google, and enable it.
+
+### 7. Local development
+
+`.env.local` keeps `NEXT_PUBLIC_APP_URL=http://localhost:3000`. The origin check
+allows loopback in development specifically so this works while the deployed
+value differs. Do not point local at the production domain.
+
+### Verifying
+
+```
+curl -s -I https://www.wintora.online/ | grep -i script-src
+curl -s https://www.wintora.online/sitemap.xml | grep -m1 "<loc>"
+curl -s -o /dev/null -w "%{http_code}
+" -X POST   -H "content-type: application/json"   -H "Origin: https://www.wintora.online"   -d "{}" https://www.wintora.online/api/auth/signin
+```
+
+The sitemap must show the canonical host, not `localhost`. The sign-in POST must
+return **400** (bad body, origin accepted) and not **403** (origin rejected).
+
+---
+
 ## 5. Scheduled jobs
 
 Both authenticate with `Authorization: Bearer $CRON_SECRET`, compared in
