@@ -68,7 +68,7 @@ export const OPERATOR: OperatorIdentity = {
   // Deliberately null rather than a placeholder that could ship as if real.
   legalName: null,
   countryOfEstablishment: 'IN',
-  contactEmail: null,
+  contactEmail: 'info@wintora.online',
   registeredEntity: false,
 };
 

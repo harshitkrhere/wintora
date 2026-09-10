@@ -1,3 +1,4 @@
+import { appUrl } from '@/lib/env';
 import type { MetadataRoute } from 'next';
 
 /**
@@ -25,7 +26,7 @@ const STATIC_PAGES: readonly { path: string; priority: number; changeFrequency: 
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const base = appUrl();
   const now = new Date();
 
   return STATIC_PAGES.map((page) => ({

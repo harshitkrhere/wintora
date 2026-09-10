@@ -1,10 +1,11 @@
+import { appUrl } from '@/lib/env';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GLOBAL_DISCLAIMER } from '@/config/disclaimers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(appUrl()),
   title: {
     default: 'Wintora — Understand your medical bills before you pay',
     template: '%s — Wintora',

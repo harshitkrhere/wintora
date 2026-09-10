@@ -96,7 +96,7 @@ const serverSchema = z.object({
   OCR_PROVIDER: z.string().default('none'),
   MALWARE_SCAN_PROVIDER: z.string().default('none'),
   EMAIL_PROVIDER: z.string().default('none'),
-  EMAIL_FROM: z.string().default('Wintora <no-reply@example.com>'),
+  EMAIL_FROM: z.string().default('Wintora <info@wintora.online>'),
 
   CRON_SECRET: z.string().optional(),
   LOG_HASH_SECRET: z.string().optional(),
@@ -107,6 +107,48 @@ export type ServerEnv = z.infer<typeof serverSchema>;
 
 let cachedPublic: PublicEnv | null = null;
 let cachedServer: ServerEnv | null = null;
+
+/**
+ * The canonical origin, refusing to guess in production.
+ *
+ * `NEXT_PUBLIC_APP_URL` keeps a localhost default because local development
+ * needs one. In production that default is actively harmful: the site boots,
+ * every page renders, the sitemap advertises `http://localhost:3000/` to search
+ * engines, and every POST fails the CSRF origin check with a bare 403. Nothing
+ * announces the cause.
+ *
+ * Server-side only. Throwing in the browser would blank a page that is otherwise
+ * readable, and the build already fails first: `sitemap.ts`, `robots.ts` and the
+ * root layout all call this while prerendering.
+ */
+export function appUrl(): string {
+  // An unset variable and an empty one mean the same thing here. A blank entry
+  // in a hosting dashboard or a bare `KEY=` line yields '', which `??` treats as
+  // present, so normalise before any other check: otherwise development returns
+  // '' and `new URL('')` throws somewhere far from the cause.
+  const raw = process.env.NEXT_PUBLIC_APP_URL;
+  const value = raw === undefined || raw.trim() === '' ? undefined : raw.trim();
+
+  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+    if (value === undefined) {
+      throw new Error(
+        'NEXT_PUBLIC_APP_URL is not set. Production cannot fall back to ' +
+          'localhost: the sitemap would advertise it and every POST would fail ' +
+          'the origin check. Set it to the canonical origin, including the ' +
+          'subdomain (https://www.example.com), and REDEPLOY so the value is ' +
+          'compiled in.',
+      );
+    }
+    if (new URL(value).hostname === 'localhost') {
+      throw new Error(
+        `NEXT_PUBLIC_APP_URL is "${value}" in a production build. That is a ` +
+          'development value; set the canonical public origin and redeploy.',
+      );
+    }
+  }
+
+  return value ?? 'http://localhost:3000';
+}
 
 export function publicEnv(): PublicEnv {
   if (cachedPublic === null) {
