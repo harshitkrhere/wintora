@@ -1,0 +1,25 @@
+-- Add 'paddle' to billing_provider.
+--
+-- The enum was created in 0001 as ('stripe','apple','google'), before the
+-- payment provider changed. The application layer was migrated to Paddle but
+-- this type was not, so every write in the money path sent a value the type
+-- does not accept:
+--
+--   billing_customers.provider   (ensureCustomer, on the checkout path)
+--   webhook_events.provider      (the idempotency claim, on every delivery)
+--   subscriptions.provider       (the row that grants entitlements)
+--   invoices.provider, refunds.provider
+--
+-- Postgres rejects those inserts with `invalid input value for enum
+-- billing_provider: "paddle"`. The practical effect was total: checkout failed
+-- at ensureCustomer, and had it not, every webhook would have 500'd and no
+-- customer would ever have been granted the plan they paid for.
+--
+-- 'stripe' is deliberately NOT removed. Removing a value from an enum requires
+-- rewriting the type and every column using it, and the value is harmless while
+-- unused. Historical rows, if any ever existed, stay readable.
+--
+-- Note: a new enum value cannot be USED in the same transaction that adds it,
+-- so this migration only adds it. Nothing here writes a 'paddle' row.
+
+alter type public.billing_provider add value if not exists 'paddle';

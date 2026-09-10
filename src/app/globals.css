@@ -1,0 +1,588 @@
+/*
+ * Calm, high-trust consumer SaaS.
+ *
+ * Deliberately absent: red-alert aesthetics, hospital stock photography, AI
+ * robot imagery, legal-threat iconography, countdown timers. The person reading
+ * this is often stressed already. The interface should lower the temperature,
+ * not raise it. See docs/AI_SAFETY.md section 8.
+ */
+
+:root {
+  color-scheme: light;
+
+  --ink-900: #10201c;
+  --ink-700: #2c4740;
+  --ink-500: #55706a;
+  --ink-400: #7b918c;
+  --ink-300: #a7b8b4;
+
+  --paper: #fbfaf7;
+  --surface: #ffffff;
+  --surface-sunken: #f4f2ed;
+  --line: #e2ded4;
+  --line-strong: #cdc7b9;
+
+  /* One restrained accent. Trust reads as consistency, not colour volume. */
+  --accent-700: #1d5c4d;
+  --accent-600: #24725f;
+  --accent-500: #2e8a73;
+  --accent-100: #e3f0eb;
+
+  /* Severity, in muted tones. ATTENTION is amber, never emergency red. */
+  --attention-fg: #7a4a10;
+  --attention-bg: #fdf3e3;
+  --attention-line: #eeddc0;
+  --review-fg: #2f4f6d;
+  --review-bg: #edf3f9;
+  --review-line: #d3e2ef;
+  --info-fg: var(--ink-700);
+  --info-bg: var(--surface-sunken);
+  --info-line: var(--line);
+
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgb(16 32 28 / 6%);
+  --shadow-md: 0 4px 20px -8px rgb(16 32 28 / 14%);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  --measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ink-900: #eef3f1;
+    --ink-700: #ccd8d5;
+    --ink-500: #9aaba7;
+    --ink-400: #7d8f8b;
+    --ink-300: #5f716d;
+    --paper: #0e1614;
+    --surface: #15201d;
+    --surface-sunken: #1b2724;
+    --line: #26332f;
+    --line-strong: #35443f;
+    --accent-700: #6fc7ad;
+    --accent-600: #57b79b;
+    --accent-500: #43a789;
+    --accent-100: #17322a;
+    --attention-fg: #e8c48a;
+    --attention-bg: #2a2116;
+    --attention-line: #453522;
+    --review-fg: #a8c8e4;
+    --review-bg: #17232e;
+    --review-line: #26384a;
+    --shadow-md: 0 4px 20px -8px rgb(0 0 0 / 60%);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink-900);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.5em;
+  font-weight: 620;
+}
+
+h1 {
+  font-size: clamp(1.9rem, 1.4rem + 2.2vw, 3rem);
+}
+h2 {
+  font-size: clamp(1.35rem, 1.1rem + 1.1vw, 1.9rem);
+}
+h3 {
+  font-size: 1.15rem;
+}
+
+p {
+  margin: 0 0 1em;
+  max-width: var(--measure);
+}
+
+a {
+  color: var(--accent-600);
+  text-underline-offset: 3px;
+}
+a:hover {
+  color: var(--accent-700);
+}
+
+/* Visible focus everywhere. A paywall or checkout that traps or hides focus
+   excludes disabled customers from buying. WCAG 2.2 AA is the target. */
+:focus-visible {
+  outline: 2px solid var(--accent-600);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--surface);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+.shell {
+  width: min(1120px, 100% - 2.5rem);
+  margin-inline: auto;
+}
+
+.narrow {
+  width: min(760px, 100% - 2.5rem);
+  margin-inline: auto;
+}
+
+/* --- header / footer --- */
+
+.site-header {
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.9rem 0;
+}
+
+.wordmark {
+  font-weight: 660;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink-900);
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.25rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.site-nav a {
+  color: var(--ink-700);
+  text-decoration: none;
+  font-size: 0.94rem;
+}
+.site-nav a:hover {
+  color: var(--accent-700);
+  text-decoration: underline;
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  margin-top: 5rem;
+  padding: 2.5rem 0 3.5rem;
+  font-size: 0.9rem;
+  color: var(--ink-500);
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 2rem 1.5rem;
+}
+
+.footer-grid h3 {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-400);
+  margin-bottom: 0.6rem;
+}
+
+.footer-grid ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+/* --- buttons --- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 540;
+  font-size: 0.96rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.btn--primary {
+  background: var(--accent-600);
+  color: #fff;
+}
+.btn--primary:hover {
+  background: var(--accent-700);
+  color: #fff;
+}
+
+.btn--secondary {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink-900);
+}
+.btn--secondary:hover {
+  border-color: var(--ink-400);
+  color: var(--ink-900);
+}
+
+.btn--quiet {
+  background: transparent;
+  color: var(--ink-700);
+  padding-inline: 0.4rem;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* --- cards, panels --- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+.stack--lg {
+  display: grid;
+  gap: 2rem;
+}
+
+.eyebrow {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--ink-400);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.lede {
+  font-size: 1.12rem;
+  color: var(--ink-700);
+  max-width: var(--measure);
+}
+
+.muted {
+  color: var(--ink-500);
+}
+
+.small {
+  font-size: 0.88rem;
+}
+
+/* --- findings --- */
+
+.finding {
+  border: 1px solid var(--info-line);
+  background: var(--info-bg);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+}
+.finding--attention {
+  border-color: var(--attention-line);
+  background: var(--attention-bg);
+}
+.finding--review {
+  border-color: var(--review-line);
+  background: var(--review-bg);
+}
+
+.finding__severity {
+  font-size: 0.74rem;
+  font-weight: 660;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.finding--attention .finding__severity {
+  color: var(--attention-fg);
+}
+.finding--review .finding__severity {
+  color: var(--review-fg);
+}
+.finding__severity--info {
+  color: var(--ink-500);
+}
+
+.finding h3 {
+  margin: 0.3rem 0 0.4rem;
+  font-size: 1.03rem;
+}
+
+.finding p {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+/* Evidence sits next to every claim: a finding a user cannot verify is a
+   finding a user should not trust. */
+.evidence {
+  border-top: 1px dashed var(--line-strong);
+  padding-top: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink-500);
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* --- tables --- */
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 640px;
+  font-size: 0.94rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+thead th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-400);
+  background: var(--surface-sunken);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.yes {
+  color: var(--accent-600);
+  font-weight: 600;
+}
+.no {
+  color: var(--ink-300);
+}
+
+/* --- pricing --- */
+
+.plan-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plan__price {
+  font-size: 1.9rem;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+}
+
+.plan__interval {
+  font-size: 0.9rem;
+  color: var(--ink-500);
+  font-weight: 400;
+}
+
+.plan__features {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+}
+
+.plan__features li::before {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--accent-500);
+  margin-right: 0.55rem;
+  vertical-align: 0.15em;
+}
+
+/* --- forms --- */
+
+label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 560;
+  margin-bottom: 0.3rem;
+  color: var(--ink-700);
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-900);
+}
+
+.field {
+  margin-bottom: 0.9rem;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.line-item-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 40px;
+  gap: 0.5rem;
+  align-items: end;
+  margin-bottom: 0.5rem;
+}
+
+/* --- disclaimers, notices --- */
+
+.notice {
+  border-left: 3px solid var(--line-strong);
+  padding: 0.15rem 0 0.15rem 0.9rem;
+  color: var(--ink-500);
+  font-size: 0.88rem;
+  max-width: var(--measure);
+}
+
+.notice--accent {
+  border-left-color: var(--accent-500);
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: var(--accent-100);
+  color: var(--accent-700);
+  border: 1px solid color-mix(in srgb, var(--accent-500) 25%, transparent);
+}
+
+.usage-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.usage-bar__fill {
+  height: 100%;
+  background: var(--accent-500);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 2rem 0;
+}
+
+section {
+  margin-bottom: 3rem;
+}
+
+.two-col {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

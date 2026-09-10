@@ -1,0 +1,48 @@
+{
+  "name": "wintora",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Consumer medical-bill administrative assistant (US/CA). Organic-first freemium SaaS.",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "doctor": "node scripts/doctor.mjs",
+    "init:secrets": "node scripts/init-local-secrets.mjs",
+    "verify:sql": "node scripts/verify-sql-invariants.mjs",
+    "verify:secrets": "node scripts/verify-no-secret-leaks.mjs",
+    "gate": "npm run typecheck && npm run verify:sql && npm run verify:secrets && npm run test",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "db:verify": "supabase db query --linked --file supabase/tests/rls_isolation.sql",
+    "db:advisors": "supabase db advisors --linked --type security",
+    "paddle:seed": "node scripts/seed-paddle.mjs",
+    "ai:models": "node scripts/openrouter-models.mjs",
+    "ai:smoke": "node scripts/ai-smoke.mjs",
+    "env:sync": "node scripts/sync-env.mjs",
+    "tunnel": "node scripts/tunnel-url.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.48.1",
+    "next": "^15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}

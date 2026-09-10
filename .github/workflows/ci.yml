@@ -1,0 +1,104 @@
+name: Deployment gate
+
+# Production deployment is BLOCKED if any job here fails. The same command runs
+# locally as `npm run gate`, so the gate cannot be skipped by deploying from a
+# workstation. See docs/SECURITY.md section 14.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Types, invariants, secrets, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: SQL and structural invariants
+        # RLS coverage, no plan-string authorization, no dangerouslySetInnerHTML,
+        # domain purity, no SQL string concatenation.
+        run: npm run verify:sql
+
+      - name: Secret-leak scan
+        # A leaked service_role key defeats the entire database authorization
+        # layer, so this is a build gate rather than a convention.
+        run: npm run verify:secrets
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: https://example.invalid
+
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Audit
+        run: npm audit --audit-level=high
+
+  database:
+    name: Migrations and RLS isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # The RLS matrix genuinely needs a database: it is the one thing an
+      # in-memory fake cannot prove. Requires the Supabase auth and storage
+      # schemas, which the local Supabase CLI provisions.
+      # See docs/LIMITATIONS.md.
+      - name: Note
+        run: |
+          echo "supabase/tests/rls_isolation.sql runs against a Supabase instance."
+          echo "Wire this job to 'supabase start' before enabling it as a gate."

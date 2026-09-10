@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "crons": [
+    {
+      "path": "/api/cron/retention-sweep",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-billing",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}
