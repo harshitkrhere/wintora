@@ -33,6 +33,18 @@ export interface FeatureDefinition {
   readonly costLevel: CostLevel;
   readonly sortOrder: number;
   /**
+   * Can a customer actually use this today?
+   *
+   * The registry is the single source for what a plan INCLUDES, and every
+   * customer-facing list is rendered from it. That is the right design, and it
+   * has a failure mode: a feature that is planned, priced and entitled but not
+   * yet built renders as "now active" on the success page two seconds after
+   * someone pays for it. This flag lets those pages tell the truth from the
+   * same source, rather than relying on a hand-written note someone has to
+   * remember to update. Required, so a new feature cannot forget to declare it.
+   */
+  readonly available: boolean;
+  /**
    * True for features that are user rights rather than commercial features.
    * No plan may disable these, and `computeEntitlements` enforces that
    * regardless of what the plan matrix says.
@@ -77,6 +89,7 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   DOCUMENT_UPLOAD: {
     key: 'DOCUMENT_UPLOAD',
+    available: false,
     name: 'Document upload',
     description: 'Upload bills, EOBs and correspondence to a case.',
     benefitText: 'Upload your bills and statements',
@@ -86,6 +99,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   BASIC_BILL_ANALYSIS: {
     key: 'BASIC_BILL_ANALYSIS',
+    available: true,
     name: 'Bill analysis',
     description: 'Deterministic arithmetic and internal-consistency checks.',
     benefitText: 'Check a bill for arithmetic and consistency problems',
@@ -95,6 +109,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   ADVANCED_DOCUMENT_ANALYSIS: {
     key: 'ADVANCED_DOCUMENT_ANALYSIS',
+    available: false,
     name: 'Advanced document analysis',
     description: 'Cross-document reconciliation and richer line-item comparison.',
     benefitText: 'Advanced cross-document analysis',
@@ -104,6 +119,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   EOB_COMPARISON: {
     key: 'EOB_COMPARISON',
+    available: true,
     name: 'Bill vs EOB comparison',
     description: 'Compare a provider bill against an explanation of benefits.',
     benefitText: 'Compare a bill against your EOB',
@@ -113,6 +129,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   LETTER_GENERATION: {
     key: 'LETTER_GENERATION',
+    available: false,
     name: 'Request letters',
     description: 'Generate administrative request drafts you review and send.',
     benefitText: 'Prepare request letters to review and send yourself',
@@ -122,6 +139,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   ADVANCED_LETTERS: {
     key: 'ADVANCED_LETTERS',
+    available: false,
     name: 'Advanced letter drafts',
     description: 'Multi-part correspondence with evidence attachments.',
     benefitText: 'Advanced correspondence drafts',
@@ -131,6 +149,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   PREMIUM_TEMPLATES: {
     key: 'PREMIUM_TEMPLATES',
+    available: false,
     name: 'Premium templates',
     description: 'The full reviewed template library.',
     benefitText: 'The full template library',
@@ -140,6 +159,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   CASE_TRACKING: {
     key: 'CASE_TRACKING',
+    available: false,
     name: 'Case tracking',
     description: 'Organise a bill into a case with documents and status.',
     benefitText: 'Keep each bill organised as a case',
@@ -149,6 +169,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MULTIPLE_CASES: {
     key: 'MULTIPLE_CASES',
+    available: false,
     name: 'Multiple cases',
     description: 'Run more than one case at a time.',
     benefitText: 'Work on several bills at once',
@@ -158,6 +179,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   CASE_TIMELINE: {
     key: 'CASE_TIMELINE',
+    available: false,
     name: 'Case timeline',
     description: 'A dated record of what happened and when.',
     benefitText: 'A complete timeline of your case',
@@ -167,6 +189,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   REMINDERS: {
     key: 'REMINDERS',
+    available: false,
     name: 'Reminders',
     description: 'Schedule follow-up reminders on a case.',
     benefitText: 'Follow-up reminders so nothing is missed',
@@ -176,6 +199,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   DEADLINE_TRACKING: {
     key: 'DEADLINE_TRACKING',
+    available: false,
     name: 'Deadline tracking',
     description: 'Track verified and user-entered dates, clearly distinguished.',
     benefitText: 'Track your important dates',
@@ -185,6 +209,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   ADVANCED_EXPORT: {
     key: 'ADVANCED_EXPORT',
+    available: false,
     name: 'Advanced export',
     description: 'Export a full case bundle as PDF or DOCX with attachments.',
     benefitText: 'Export a complete case bundle',
@@ -194,6 +219,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   HOUSEHOLD_CASES: {
     key: 'HOUSEHOLD_CASES',
+    available: false,
     name: 'Household cases',
     description: 'Track cases for more than one person in the household.',
     benefitText: 'Manage bills for your whole household',
@@ -203,6 +229,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   EXTENDED_HISTORY: {
     key: 'EXTENDED_HISTORY',
+    available: false,
     name: 'Extended history',
     description: 'Longer retention of case and analysis history.',
     benefitText: 'Keep your history for longer',
@@ -212,6 +239,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   PRIORITY_SUPPORT: {
     key: 'PRIORITY_SUPPORT',
+    available: false,
     name: 'Priority support',
     description: 'Support queue priority with a published response target.',
     benefitText: 'Priority support with a published response target',
@@ -221,6 +249,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   DATA_EXPORT: {
     key: 'DATA_EXPORT',
+    available: true,
     name: 'Data export',
     description: 'Download everything held about you.',
     benefitText: 'Download all your data at any time',
@@ -231,6 +260,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   ACCOUNT_DELETION: {
     key: 'ACCOUNT_DELETION',
+    available: true,
     name: 'Account deletion',
     description: 'Delete your account and content.',
     benefitText: 'Delete your account and content at any time',
@@ -242,6 +272,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
 
   MAX_ACTIVE_CASES: {
     key: 'MAX_ACTIVE_CASES',
+    available: false,
     name: 'Active cases',
     description: 'How many cases may be open at once.',
     benefitText: 'Active cases',
@@ -251,6 +282,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MONTHLY_DOCUMENTS: {
     key: 'MONTHLY_DOCUMENTS',
+    available: false,
     name: 'Documents per period',
     description: 'Document uploads per billing period.',
     benefitText: 'Document uploads per billing period',
@@ -261,6 +293,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MONTHLY_ANALYSES: {
     key: 'MONTHLY_ANALYSES',
+    available: true,
     name: 'Analyses per period',
     description: 'Analysis runs per billing period.',
     benefitText: 'Analyses per billing period',
@@ -271,6 +304,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MONTHLY_LETTERS: {
     key: 'MONTHLY_LETTERS',
+    available: false,
     name: 'Letters per period',
     description: 'Letter drafts per billing period.',
     benefitText: 'Letter drafts per billing period',
@@ -281,6 +315,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MONTHLY_EXPORTS: {
     key: 'MONTHLY_EXPORTS',
+    available: false,
     name: 'Exports per period',
     description: 'Case exports per billing period.',
     benefitText: 'Case exports per billing period',
@@ -291,6 +326,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MAX_FILE_SIZE_MB: {
     key: 'MAX_FILE_SIZE_MB',
+    available: false,
     name: 'Maximum file size',
     description: 'Largest single upload, in megabytes.',
     benefitText: 'Maximum file size',
@@ -300,6 +336,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   STORAGE_LIMIT_MB: {
     key: 'STORAGE_LIMIT_MB',
+    available: false,
     name: 'Storage',
     description: 'Total stored document size, in megabytes.',
     benefitText: 'Document storage',
@@ -309,6 +346,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   RETENTION_DAYS: {
     key: 'RETENTION_DAYS',
+    available: false,
     name: 'Document retention',
     description: 'How long uploaded documents are kept before automatic removal.',
     benefitText: 'Document retention',
@@ -318,6 +356,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   HOUSEHOLD_MEMBERS: {
     key: 'HOUSEHOLD_MEMBERS',
+    available: false,
     name: 'Household members',
     description: 'How many people may be tracked on this account.',
     benefitText: 'People covered',

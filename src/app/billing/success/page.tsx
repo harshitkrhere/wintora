@@ -86,16 +86,47 @@ export default async function BillingSuccessPage(): Promise<React.ReactElement> 
         </dl>
       </div>
 
-      <h2 style={{ fontSize: '1.1rem' }}>What is now active</h2>
+      {/*
+        Two lists, never one. A plan INCLUDES everything in the registry, but
+        only some of it is built. Presenting an unbuilt feature as "now active"
+        to someone who paid two seconds ago is exactly the claim this product
+        promises never to make. See docs/AI_SAFETY.md section 11.
+      */}
+      <h2 style={{ fontSize: '1.1rem' }}>What you can use now</h2>
       <ul className="plan__features" style={{ marginBottom: '1.5rem' }}>
-        {summary.benefits.slice(0, 10).map((benefit) => (
-          <li key={benefit.key}>
-            {benefit.limit !== null
-              ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
-              : benefit.text}
-          </li>
-        ))}
+        {summary.benefits
+          .filter((b) => b.available)
+          .map((benefit) => (
+            <li key={benefit.key}>
+              {benefit.limit !== null
+                ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
+                : benefit.text}
+            </li>
+          ))}
       </ul>
+
+      {summary.benefits.some((b) => !b.available) && (
+        <>
+          <h2 style={{ fontSize: '1.1rem' }}>Included in your plan, not yet available</h2>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            These are part of what you have paid for and are still being built. They
+            will appear on your dashboard when they are ready. If that is not
+            acceptable, contact us and we will refund you.
+          </p>
+          <ul className="plan__features muted" style={{ marginBottom: '1.5rem' }}>
+            {summary.benefits
+              .filter((b) => !b.available)
+              .slice(0, 8)
+              .map((benefit) => (
+                <li key={benefit.key}>
+                  {benefit.limit !== null
+                    ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
+                    : benefit.text}
+                </li>
+              ))}
+          </ul>
+        </>
+      )}
 
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
         <Link href="/dashboard" className="btn btn--primary">

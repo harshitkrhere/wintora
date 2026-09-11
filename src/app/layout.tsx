@@ -2,6 +2,7 @@ import { appUrl } from '@/lib/env';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GLOBAL_DISCLAIMER } from '@/config/disclaimers';
+import { AuthNav } from '@/components/AuthNav';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -42,9 +43,7 @@ export default function RootLayout({
               <Link href="/bill-vs-eob">Bill vs EOB</Link>
               <Link href="/pricing">Pricing</Link>
               <Link href="/methodology">How it works</Link>
-              <Link href="/signin" className="btn btn--secondary">
-                Sign in
-              </Link>
+              <AuthNav />
             </nav>
           </div>
         </header>

@@ -103,10 +103,14 @@ function PlanCard({
 
       <ul className="plan__features">
         {highlights.slice(0, 6).map(({ key, grant }) => (
-          <li key={key}>
+          <li key={key} className={FEATURES[key].available ? undefined : 'muted'}>
             {grant?.limitValue !== undefined && grant.limitValue !== null
               ? `${grant.limitValue.toLocaleString('en-US')} ${grant.limitUnit ?? ''}`.trim()
               : FEATURES[key].benefitText}
+            {/* Said on the pricing page, before money changes hands, not after. */}
+            {!FEATURES[key].available && (
+              <span className="small muted"> — not yet available</span>
+            )}
           </li>
         ))}
       </ul>
@@ -188,6 +192,9 @@ export default async function PricingPage({
                 <tr key={feature.key}>
                   <th scope="row" style={{ fontWeight: 500 }}>
                     {feature.name}
+                    {!feature.available && (
+                      <span className="small muted"> · not yet available</span>
+                    )}
                     <span className="muted small" style={{ display: 'block' }}>
                       {feature.description}
                     </span>

@@ -38,6 +38,8 @@ export interface BenefitLine {
   readonly text: string;
   readonly limit: number | null;
   readonly unit: string | null;
+  /** False means included in the plan but not yet usable. Render it as such. */
+  readonly available: boolean;
 }
 
 export interface SubscriptionSummary {

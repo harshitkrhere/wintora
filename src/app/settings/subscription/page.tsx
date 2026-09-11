@@ -117,16 +117,39 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
           </div>
 
           <div className="card">
-            <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Your benefits</h2>
+            <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Available now</h2>
             <ul className="plan__features">
-              {summary.benefits.map((benefit) => (
-                <li key={benefit.key}>
-                  {benefit.limit !== null
-                    ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
-                    : benefit.text}
-                </li>
-              ))}
+              {summary.benefits
+                .filter((b) => b.available)
+                .map((benefit) => (
+                  <li key={benefit.key}>
+                    {benefit.limit !== null
+                      ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
+                      : benefit.text}
+                  </li>
+                ))}
             </ul>
+
+            {summary.benefits.some((b) => !b.available) && (
+              <>
+                <h2 style={{ fontSize: '1.05rem' }}>Included, not yet available</h2>
+                <p className="muted small" style={{ marginTop: 0 }}>
+                  Part of your plan, still being built. Nothing here is counted
+                  against you and nothing expires while you wait.
+                </p>
+                <ul className="plan__features muted">
+                  {summary.benefits
+                    .filter((b) => !b.available)
+                    .map((benefit) => (
+                      <li key={benefit.key}>
+                        {benefit.limit !== null
+                          ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
+                          : benefit.text}
+                      </li>
+                    ))}
+                </ul>
+              </>
+            )}
           </div>
         </div>
       </section>

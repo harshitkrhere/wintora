@@ -167,19 +167,25 @@ export function limitFor(set: EntitlementSet, key: FeatureKey): number | null {
  * the words a customer reads and the rules the backend enforces are the same
  * source. See docs/ENTITLEMENTS.md section 9.
  */
-export function benefitList(
-  set: EntitlementSet,
-): readonly { key: FeatureKey; text: string; limit: number | null; unit: string | null }[] {
+export function benefitList(set: EntitlementSet): readonly {
+  key: FeatureKey;
+  text: string;
+  limit: number | null;
+  unit: string | null;
+  /** False means entitled but not yet built. Pages must say so, not hide it. */
+  available: boolean;
+}[] {
   return FEATURE_KEYS.filter((k) => set[k].enabled)
     .map((k) => ({
       key: k,
       text: FEATURES[k].benefitText,
       limit: set[k].limitValue,
       unit: set[k].limitUnit,
+      available: FEATURES[k].available,
       sortOrder: FEATURES[k].sortOrder,
     }))
     .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map(({ key, text, limit, unit }) => ({ key, text, limit, unit }));
+    .map(({ key, text, limit, unit, available }) => ({ key, text, limit, unit, available }));
 }
 
 /**
