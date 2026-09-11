@@ -89,7 +89,7 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   DOCUMENT_UPLOAD: {
     key: 'DOCUMENT_UPLOAD',
-    available: false,
+    available: true,
     name: 'Document upload',
     description: 'Upload bills, EOBs and correspondence to a case.',
     benefitText: 'Upload your bills and statements',
@@ -282,7 +282,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MONTHLY_DOCUMENTS: {
     key: 'MONTHLY_DOCUMENTS',
-    available: false,
+    available: true,
     name: 'Documents per period',
     description: 'Document uploads per billing period.',
     benefitText: 'Document uploads per billing period',
@@ -326,7 +326,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MAX_FILE_SIZE_MB: {
     key: 'MAX_FILE_SIZE_MB',
-    available: false,
+    available: true,
     name: 'Maximum file size',
     description: 'Largest single upload, in megabytes.',
     benefitText: 'Maximum file size',
@@ -336,7 +336,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   STORAGE_LIMIT_MB: {
     key: 'STORAGE_LIMIT_MB',
-    available: false,
+    available: true,
     name: 'Storage',
     description: 'Total stored document size, in megabytes.',
     benefitText: 'Document storage',
@@ -346,7 +346,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   RETENTION_DAYS: {
     key: 'RETENTION_DAYS',
-    available: false,
+    available: true,
     name: 'Document retention',
     description: 'How long uploaded documents are kept before automatic removal.',
     benefitText: 'Document retention',

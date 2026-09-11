@@ -281,6 +281,13 @@ Stated plainly because it is the point:
   implemented rather than merely worded, and it would apply only prospectively.
 - No data broker relationships.
 - No sharing with employers, insurers, providers or collectors.
+- Uploaded documents are stored in a private bucket and inspected by our own
+  code. A PDF with a text layer is read in-process and identifiers are removed
+  before the figures are laid out by the AI processor below. Photographs and
+  scans are read by **Azure Document Intelligence** when that reader is
+  configured, under Microsoft's data processing terms; when it is not, the
+  photograph is stored and you enter the figures yourself. Whatever is read is
+  shown to you as a draft to check, and nothing is analysed until you confirm it.
 - The AI processor is **OpenRouter**, which brokers requests to upstream model
   providers. Because routing happens per request, the upstream provider is not
   fixed. Wintora sends every request with a routing constraint that permits only

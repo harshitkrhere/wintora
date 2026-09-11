@@ -93,8 +93,22 @@ const serverSchema = z.object({
     .optional()
     .transform((v) => v === 'true'),
 
-  OCR_PROVIDER: z.string().default('none'),
-  MALWARE_SCAN_PROVIDER: z.string().default('none'),
+  /**
+   * How photographs and scans are read. PDFs with a text layer never need this:
+   * they are read in-process. `azure` is Azure Document Intelligence's prebuilt
+   * invoice model, chosen for its per-field confidence and a free tier that is
+   * a real service with a data processing agreement.
+   */
+  OCR_PROVIDER: z.enum(['none', 'azure']).default('none'),
+  AZURE_DI_ENDPOINT: z.string().url().optional(),
+  AZURE_DI_KEY: z.string().optional(),
+  /**
+   * `structural` is byte sniffing plus PDF structure checks, in-process, with
+   * no third party. It is what runs today. It is NOT signature-based antivirus,
+   * and docs/LIMITATIONS.md says so. `none` keeps every upload PENDING and
+   * refuses extraction, which is the fail-closed default for a fresh install.
+   */
+  MALWARE_SCAN_PROVIDER: z.enum(['none', 'structural']).default('none'),
   EMAIL_PROVIDER: z.string().default('none'),
   EMAIL_FROM: z.string().default('Wintora <info@wintora.online>'),
 
@@ -129,7 +143,23 @@ export function appUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL;
   const value = raw === undefined || raw.trim() === '' ? undefined : raw.trim();
 
-  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+  // Enforced on a DEPLOYED production build, which is where the silent
+  // localhost fallback actually bit. A local `next build` against .env.local
+  // legitimately carries the development value and must still be able to
+  // check that the project compiles; it gets a warning, not a refusal. Vercel
+  // sets VERCEL=1; other hosts and CI generally set CI.
+  const deployed = process.env.VERCEL === '1' || process.env.CI === 'true';
+  const production = typeof window === 'undefined' && process.env.NODE_ENV === 'production';
+
+  if (production && !deployed && (value === undefined || new URL(value).hostname === 'localhost')) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[wintora] NEXT_PUBLIC_APP_URL is a development value in a production build. ' +
+        'Fine for a local build check; a deployment with this value would be refused.',
+    );
+  }
+
+  if (production && deployed) {
     if (value === undefined) {
       throw new Error(
         'NEXT_PUBLIC_APP_URL is not set. Production cannot fall back to ' +
@@ -214,7 +244,11 @@ export function isConfigured(
           return false;
       }
     case 'ocr':
-      return env.OCR_PROVIDER !== 'none';
+      return (
+        env.OCR_PROVIDER === 'azure' &&
+        env.AZURE_DI_ENDPOINT !== undefined &&
+        env.AZURE_DI_KEY !== undefined
+      );
     case 'malwareScan':
       return env.MALWARE_SCAN_PROVIDER !== 'none';
     case 'email':

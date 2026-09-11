@@ -40,16 +40,21 @@ describe('feature availability', () => {
         'ACCOUNT_DELETION',
         'BASIC_BILL_ANALYSIS',
         'DATA_EXPORT',
+        'DOCUMENT_UPLOAD',
         'EOB_COMPARISON',
+        'MAX_FILE_SIZE_MB',
         'MONTHLY_ANALYSES',
+        'MONTHLY_DOCUMENTS',
+        'RETENTION_DAYS',
+        'STORAGE_LIMIT_MB',
       ].sort(),
     );
   });
 
-  it('document upload is not claimed while no upload route exists', () => {
-    expect(FEATURES.DOCUMENT_UPLOAD.available).toBe(false);
-    expect(FEATURES.MONTHLY_DOCUMENTS.available).toBe(false);
-    expect(FEATURES.STORAGE_LIMIT_MB.available).toBe(false);
+  it('case and letter workspaces are not claimed while unbuilt', () => {
+    expect(FEATURES.CASE_TRACKING.available).toBe(false);
+    expect(FEATURES.LETTER_GENERATION.available).toBe(false);
+    expect(FEATURES.ADVANCED_EXPORT.available).toBe(false);
   });
 
   it('benefit lines carry availability so pages cannot lose it', () => {
@@ -70,11 +75,11 @@ describe('feature availability', () => {
     );
     const lines = benefitList(set);
 
+    const cases = lines.find((l) => l.key === 'CASE_TRACKING');
     const upload = lines.find((l) => l.key === 'DOCUMENT_UPLOAD');
-    const analysis = lines.find((l) => l.key === 'BASIC_BILL_ANALYSIS');
 
-    expect(upload?.available).toBe(false);
-    expect(analysis?.available).toBe(true);
+    expect(cases?.available).toBe(false);
+    expect(upload?.available).toBe(true);
     // A paid plan today has more promised than delivered. That is a fact the
     // pages must be able to state, so both kinds must be present in the list.
     expect(lines.some((l) => l.available)).toBe(true);

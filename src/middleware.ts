@@ -18,6 +18,7 @@ const PRIVATE_PREFIXES = [
   '/api',
   '/preview',
   '/checkout',
+  '/upload',
 ];
 
 export function middleware(request: NextRequest): NextResponse {

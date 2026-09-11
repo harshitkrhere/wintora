@@ -30,22 +30,38 @@ describe('appUrl', () => {
     expect(appUrl()).toBe('http://localhost:3000');
   });
 
-  it('throws in production when the variable is missing', () => {
+  it('throws on a deployed production build when the variable is missing', () => {
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL', '1');
     vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
     expect(() => appUrl()).toThrow(/NEXT_PUBLIC_APP_URL is not set/);
   });
 
   // The nastier case: the variable IS set, to a value that is merely wrong.
   // Copying .env.local into a hosting dashboard produces exactly this.
-  it('throws in production when the value is a development one', () => {
+  it('throws on a deployed production build when the value is a development one', () => {
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL', '1');
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
     expect(() => appUrl()).toThrow(/development value/);
   });
 
-  it('accepts a real origin in production', () => {
+  // A developer running `next build` locally has the development value and
+  // must not be blocked from checking that the project compiles.
+  it('only warns on a LOCAL production build with the development value', () => {
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL', '');
+    vi.stubEnv('CI', '');
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(appUrl()).toBe('http://localhost:3000');
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+
+  it('accepts a real origin on a deployed production build', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL', '1');
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://www.wintora.online');
     expect(appUrl()).toBe('https://www.wintora.online');
   });

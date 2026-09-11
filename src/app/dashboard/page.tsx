@@ -47,12 +47,17 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           <div className="card">
             <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Check a bill</h2>
             <p className="small">
-              Enter the figures from a statement and see whether they add up. The
-              same engine runs on every plan.
+              Upload a PDF or a photo and we read the figures for you to confirm. Or
+              type them in. The same engine runs on every plan.
             </p>
-            <Link href="/medical-bill-checker" className="btn btn--primary">
-              Open the bill checker
-            </Link>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <Link href="/upload" className="btn btn--primary">
+                Upload a bill
+              </Link>
+              <Link href="/medical-bill-checker" className="btn btn--secondary">
+                Type it in
+              </Link>
+            </div>
           </div>
 
           <div className="card">
@@ -92,8 +97,10 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           looks like a bug. */}
       <section>
         <p className="notice">
-          Cases, document upload and the letter workspace are not built yet. The bill
-          checker above works fully, and nothing you do there is lost.
+          You can upload and check bills. The case workspace (timeline, reminders,
+          several bills at once) and the letter workspace are not built yet. Your
+          uploads and results are kept on your account; the settings page lists
+          exactly which plan features are available today.
         </p>
       </section>
 

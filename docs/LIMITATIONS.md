@@ -70,7 +70,9 @@ by the controls described in `docs/SECURITY.md`.
 | Penetration test | Not performed. |
 | Production configuration review | Network policy, secret management and backup access still need checking as deployed rather than as written. Storage bucket privacy and RLS coverage are now verified against the live project. |
 | Backup restore rehearsal | The procedure is documented, not rehearsed. An untested backup is not a backup. |
-| Malware scanning | `MALWARE_SCAN_PROVIDER=none`. The system fails closed (documents stay `PENDING` and extraction refuses to run), so this blocks the upload feature rather than weakening it. |
+| No signature-based antivirus | `MALWARE_SCAN_PROVIDER=structural` verifies the file type from its bytes and rejects PDFs carrying scripts, launch actions, embedded files, rich media, XFA or encryption. It does **not** match files against a virus signature database. For a file that is only parsed, never executed and never served, the structural checks cover the realistic attacks; but this is a deliberate cost decision by a bootstrapped operator, not a claim of equivalence, and a signature scanner (e.g. a private-scanning API) should be added behind the same variable before scale. |
+| Photographs need Azure | PDFs with a text layer are read in-process. Photographs, scans and PDFs without a text layer are read only when `OCR_PROVIDER=azure` is configured; otherwise they are stored and the customer types the figures in. Azure's free tier is 500 pages/month and becomes a subprocessor. |
+| Orphaned uploads | A browser that obtains an upload URL and never calls finalize leaves an object in storage and a `PENDING` row. Nothing sweeps these yet. They cannot be read (not `CLEAN`), count against no quota, and are bounded by the bucket's per-file limit, but they occupy storage until a cleanup job exists. |
 
 ### `PAYMENT_REVIEW_REQUIRED`
 
@@ -120,7 +122,8 @@ These fail closed rather than degrading silently.
 | Paddle | Not configured | Checkout, portal and plan changes throw a typed billing error. The webhook endpoint fails closed without its secret. |
 | AI provider | Optional | `getProvider()` returns null and every finding uses its deterministic wording. The product works fully without it, because the model is not what finds problems. |
 | OCR | `none` | Extraction from scanned documents does not run. The manual-entry path and the anonymous tool work fully. |
-| Malware scanning | `none` | Documents stay `scan_status = 'PENDING'` and extraction refuses. Deliberate. |
+| Malware scanning | `structural` | Byte sniffing plus PDF structure checks, in-process. Not signature antivirus; see above. |
+| OCR | `none` | Photos and scans are stored but not read until Azure Document Intelligence is configured. |
 | Email | `none` | Notification jobs queue but do not send. |
 | Analytics | Not configured | No marketing analytics loads. |
 

@@ -13,6 +13,7 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 import type { AnalysisResult, Finding, Severity } from '@/domain/analysis/types';
+import type { ExtractionDraft } from '@/domain/documents/draft';
 
 interface DraftLine {
   readonly id: string;
@@ -52,21 +53,58 @@ function toCents(value: string): number | null {
   return Math.round(Number(cleaned) * 100);
 }
 
+/** Cents to the string a person would type: 123456 -> "1234.56". */
+function fromCents(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined) return '';
+  const sign = cents < 0 ? '-' : '';
+  const abs = Math.abs(cents);
+  return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
+}
+
+function linesFromDraft(draft: ExtractionDraft): DraftLine[] {
+  const fromDraft = draft.lineItems.map((li) => ({
+    id: Math.random().toString(36).slice(2),
+    description: li.description,
+    amount: fromCents(li.amountCents),
+    code: li.code ?? '',
+  }));
+  // Always leave room to add what the reader missed.
+  return fromDraft.length > 0 ? [...fromDraft, newLine()] : [newLine(), newLine(), newLine()];
+}
+
 export function BillCheckerTool({
   showEob = false,
+  initial = null,
+  caseId = null,
 }: {
   showEob?: boolean;
+  /**
+   * A machine-read draft to pre-fill the form. Every value is editable and
+   * nothing is submitted until the customer presses the button: the draft is
+   * a suggestion, the form is the fact.
+   */
+  initial?: ExtractionDraft | null;
+  /**
+   * When set, the analysis is saved to this case via /api/analyses and counts
+   * against the plan's quota. When null, this is the anonymous public tool.
+   */
+  caseId?: string | null;
 }): React.ReactElement {
   const formId = useId();
-  const [lines, setLines] = useState<DraftLine[]>([newLine(), newLine(), newLine()]);
-  const [subtotal, setSubtotal] = useState('');
-  const [amountDue, setAmountDue] = useState('');
-  const [insurancePaid, setInsurancePaid] = useState('');
-  const [adjustments, setAdjustments] = useState('');
-  const [statementDate, setStatementDate] = useState('');
+  const [lines, setLines] = useState<DraftLine[]>(() =>
+    initial ? linesFromDraft(initial) : [newLine(), newLine(), newLine()],
+  );
+  const [subtotal, setSubtotal] = useState(fromCents(initial?.subtotal?.amountCents));
+  const [amountDue, setAmountDue] = useState(fromCents(initial?.amountDue?.amountCents));
+  const [insurancePaid, setInsurancePaid] = useState(fromCents(initial?.insurancePaid?.amountCents));
+  const [adjustments, setAdjustments] = useState(fromCents(initial?.adjustments?.amountCents));
+  const [statementDate, setStatementDate] = useState(initial?.statementDate?.value ?? '');
   const [eobPatientResponsibility, setEobPatientResponsibility] = useState('');
   const [eobPlanPaid, setEobPlanPaid] = useState('');
-  const [currency, setCurrency] = useState<'USD' | 'CAD'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'CAD'>(initial?.currency ?? 'USD');
+  // Stable for the life of this form so a double-click or a retry after a
+  // dropped connection is the same analysis, not a second one billed twice.
+  const [idempotencyKey] = useState(() => crypto.randomUUID().replace(/-/g, ''));
 
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +142,7 @@ export function BillCheckerTool({
       }
 
       const bill = {
-        documentId: 'anonymous-tool',
+        documentId: caseId !== null ? `case:${caseId}` : 'anonymous-tool',
         currency,
         lineItems: filled.map((line, index) => ({
           index,
@@ -141,10 +179,11 @@ export function BillCheckerTool({
           : undefined;
 
       try {
-        const response = await fetch('/api/tools/bill-check', {
+        const payload = eob !== undefined ? { bill, eob } : { bill };
+        const response = await fetch(caseId !== null ? '/api/analyses' : '/api/tools/bill-check', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(eob !== undefined ? { bill, eob } : { bill }),
+          body: JSON.stringify(caseId !== null ? { caseId, idempotencyKey, ...payload } : payload),
         });
 
         const json = (await response.json()) as ApiResponse | { error: { message: string } };

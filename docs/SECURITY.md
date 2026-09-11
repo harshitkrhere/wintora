@@ -108,26 +108,65 @@ schema-shaped, so an internal field cannot leak by accident.
 
 ## 5. File upload
 
-The upload path, in order:
+The bytes never pass through the application server. Vercel caps a request
+body at 4.5 MB and the plans promise up to 25 MB, so the browser uploads
+straight to Supabase Storage using a signed, single-use URL bound to one object
+path, and the server reads the object back to inspect it. Implemented in
+`src/app/api/documents/**` and `src/lib/documents/**`; the inspection is the
+pure module `src/domain/documents/inspect.ts`, pinned by
+`tests/document-inspect.test.ts`.
 
-1. Entitlement check (`DOCUMENT_UPLOAD`) and quota reservation
-   (`MONTHLY_DOCUMENTS`, `STORAGE_LIMIT_MB`, `MAX_FILE_SIZE_MB`).
-2. Size cap enforced by the plan and by the platform.
-3. Content-type sniffing from the actual bytes, not the client-supplied
-   `Content-Type` or the file extension. Allowlist only: PDF, PNG, JPEG, HEIC,
-   TIFF.
-4. PDF structure checks: reject encrypted PDFs the parser cannot handle, reject
-   embedded JavaScript, reject launch and embedded-file actions.
-5. Malware scan. Until a scanner is configured, `MALWARE_SCAN_PROVIDER=none`
-   holds the document in `scan_status = 'PENDING'` and refuses extraction. This
-   is a deliberate fail-closed default and is listed in `docs/LIMITATIONS.md`.
-6. SHA-256 hash computed and stored.
-7. Object written to the private bucket under `{user_id}/{case_id}/{doc_id}`.
-8. Metadata row inserted. Extraction is enqueued, never run inline.
+**Begin** (`POST /api/documents`):
 
-Files are never served from an origin that can execute them, never returned with
-a user-controlled content type, and always delivered with
-`Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
+1. Entitlement (`DOCUMENT_UPLOAD`) with ownership of the target case.
+2. Pre-checks against the declared size: `MAX_FILE_SIZE_MB`, and
+   `STORAGE_LIMIT_MB` against bytes already stored. Refused before any bytes
+   move, with a message naming the plan's ceiling.
+3. `MONTHLY_DOCUMENTS` pre-check. Not consumed yet.
+4. A row is inserted, unmistakably incomplete (`sha256 = 'pending'`,
+   `scan_status = 'PENDING'`), so the object path can carry its id. A signed
+   upload URL for exactly that path is returned.
+
+**Finalize** (`POST /api/documents/{id}/finalize`), after the browser's PUT:
+
+5. Real size measured from the bytes and re-checked against `MAX_FILE_SIZE_MB`.
+   The declared size was only a courtesy.
+6. Type identified from magic numbers, never from the filename or the
+   client's `Content-Type`. Allowlist: PDF, PNG, JPEG, HEIC, TIFF. Anything
+   else, including renamed executables and Office files, is refused.
+7. PDF structural checks: encrypted, JavaScript (including hex-obfuscated
+   names such as `/J#61vaScript`), launch actions, embedded files, rich media,
+   XFA, and open actions that reach outside the document are all refused.
+8. SHA-256 computed and stored.
+9. `MONTHLY_DOCUMENTS` consumed atomically, keyed on the document id so a
+   retried finalize is the same operation, and the row is completed in the
+   same metered step.
+
+A refused file is deleted from storage and its row kept as a record with
+`scan_status = 'INFECTED'` or `'FAILED'` and a category in `scan_detail` that
+never contains document content.
+
+**What the scan is, honestly.** With `MALWARE_SCAN_PROVIDER=structural`, steps
+6 and 7 are the whole scan. There is no signature-based antivirus. This is a
+considered position for a file that is only ever parsed by our own extraction
+code, never executed, never served to a browser as anything but an attachment,
+and never shown to another customer: the attacks that matter against such a
+file are the structural ones above. It is recorded in `docs/LIMITATIONS.md`,
+and a signature scanner can be added behind the same variable. With
+`MALWARE_SCAN_PROVIDER=none` every upload stays `PENDING` and cannot be read.
+
+**Reading** (`POST /api/documents/{id}/extract`) refuses anything not
+`scan_status = 'CLEAN'`. A PDF with a text layer is read in-process; the text
+is redacted of identifiers before the configured model lays the figures out,
+and the model returns amounts as the strings printed, which deterministic code
+parses. Photographs and scans go to Azure Document Intelligence when
+configured. Either way the result is a **draft** the customer reviews in the
+same form they could have filled by hand; analysis runs only on what they
+confirm, so a misread cannot become a finding.
+
+Files are never served from an origin that can execute them and there is no
+public URL: the bucket is private and every read is server-side, after the
+ownership check.
 
 ---
 
