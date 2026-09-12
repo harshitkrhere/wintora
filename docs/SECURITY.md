@@ -276,7 +276,7 @@ the two winning:
 | Analysis | Plan quota, plus 10 per hour |
 | Letter generation | Plan quota, plus 15 per hour |
 | Export | Plan quota, plus 3 per hour |
-| Anonymous public tool | 20 per hour per IP |
+| Anonymous public tool | 20 per hour per IP, and 5 per browser before an account is required (a signed cookie; a conversion nudge, not a security control) |
 | Referral redemption | 5 per day per account |
 
 IPs are stored only as a salted hash with a rotating salt, and only for the

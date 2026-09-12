@@ -42,12 +42,18 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ marginBottom: '0.35rem' }}>
-            {open.length === 0 ? 'Check a bill' : `${open.length} open case${open.length === 1 ? '' : 's'}`}
+            {open.length > 0
+              ? `${open.length} open case${open.length === 1 ? '' : 's'}`
+              : cases.length === 0
+                ? 'Check a bill'
+                : 'Your cases'}
           </h1>
           <p className="lede" style={{ margin: 0 }}>
-            {open.length === 0
-              ? 'Upload a PDF or a photo. You confirm the figures; the engine checks the arithmetic.'
-              : 'Pick up where you left off, or start a new one.'}
+            {open.length > 0
+              ? 'Pick up where you left off, or start a new one.'
+              : cases.length === 0
+                ? 'Upload a PDF or a photo. You confirm the figures; the engine checks the arithmetic.'
+                : 'Nothing needs your attention right now.'}
           </p>
         </div>
         <Link href="/upload" className="btn btn--primary btn--lg">
@@ -66,7 +72,9 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
             </p>
           ) : null}
         </section>
-      ) : (
+      ) : cases.length === 0 ? (
+        // A brand-new account: nothing has ever been here. Say what the
+        // product does and what will happen, once.
         <EmptyState
           title="Nothing here yet, and that is fine"
           body="Wintora checks the arithmetic on a medical bill. Upload one and this is what happens:"
@@ -77,6 +85,16 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           ]}
           action={{ href: '/upload', label: 'Upload your first bill' }}
           secondary={{ href: '/medical-bill-checker', label: 'Or type the figures in' }}
+        />
+      ) : (
+        // Someone who has used the product and closed everything. They know
+        // how it works; a tutorial here would be condescending.
+        <EmptyState
+          compact
+          title="All caught up"
+          body={`No open cases. Your ${cases.length} closed case${cases.length === 1 ? ' is' : 's are'} kept and can be reopened at any time.`}
+          action={{ href: '/upload', label: 'Upload a new bill' }}
+          secondary={{ href: '/cases', label: 'See closed cases' }}
         />
       )}
 

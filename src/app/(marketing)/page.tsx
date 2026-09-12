@@ -87,7 +87,7 @@ export default function HomePage(): React.ReactElement {
           </Link>
         </div>
         <p className="hero__proof">
-          Free plan, no card. The free checker keeps nothing unless you choose to save it.
+          Five checks without an account, and nothing is kept. A free account after that; no card.
         </p>
       </section>
 

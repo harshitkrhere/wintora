@@ -125,6 +125,15 @@ export const POLICY = {
     emailAttachment: false,
   },
 
+  /**
+   * The anonymous bill checker. A stressed person gets real answers before
+   * being asked for anything; after this many, an account (free, no card).
+   * Counted per browser in a signed cookie: a nudge, not a security control.
+   */
+  anonymousTool: {
+    freeChecks: 5,
+  },
+
   /** Fresh authentication required within this window for sensitive actions. */
   stepUpAuth: {
     maxAgeMinutes: 10,

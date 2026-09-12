@@ -421,7 +421,7 @@ section {
   margin-top: 1.75rem;
 }
 .hero__proof {
-  margin-top: 1rem;
+  margin: 1rem auto 0;
   font-size: 0.9rem;
   color: var(--ink-500);
 }

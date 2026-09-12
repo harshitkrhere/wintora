@@ -38,6 +38,8 @@ interface ApiResponse {
   storage?: { stored: boolean; note: string };
   quota?: { remaining: number | null; limit: number | null; resetAt: string | null };
   replayed?: boolean;
+  /** Present on the anonymous tool only: this browser's free allowance. */
+  anonymous?: { used: number; limit: number; remaining: number } | null;
 }
 
 
@@ -115,6 +117,8 @@ export function BillCheckerTool({
 
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [freeLeft, setFreeLeft] = useState<number | null>(null);
+  const [walled, setWalled] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const typedTotal = useMemo(() => {
@@ -195,9 +199,15 @@ export function BillCheckerTool({
           body: JSON.stringify(caseId !== null ? { caseId, idempotencyKey, ...payload } : payload),
         });
 
-        const json = (await response.json()) as ApiResponse | { error: { message: string } };
+        const json = (await response.json()) as
+          | ApiResponse
+          | { error: { message: string; meta?: { reason?: string } } };
 
         if (!response.ok) {
+          if ('error' in json && json.error.meta?.reason === 'ANONYMOUS_LIMIT') {
+            setWalled(true);
+            return;
+          }
           setError(
             'error' in json
               ? json.error.message
@@ -206,7 +216,9 @@ export function BillCheckerTool({
           return;
         }
 
-        setResult(json as ApiResponse);
+        const okJson = json as ApiResponse;
+        if (okJson.anonymous) setFreeLeft(okJson.anonymous.remaining);
+        setResult(okJson);
       } catch {
         setError('We could not reach the service. Please check your connection.');
       } finally {
@@ -226,6 +238,26 @@ export function BillCheckerTool({
       eobPlanPaid,
     ],
   );
+
+  if (walled) {
+    return (
+      <div className="empty" role="status">
+        <h2 className="empty__title">That was your fifth free check</h2>
+        <p className="empty__body">
+          The checker keeps working with a free account, which needs no card. An account
+          also keeps your results, so you can come back to them.
+        </p>
+        <div className="empty__actions">
+          <a href="/signup?next=%2Fmedical-bill-checker" className="btn btn--primary">
+            Create a free account
+          </a>
+          <a href="/signin?next=%2Fmedical-bill-checker" className="btn btn--quiet">
+            I already have one
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="stack--lg">
@@ -415,7 +447,11 @@ export function BillCheckerTool({
             {busy ? 'Checking…' : 'Check my bill'}
           </button>
           <span className="small muted">
-            {caseId !== null ? 'Saved to your case.' : 'No account needed.'}
+            {caseId !== null
+              ? 'Saved to your case.'
+              : freeLeft === null
+                ? 'No account needed.'
+                : `${freeLeft} free check${freeLeft === 1 ? '' : 's'} left without an account.`}
           </span>
         </div>
 

@@ -1,18 +1,27 @@
 /**
  * POST /api/tools/bill-check
  *
- * The anonymous free tool. No account, no signup wall.
+ * The anonymous free tool. No account for the first few checks.
  *
  * Someone holding a confusing bill at 11pm gets an answer, not a registration
- * form. The account is what they create to KEEP the answer, which is a much
- * easier thing to ask for. See docs/SEO.md section 1.
+ * form. After POLICY.anonymousTool.freeChecks answers, the wall appears: an
+ * account, which is free and needs no card, and which is what they create to
+ * KEEP the answers. That is a much easier thing to ask for once the tool has
+ * already been useful. See docs/SEO.md section 1.
+ *
+ * Signed-in users are never capped here; their allowance is their plan's.
  *
  * Nothing is stored. The figures are analysed in the request and discarded.
  */
 
+import { cookies } from 'next/headers';
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { DISCLAIMERS } from '@/config/disclaimers';
+import { POLICY } from '@/config/policy';
+import { AppError } from '@/lib/errors';
+import { FREE_CHECKS_COOKIE, freeChecksCookie, readFreeChecks } from '@/lib/http/tool-quota';
+import { createUserClient, getCurrentUser } from '@/lib/supabase/server';
 import {
   analyzeBill,
   analyzeBillAgainstEob,
@@ -39,6 +48,31 @@ export const POST = handler('/api/tools/bill-check', async (request: NextRequest
 
   const body = await parseBody(request, bodySchema);
 
+  // Signed in? Then this is just a convenience path and no anonymous cap
+  // applies. Otherwise count this browser's free checks.
+  const cookieStore = await cookies();
+  const user = await getCurrentUser(
+    createUserClient({
+      get: (name) => cookieStore.get(name),
+      set: (name, value, options) => {
+        cookieStore.set(name, value, options);
+      },
+    }),
+  );
+
+  const limit = POLICY.anonymousTool.freeChecks;
+  let used = 0;
+  if (user === null) {
+    used = readFreeChecks(cookieStore.get(FREE_CHECKS_COOKIE)?.value);
+    if (used >= limit) {
+      throw new AppError(
+        'ENTITLEMENT_DENIED',
+        `You have used the ${limit} free checks. Create a free account to keep going; it needs no card.`,
+        { detail: 'anonymous tool limit', meta: { reason: 'ANONYMOUS_LIMIT', limit, used } },
+      );
+    }
+  }
+
   // The same deterministic engine every paid tier runs. A free user is never
   // given a deliberately degraded or misleading result to manufacture an
   // upgrade: what they get less of is volume and workflow, not truth.
@@ -46,6 +80,16 @@ export const POST = handler('/api/tools/bill-check', async (request: NextRequest
     body.eob !== undefined
       ? analyzeBillAgainstEob(body.bill as BillDocument, body.eob as EobDocument)
       : analyzeBill(body.bill as BillDocument);
+
+  // Count it only after a successful analysis. A rejected input is not a
+  // spent check.
+  let anonymous: { used: number; limit: number; remaining: number } | null = null;
+  if (user === null) {
+    used += 1;
+    const cookie = freeChecksCookie(used);
+    cookieStore.set(cookie.name, cookie.value, cookie.options);
+    anonymous = { used, limit, remaining: Math.max(limit - used, 0) };
+  }
 
   return ok(context, {
     analysis: result,
@@ -58,5 +102,6 @@ export const POST = handler('/api/tools/bill-check', async (request: NextRequest
       stored: false,
       note: 'Nothing you entered was saved. Create a free account if you want to keep this.',
     },
+    anonymous,
   });
 });
