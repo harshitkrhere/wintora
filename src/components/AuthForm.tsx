@@ -28,6 +28,22 @@ interface AuthResponse {
   error?: { message?: string };
 }
 
+/**
+ * Where a person's inbox lives, if their address makes it obvious. Only the
+ * providers whose web inbox URL is stable and well known; for anything else
+ * there is no button, because a guess that opens the wrong site is worse
+ * than none.
+ */
+function inboxUrlFor(address: string): { name: string; url: string } | null {
+  const domain = address.split('@')[1]?.toLowerCase() ?? '';
+  if (domain === 'gmail.com' || domain === 'googlemail.com') return { name: 'Gmail', url: 'https://mail.google.com/' };
+  if (['outlook.com', 'hotmail.com', 'live.com', 'msn.com'].includes(domain)) return { name: 'Outlook', url: 'https://outlook.live.com/mail/' };
+  if (['yahoo.com', 'yahoo.ca', 'ymail.com'].includes(domain)) return { name: 'Yahoo Mail', url: 'https://mail.yahoo.com/' };
+  if (['icloud.com', 'me.com', 'mac.com'].includes(domain)) return { name: 'iCloud Mail', url: 'https://www.icloud.com/mail/' };
+  if (domain === 'proton.me' || domain === 'protonmail.com') return { name: 'Proton Mail', url: 'https://mail.proton.me/' };
+  return null;
+}
+
 export function AuthForm({
   mode,
   next,
@@ -123,12 +139,18 @@ export function AuthForm({
   }, [next]);
 
   if (done) {
+    const inbox = inboxUrlFor(email);
     return (
       <div className="card" role="status">
         <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Check your email</h2>
-        <p className="small" style={{ marginBottom: 0 }}>
+        <p className="small" style={{ marginBottom: inbox ? '1rem' : 0 }}>
           {message}
         </p>
+        {inbox ? (
+          <a href={inbox.url} className="btn btn--secondary" target="_blank" rel="noopener">
+            Open {inbox.name}
+          </a>
+        ) : null}
       </div>
     );
   }

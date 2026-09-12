@@ -28,6 +28,7 @@
     "ai:models": "node scripts/openrouter-models.mjs",
     "ai:smoke": "node scripts/ai-smoke.mjs",
     "ocr:smoke": "node scripts/ocr-smoke.mjs",
+    "brand": "node scripts/brand-assets.mjs",
     "env:sync": "node scripts/sync-env.mjs",
     "tunnel": "node scripts/tunnel-url.mjs"
   },
@@ -44,6 +45,7 @@
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
+    "sharp": "^0.35.4",
     "typescript": "^5.7.3",
     "vitest": "^3.0.4"
   }

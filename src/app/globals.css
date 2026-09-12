@@ -208,9 +208,8 @@ section {
   color: var(--ink-900);
 }
 .brand__mark {
-  width: 30px;
-  height: 22px;
   flex: none;
+  display: block;
 }
 .wordmark {
   /* Kept for older markup; identical to .brand. */
@@ -306,6 +305,25 @@ section {
 }
 .footer-grid a:hover {
   color: var(--ink-900);
+}
+
+/* ------------------------------------------------------------ banners */
+
+.banner {
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.banner--offline {
+  background: var(--attention-bg);
+  color: var(--attention-fg);
+  border-bottom-color: var(--attention-line);
+}
+.banner--maintenance {
+  background: var(--sky);
+  color: var(--ink-700);
+  border-bottom-color: var(--review-line);
 }
 
 /* ------------------------------------------------------------- app bar */

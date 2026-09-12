@@ -14,6 +14,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { POLICY } from '@/config/policy';
 import { DeleteAction, ExportAction } from '@/components/PrivacyActions';
+import { SignOutOthersButton } from '@/components/SignOutOthersButton';
 
 export const metadata: Metadata = { title: 'Your data', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,18 @@ export default function PrivacySettingsPage(): React.ReactElement {
           rather than automatically, which is why it is not instant.
         </p>
         <ExportAction />
+      </section>
+
+      <hr />
+
+      <section className="stack">
+        <h2 style={{ fontSize: '1.15rem', margin: 0 }}>Signed-in devices</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          If you have signed in somewhere you no longer trust, this ends every other
+          session at once. This device stays signed in. We do not keep a list of your
+          devices or their locations, on purpose.
+        </p>
+        <SignOutOthersButton />
       </section>
 
       <hr />

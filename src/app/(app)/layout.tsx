@@ -8,9 +8,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/http/api';
+import { isSafeMode } from '@/lib/env';
 import { LeafMark } from '@/components/Logo';
 import { SignOutButton } from '@/components/SignOutButton';
 import { AppNav } from '@/components/AppNav';
+import { SafeModeBanner } from '@/components/SafeModeBanner';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
+      <SafeModeBanner active={isSafeMode()} />
       <main id="main">{children}</main>
     </>
   );
