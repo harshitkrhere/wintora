@@ -68,7 +68,7 @@ export const POST = handler('/api/tools/bill-check', async (request: NextRequest
       throw new AppError(
         'ENTITLEMENT_DENIED',
         `You have used the ${limit} free checks. Create a free account to keep going; it needs no card.`,
-        { detail: 'anonymous tool limit', meta: { reason: 'ANONYMOUS_LIMIT', limit, used } },
+        { reason: 'ANONYMOUS_LIMIT', detail: 'anonymous tool limit', meta: { limit, used } },
       );
     }
   }
@@ -104,4 +104,34 @@ export const POST = handler('/api/tools/bill-check', async (request: NextRequest
     },
     anonymous,
   });
+});
+
+/**
+ * GET /api/tools/bill-check
+ *
+ * How many free checks this browser has left, and whether a session makes the
+ * question moot. The page that hosts the tool is static and the count lives in
+ * an httpOnly cookie, so the tool asks here once it has loaded, instead of
+ * discovering the answer by being refused. Reading the allowance never spends
+ * it, and nothing is stored.
+ */
+export const GET = handler('/api/tools/bill-check', async (request: NextRequest, context) => {
+  enforceRateLimit('GENERAL', { ip: clientIp(request.headers) });
+
+  const cookieStore = await cookies();
+  const user = await getCurrentUser(
+    createUserClient({
+      get: (name) => cookieStore.get(name),
+      set: (name, value, options) => {
+        cookieStore.set(name, value, options);
+      },
+    }),
+  );
+
+  const limit = POLICY.anonymousTool.freeChecks;
+  if (user !== null) {
+    return ok(context, { signedIn: true, limit, used: 0, remaining: null });
+  }
+  const used = readFreeChecks(cookieStore.get(FREE_CHECKS_COOKIE)?.value);
+  return ok(context, { signedIn: false, limit, used, remaining: Math.max(limit - used, 0) });
 });

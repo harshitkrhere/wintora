@@ -48,6 +48,15 @@ export class AppError extends Error {
   readonly status: number;
   /** Safe to show a user verbatim. */
   readonly publicMessage: string;
+  /**
+   * A machine-readable reason a client may act on: show the sign-up wall for
+   * ANONYMOUS_LIMIT, ask for a fresh sign-in for REQUIRES_VERIFICATION. It is
+   * PUBLIC, so a throw site sets it only to a value that is safe to reveal;
+   * anything else belongs in `meta` or `detail`, which never leave the server.
+   * Clients used to look for `error.meta.reason`, which was never sent, so
+   * every wall and prompt that depended on it silently failed to appear.
+   */
+  readonly reason?: string;
   /** Server-side only. Never serialised. */
   readonly detail?: string;
   readonly meta?: Record<string, unknown>;
@@ -55,23 +64,29 @@ export class AppError extends Error {
   constructor(
     code: ErrorCode,
     publicMessage: string,
-    options: { detail?: string; meta?: Record<string, unknown>; cause?: unknown } = {},
+    options: { reason?: string; detail?: string; meta?: Record<string, unknown>; cause?: unknown } = {},
   ) {
     super(publicMessage, options.cause !== undefined ? { cause: options.cause } : undefined);
     this.name = 'AppError';
     this.code = code;
     this.status = STATUS[code];
     this.publicMessage = publicMessage;
+    this.reason = options.reason;
     this.detail = options.detail;
     this.meta = options.meta;
   }
 
   /** The only shape that reaches a client. */
   toResponseBody(requestId: string): {
-    error: { code: ErrorCode; message: string; requestId: string };
+    error: { code: ErrorCode; message: string; requestId: string; reason?: string };
   } {
     return {
-      error: { code: this.code, message: this.publicMessage, requestId },
+      error: {
+        code: this.code,
+        message: this.publicMessage,
+        requestId,
+        ...(this.reason !== undefined ? { reason: this.reason } : {}),
+      },
     };
   }
 }

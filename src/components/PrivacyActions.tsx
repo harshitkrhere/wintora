@@ -13,7 +13,7 @@ import { useCallback, useState } from 'react';
 
 interface Result {
   message?: string;
-  error?: { message?: string; code?: string; meta?: { reason?: string } };
+  error?: { message?: string; code?: string; reason?: string };
 }
 
 const STEP_UP = 'For your protection this needs a fresh sign-in. Sign out, sign back in, and try again within ten minutes.';
@@ -27,7 +27,7 @@ async function call(path: string, method: string, body?: unknown): Promise<{ ok:
     });
     const j = (await r.json().catch(() => ({}))) as Result;
     if (r.ok) return { ok: true, text: j.message ?? 'Done.' };
-    if (j.error?.meta?.reason === 'REQUIRES_VERIFICATION') return { ok: false, text: STEP_UP };
+    if (j.error?.reason === 'REQUIRES_VERIFICATION') return { ok: false, text: STEP_UP };
     return { ok: false, text: j.error?.message ?? 'Something went wrong.' };
   } catch {
     return { ok: false, text: 'We could not reach the service. Please check your connection.' };

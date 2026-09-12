@@ -178,6 +178,10 @@ export async function authorize(
 
   if (!decision.allowed) {
     throw new AppError('ENTITLEMENT_DENIED', decision.message, {
+      // The gate state, not the raw reason: NOT_OWNER and RESOURCE_INVALID map
+      // to TEMPORARILY_UNAVAILABLE there, so a client never learns that a
+      // resource belonging to someone else exists.
+      reason: decision.gateState,
       detail: `feature=${decision.feature} reason=${decision.reason}`,
       meta: {
         reason: decision.reason,

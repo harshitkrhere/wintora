@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { POLICY } from '@/config/policy';
 import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from './FindingCard';
 import type { ExtractionDraft } from '@/domain/documents/draft';
@@ -41,6 +42,25 @@ interface ApiResponse {
   /** Present on the anonymous tool only: this browser's free allowance. */
   anonymous?: { used: number; limit: number; remaining: number } | null;
 }
+
+/**
+ * What GET /api/tools/bill-check says about this browser before any check is
+ * run. `remaining` is null for a signed-in person, whose checks here are not
+ * capped (their plan's allowance applies to saved analyses, not to this tool).
+ */
+interface Allowance {
+  signedIn: boolean;
+  limit: number;
+  remaining: number | null;
+}
+
+/**
+ * The sign-up wall. 'last' sits in place of the form once the final free
+ * check has been answered, with that answer still on the page beneath it.
+ * 'exhausted' is the whole tool, for a browser that arrives with nothing left
+ * or is refused by the server.
+ */
+type Wall = 'none' | 'last' | 'exhausted';
 
 
 /**
@@ -133,9 +153,30 @@ export function BillCheckerTool({
 
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [freeLeft, setFreeLeft] = useState<number | null>(null);
-  const [walled, setWalled] = useState(false);
+  const [allowance, setAllowance] = useState<Allowance | null>(null);
+  const [wall, setWall] = useState<Wall>('none');
   const [busy, setBusy] = useState(false);
+
+  // The anonymous tool asks where it stands before the first check, so the
+  // page can say "5 free checks" or show the wall at once, rather than the
+  // person finding out by being refused.
+  useEffect(() => {
+    if (caseId !== null) return;
+    let cancelled = false;
+    fetch('/api/tools/bill-check', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: Allowance | null) => {
+        if (cancelled || j === null) return;
+        setAllowance(j);
+        if (!j.signedIn && j.remaining === 0) setWall('exhausted');
+      })
+      .catch(() => {
+        // Unknown until the first check answers. The server still enforces.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [caseId]);
 
   const typedTotal = useMemo(() => {
     const cents = lines.reduce((acc, line) => acc + (toCents(line.amount) ?? 0), 0);
@@ -217,11 +258,12 @@ export function BillCheckerTool({
 
         const json = (await response.json()) as
           | ApiResponse
-          | { error: { message: string; meta?: { reason?: string } } };
+          | { error: { message: string; reason?: string } };
 
         if (!response.ok) {
-          if ('error' in json && json.error.meta?.reason === 'ANONYMOUS_LIMIT') {
-            setWalled(true);
+          if ('error' in json && json.error.reason === 'ANONYMOUS_LIMIT') {
+            setAllowance((prev) => ({ signedIn: false, limit: prev?.limit ?? DEFAULT_LIMIT, remaining: 0 }));
+            setWall('exhausted');
             return;
           }
           setError(
@@ -233,7 +275,13 @@ export function BillCheckerTool({
         }
 
         const okJson = json as ApiResponse;
-        if (okJson.anonymous) setFreeLeft(okJson.anonymous.remaining);
+        if (okJson.anonymous) {
+          const { limit, remaining } = okJson.anonymous;
+          setAllowance({ signedIn: false, limit, remaining });
+          // The answer is delivered; the form is not. Anything further needs
+          // an account, and the wall says so above the result.
+          if (remaining === 0) setWall('last');
+        }
         setResult(okJson);
         onResult?.(okJson.analysis);
       } catch {
@@ -257,28 +305,17 @@ export function BillCheckerTool({
     ],
   );
 
-  if (walled) {
-    return (
-      <div className="empty" role="status">
-        <h2 className="empty__title">That was your fifth free check</h2>
-        <p className="empty__body">
-          The checker keeps working with a free account, which needs no card. An account
-          also keeps your results, so you can come back to them.
-        </p>
-        <div className="empty__actions">
-          <a href="/signup?next=%2Fmedical-bill-checker" className="btn btn--primary">
-            Create a free account
-          </a>
-          <a href="/signin?next=%2Fmedical-bill-checker" className="btn btn--quiet">
-            I already have one
-          </a>
-        </div>
-      </div>
-    );
+  const limit = allowance?.limit ?? DEFAULT_LIMIT;
+
+  if (wall === 'exhausted') {
+    return <SignUpWall variant="exhausted" limit={limit} />;
   }
 
   return (
     <div className="stack--lg">
+      {wall === 'last' ? (
+        <SignUpWall variant="last" limit={limit} />
+      ) : (
       <form onSubmit={submit} className="card" aria-labelledby={`${formId}-heading`}>
         <h2 id={`${formId}-heading`} style={{ marginTop: 0 }}>
           Enter the figures from your statement
@@ -471,11 +508,7 @@ export function BillCheckerTool({
             {busy ? 'Checking…' : 'Check my bill'}
           </button>
           <span className="small muted">
-            {caseId !== null
-              ? 'Saved to your case.'
-              : freeLeft === null
-                ? 'No account needed.'
-                : `${freeLeft} free check${freeLeft === 1 ? '' : 's'} left without an account.`}
+            <AllowanceNote caseId={caseId} allowance={allowance} />
           </span>
         </div>
 
@@ -485,8 +518,51 @@ export function BillCheckerTool({
           </p>
         ) : null}
       </form>
+      )}
 
       {result !== null ? <Results result={result} /> : null}
+    </div>
+  );
+}
+
+const DEFAULT_LIMIT = POLICY.anonymousTool.freeChecks;
+
+/** One line beside the button that says exactly where this person stands. */
+function AllowanceNote({ caseId, allowance }: { caseId: string | null; allowance: Allowance | null }): React.ReactElement {
+  if (caseId !== null) return <>Saved to your case.</>;
+  if (allowance === null) return <>No account needed.</>;
+  if (allowance.signedIn) {
+    return (
+      <>
+        You are signed in, so there is no limit here, but nothing is kept.{' '}
+        <a href="/upload">Upload the bill to a case</a> to save the result.
+      </>
+    );
+  }
+  const { remaining, limit } = allowance;
+  if (remaining === null || remaining >= limit) return <>{limit} free checks, no account needed.</>;
+  return <>{remaining} free check{remaining === 1 ? '' : 's'} left without an account.</>;
+}
+
+function SignUpWall({ variant, limit }: { variant: 'last' | 'exhausted'; limit: number }): React.ReactElement {
+  return (
+    <div className="empty" role="status">
+      <h2 className="empty__title">
+        {variant === 'last' ? 'That was your last free check' : `You have used your ${limit} free checks`}
+      </h2>
+      <p className="empty__body">
+        {variant === 'last' ? 'Your result is below. ' : ''}
+        The checker keeps working with a free account, which needs no card. An account also
+        keeps your results, so you can come back to them.
+      </p>
+      <div className="empty__actions">
+        <a href="/signup?next=%2Fmedical-bill-checker" className="btn btn--primary">
+          Create a free account
+        </a>
+        <a href="/signin?next=%2Fmedical-bill-checker" className="btn btn--quiet">
+          I already have one
+        </a>
+      </div>
     </div>
   );
 }
