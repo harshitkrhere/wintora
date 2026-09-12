@@ -229,7 +229,7 @@ export default function PrivacyPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="retention">
         <h2>How long it is kept</h2>
         <p>Uploaded documents are kept for the retention period of your plan, then removed:</p>
         <ul>
@@ -305,7 +305,7 @@ export default function PrivacyPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="security">
         <h2>Security</h2>
         <p>
           Every row of data is protected by database-level access rules so that a bug

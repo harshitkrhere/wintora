@@ -102,10 +102,12 @@ function initialLines(draft: ExtractionDraft | null): DraftLine[] {
     amount: fromCents(li.amountCents),
     code: li.code ?? '',
   }));
-  // Always leave room to add what the reader missed.
+  // Always leave room to add what the reader missed. On a blank public form,
+  // start with one row: three empty fields make a simple first check feel like
+  // paperwork before the person has even begun.
   return fromDraft.length > 0
     ? [...fromDraft, newLine(lineId(fromDraft.length))]
-    : [newLine(lineId(0)), newLine(lineId(1)), newLine(lineId(2))];
+    : [newLine(lineId(0))];
 }
 
 export function BillCheckerTool({
@@ -340,7 +342,10 @@ export function BillCheckerTool({
 
         <fieldset className="form-group form-group--first">
           <legend className="form-group__legend">Line items</legend>
-          <p className="form-group__hint">Each charge as it appears on the statement.</p>
+          <p className="form-group__hint">
+            Start with the first charge as it appears on the statement. Add another only when
+            you need it.
+          </p>
 
           {lines.map((line, index) => (
             <div className="line-item-row" key={line.id}>
