@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { AuthForm } from '@/components/AuthForm';
+import { optionalUser } from '@/lib/http/api';
 import { safeRedirect } from '@/lib/http/safe-redirect';
 
 export const metadata: Metadata = {
@@ -28,6 +30,12 @@ export default async function SignInPage({
   // form, and an unvalidated one is an open redirect.
   const rawNext = params.next;
   const next = typeof rawNext === 'string' ? safeRedirect(rawNext) : null;
+
+  // Someone who is already signed in has no business on this page. Send them
+  // where they were going, or to the dashboard. Offering a signed-in person a
+  // sign-in form is confusing at best; on a shared device it is how a
+  // session gets swapped under someone without a deliberate sign-out first.
+  if ((await optionalUser()) !== null) redirect(next ?? safeRedirect(null));
 
   const errorKey = typeof params.error === 'string' ? params.error : null;
   const initialError = errorKey !== null ? (ERRORS[errorKey] ?? null) : null;

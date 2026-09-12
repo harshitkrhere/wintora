@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { clearSessionHint } from '@/lib/auth/session-hint';
 
 export function SignOutButton(): React.ReactElement {
   const [busy, setBusy] = useState(false);
@@ -22,6 +23,8 @@ export function SignOutButton(): React.ReactElement {
         body: '{}',
       });
     } finally {
+      // The header must not remember a session that has just been ended.
+      clearSessionHint();
       // Navigate regardless: a failed sign-out call still should not leave the
       // person sitting on a page that implies they are signed in.
       window.location.href = '/';

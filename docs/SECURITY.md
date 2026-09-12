@@ -40,6 +40,18 @@ does not silently reuse someone else's Google session.
 - Login responses are constant-shaped: an unknown email and a wrong password
   produce the same message and comparable timing, so the endpoint is not an
   account-existence oracle.
+- **Sessions are refreshed in middleware** (`src/lib/supabase/middleware.ts`),
+  the one place that runs before a page and may write cookies. A Server
+  Component cannot write cookies, so without this an expired access token
+  reads as "no user" in layouts and pages while route handlers refresh it
+  successfully: the header says signed in, the dashboard redirects to sign-in.
+  Requests without a session cookie skip the auth-server round trip.
+- `/signin` and `/signup` redirect a signed-in visitor to `next` or the
+  dashboard. A signed-in person is never offered a sign-in or sign-up form.
+- Sign-out exists only inside the signed-in shell. The public header offers a
+  way in ("Sign in" or "Dashboard"), never a way out: a sign-out control on
+  every marketing page ends sessions by accident on shared screens and
+  announces that an account is open.
 
 ---
 

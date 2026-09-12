@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { AuthForm } from '@/components/AuthForm';
+import { optionalUser } from '@/lib/http/api';
 import { safeRedirect } from '@/lib/http/safe-redirect';
 
 export const metadata: Metadata = {
@@ -18,6 +20,12 @@ export default async function SignUpPage({
   const params = (await searchParams) ?? {};
   const rawNext = params.next;
   const next = typeof rawNext === 'string' ? safeRedirect(rawNext) : null;
+
+  // Someone who is already signed in has no business on this page. Send them
+  // where they were going, or to the dashboard. Offering a signed-in person a
+  // sign-up form is confusing at best; on a shared device it is how a
+  // session gets swapped or a second account created without a deliberate sign-out first.
+  if ((await optionalUser()) !== null) redirect(next ?? safeRedirect(null));
 
   return (
     <>

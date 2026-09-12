@@ -117,7 +117,16 @@ export async function optionalUser(): Promise<AuthedContext['user'] | null> {
   const client = createUserClient({
     get: (name) => cookieStore.get(name),
     set: (name, value, options) => {
-      cookieStore.set(name, value, options);
+      // A Server Component may read cookies but not write them, and this is
+      // called from layouts and pages as well as route handlers. Sessions are
+      // refreshed in middleware before a page renders, so a write refused
+      // here has already been made where it is allowed. Swallowing it is
+      // what keeps an expired token from reading as "not signed in".
+      try {
+        cookieStore.set(name, value, options);
+      } catch {
+        // Rendering a Server Component. Middleware has this covered.
+      }
     },
   });
   return getCurrentUser(client);
@@ -129,7 +138,16 @@ export async function requireUser(): Promise<AuthedContext['user']> {
   const client = createUserClient({
     get: (name) => cookieStore.get(name),
     set: (name, value, options) => {
-      cookieStore.set(name, value, options);
+      // A Server Component may read cookies but not write them, and this is
+      // called from layouts and pages as well as route handlers. Sessions are
+      // refreshed in middleware before a page renders, so a write refused
+      // here has already been made where it is allowed. Swallowing it is
+      // what keeps an expired token from reading as "not signed in".
+      try {
+        cookieStore.set(name, value, options);
+      } catch {
+        // Rendering a Server Component. Middleware has this covered.
+      }
     },
   });
 

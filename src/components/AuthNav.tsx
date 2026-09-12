@@ -1,23 +1,26 @@
 'use client';
 
 /**
- * The account corner of the site header.
+ * The account corner of the public site's header.
  *
- * The header lives in the root layout, which is prerendered for the public
- * pages and so cannot know who is looking at it. This component asks after
- * hydration and swaps the control accordingly.
+ * The header lives in a prerendered layout and so cannot know who is looking
+ * at it. This component asks /api/auth/session after hydration and shows one
+ * of two things: "Sign in", or "Dashboard". Nothing else.
  *
- * Until the answer arrives it shows "Sign in", which is right for every
- * visitor without a session and for anyone with JavaScript off. A signed-in
- * user sees it flip within a moment of the page loading. That brief flash is
- * the cost of keeping the marketing pages static, and it is a smaller cost
- * than showing "Sign in" to a paying customer indefinitely, which is what this
- * replaces.
+ * There is deliberately no sign-out here. Signing out is something a person
+ * does from inside the product, in the signed-in shell; a sign-out button on
+ * every marketing page is a way to end someone's session by accident on a
+ * shared screen, and it tells anyone glancing at the page that an account is
+ * open. The public header only ever offers a way in.
+ *
+ * Until the answer arrives it starts from the tab's last known answer (see
+ * src/lib/auth/session-hint.ts), then "Sign in", which is right for every
+ * visitor without a session and for anyone with JavaScript off.
  */
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { SignOutButton } from './SignOutButton';
+import { readSessionHint, writeSessionHint } from '@/lib/auth/session-hint';
 
 type State = 'unknown' | 'signed-in' | 'signed-out';
 
@@ -26,10 +29,16 @@ export function AuthNav(): React.ReactElement {
 
   useEffect(() => {
     let cancelled = false;
+
+    const hint = readSessionHint();
+    if (hint !== null) setState(hint ? 'signed-in' : 'signed-out');
+
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : { signedIn: false }))
       .then((j: { signedIn?: boolean }) => {
-        if (!cancelled) setState(j.signedIn === true ? 'signed-in' : 'signed-out');
+        const signedIn = j.signedIn === true;
+        writeSessionHint(signedIn);
+        if (!cancelled) setState(signedIn ? 'signed-in' : 'signed-out');
       })
       .catch(() => {
         if (!cancelled) setState('signed-out');
@@ -41,12 +50,9 @@ export function AuthNav(): React.ReactElement {
 
   if (state === 'signed-in') {
     return (
-      <>
-        <Link href="/dashboard" className="btn btn--secondary">
-          Dashboard
-        </Link>
-        <SignOutButton />
-      </>
+      <Link href="/dashboard" className="btn btn--primary">
+        Dashboard
+      </Link>
     );
   }
 

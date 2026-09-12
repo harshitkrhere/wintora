@@ -1,14 +1,20 @@
 /**
- * Security headers, with a per-request CSP nonce.
+ * Security headers, with a per-request CSP nonce, and the session refresh.
  *
  * The policy itself is built in `src/lib/http/csp.ts` so it can be unit-tested;
  * two of its rules are subtle enough to have been got wrong here once.
  *
- * See docs/SECURITY.md section 7.
+ * The session refresh lives here because this is the one place that runs
+ * before a page and is allowed to write cookies. Without it, an expired
+ * access token turns every signed-in page into a redirect to /signin. See
+ * src/lib/supabase/middleware.ts.
+ *
+ * See docs/SECURITY.md sections 1 and 7.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { buildCsp } from '@/lib/http/csp';
+import { refreshSession } from '@/lib/supabase/middleware';
 
 /**
  * Surfaces that must never be indexed or cached: they render account data.
@@ -41,7 +47,7 @@ const PRIVATE_PREFIXES = [
  */
 const NONCED_PUBLIC_PREFIXES = ['/signin', '/signup', '/forgot-password', '/reset-password', '/pricing'];
 
-export function middleware(request: NextRequest): NextResponse {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
   const path = request.nextUrl.pathname;
 
   // Every private surface reads cookies or search params, so Next renders it
@@ -63,22 +69,33 @@ export function middleware(request: NextRequest): NextResponse {
     isDevelopment: process.env.NODE_ENV !== 'production',
   });
 
-  const requestHeaders = new Headers(request.headers);
-  if (nonce !== null) requestHeaders.set('x-nonce', nonce);
+  // Built from the request as it stands at the time of the call, because the
+  // session refresh below may rewrite the request's cookies and then needs a
+  // fresh response that carries them to the render.
+  const makeResponse = (): NextResponse => {
+    const requestHeaders = new Headers(request.headers);
+    if (nonce !== null) requestHeaders.set('x-nonce', nonce);
 
-  // BOTH headers are required, and the second one is easy to miss.
-  //
-  // Next.js reads the nonce out of the REQUEST `Content-Security-Policy` header
-  // and stamps it onto the inline <script> tags it emits for the RSC streaming
-  // payload. Without it those inline scripts carry no nonce, the browser blocks
-  // them, and the page never hydrates: every client component silently dies
-  // while the server-rendered HTML still looks fine.
-  //
-  // `script-src 'self'` does not save you here. It covers same-origin script
-  // FILES; an inline script needs a nonce or 'unsafe-inline'.
-  if (nonce !== null) requestHeaders.set('Content-Security-Policy', csp);
+    // BOTH headers are required, and the second one is easy to miss.
+    //
+    // Next.js reads the nonce out of the REQUEST `Content-Security-Policy`
+    // header and stamps it onto the inline <script> tags it emits for the RSC
+    // streaming payload. Without it those inline scripts carry no nonce, the
+    // browser blocks them, and the page never hydrates: every client component
+    // silently dies while the server-rendered HTML still looks fine.
+    //
+    // `script-src 'self'` does not save you here. It covers same-origin script
+    // FILES; an inline script needs a nonce or 'unsafe-inline'.
+    if (nonce !== null) requestHeaders.set('Content-Security-Policy', csp);
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  };
+
+  // Pages get their session refreshed before they render. Route handlers can
+  // write cookies themselves, and the auth callback is in the middle of
+  // exchanging a code for a session, so neither is touched.
+  const managesOwnCookies = path.startsWith('/api/') || path.startsWith('/auth/');
+  const response = managesOwnCookies ? makeResponse() : await refreshSession(request, makeResponse);
 
   response.headers.set('Content-Security-Policy', csp);
   response.headers.set(
