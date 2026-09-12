@@ -9,7 +9,10 @@ import type { MetadataRoute } from 'next';
  * none appear: a page is published for a state or province only when it has a
  * reviewed source and something genuinely specific to say, never by
  * find-and-replacing a state name into a national page.
- * See docs/SEO.md section 2.
+ *
+ * A path is listed here only once the page exists. Advertising a page that
+ * 404s is worse for both search engines and a payment reviewer than not
+ * listing it. See docs/SEO.md section 2.
  */
 
 const STATIC_PAGES: readonly { path: string; priority: number; changeFrequency: 'weekly' | 'monthly' }[] = [
@@ -18,11 +21,10 @@ const STATIC_PAGES: readonly { path: string; priority: number; changeFrequency: 
   { path: '/bill-vs-eob', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/pricing', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/methodology', priority: 0.7, changeFrequency: 'monthly' },
-  { path: '/security', priority: 0.5, changeFrequency: 'monthly' },
   { path: '/privacy', priority: 0.5, changeFrequency: 'monthly' },
-  { path: '/data-retention', priority: 0.4, changeFrequency: 'monthly' },
-  { path: '/sources', priority: 0.4, changeFrequency: 'monthly' },
-  { path: '/corrections', priority: 0.3, changeFrequency: 'monthly' },
+  { path: '/terms', priority: 0.4, changeFrequency: 'monthly' },
+  { path: '/refunds', priority: 0.4, changeFrequency: 'monthly' },
+  { path: '/contact', priority: 0.4, changeFrequency: 'monthly' },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

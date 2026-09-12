@@ -71,7 +71,7 @@ describe('safe methods', () => {
 describe('development loopback allowance', () => {
   it('accepts localhost when the app URL is a tunnel', () => {
     // The exact setup that produced a baffling 403: dev server on localhost,
-    // NEXT_PUBLIC_APP_URL pointing at a cloudflared tunnel so Paddle can
+    // NEXT_PUBLIC_APP_URL pointing at a cloudflared tunnel so Razorpay can
     // reach the webhook.
     const verdict = checkOrigin({
       origin: 'http://localhost:3000',

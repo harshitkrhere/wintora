@@ -24,24 +24,29 @@ function stubProvider(overrides: Partial<PaymentProvider> = {}): PaymentProvider
   };
 
   return {
-    name: 'stripe',
+    name: 'razorpay',
     webhookSupport: 'SIGNED_WEBHOOKS',
     capabilities: {
       model: 'GATEWAY',
       webhooks: true,
-      hostedPortal: true,
       proration: true,
       scheduledPlanChange: true,
+      pause: true,
+      undoScheduledCancel: false,
       remitsTax: false,
       currencies: ['USD', 'CAD'],
     },
     ensureCustomer: notCalled,
     createCheckout: notCalled,
-    createPortalSession: notCalled,
+    verifyCheckoutCallback: notCalled,
     changePlan: notCalled,
     cancelAtPeriodEnd: notCalled,
+    cancelImmediately: notCalled,
     reactivate: notCalled,
+    pause: notCalled,
+    resume: notCalled,
     getSubscription: notCalled,
+    listInvoices: notCalled,
     verifyAndParseWebhook: notCalled,
     ...overrides,
   } as PaymentProvider;
@@ -111,7 +116,6 @@ describe('downgrade strategy', () => {
     // revoke access the customer has already paid for. We hold the pending plan
     // and apply it at period end instead.
     const immediate = stubProvider({
-      name: 'paddle',
       capabilities: { ...stubProvider().capabilities, scheduledPlanChange: false },
     });
     expect(downgradeStrategy(immediate)).toBe('APPLICATION_SCHEDULED');
@@ -174,25 +178,22 @@ describe('normalised event', () => {
 });
 
 describe('provider registry', () => {
-  it('lists the providers under consideration', () => {
-    expect(PAYMENT_PROVIDERS).toContain('stripe');
-    // Stripe is invite-only in India, so an MoR adapter is the realistic path.
-    expect(PAYMENT_PROVIDERS).toContain('paddle');
-    expect(PAYMENT_PROVIDERS).toContain('dodo');
+  it('lists exactly the providers that have an adapter', () => {
+    // Stripe is invite-only in India and Paddle was replaced; neither has an
+    // adapter, so neither is a name the application can write.
+    expect([...PAYMENT_PROVIDERS]).toEqual(['razorpay']);
   });
 
-  it('records whether a provider is the legal seller', () => {
-    // Not cosmetic: an MoR remits tax, owns refund decisions, and owns the
-    // customer contract, which changes both compliance and exit cost.
-    const mor = stubProvider({
-      name: 'paddle',
-      capabilities: {
-        ...stubProvider().capabilities,
-        model: 'MERCHANT_OF_RECORD',
-        remitsTax: true,
-      },
-    });
-    expect(mor.capabilities.model).toBe('MERCHANT_OF_RECORD');
-    expect(mor.capabilities.remitsTax).toBe(true);
+  it('records that a gateway is not the legal seller', () => {
+    // Not cosmetic: under a gateway WE remit tax, own refund decisions and own
+    // the customer contract, which changes both compliance and the copy.
+    const gateway = stubProvider();
+    expect(gateway.capabilities.model).toBe('GATEWAY');
+    expect(gateway.capabilities.remitsTax).toBe(false);
+  });
+
+  it('records that a scheduled cancellation cannot be withdrawn', () => {
+    // The subscription page must not offer an "undo" the provider cannot do.
+    expect(stubProvider().capabilities.undoScheduledCancel).toBe(false);
   });
 });

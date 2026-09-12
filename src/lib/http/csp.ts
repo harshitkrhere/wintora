@@ -58,13 +58,15 @@ export function buildCsp({ nonce, isDevelopment }: CspOptions): string {
   const scriptSrc = [
     "'self'",
     ...(nonce === null ? ["'unsafe-inline'"] : [`'nonce-${nonce}'`]),
-    'https://cdn.paddle.com',
+    // Razorpay's checkout.js. It renders the payment form in an iframe served
+    // by Razorpay, so card details never enter a document we control.
+    'https://checkout.razorpay.com',
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
   ].join(' ');
 
   // Styles deliberately carry NO nonce, because 'unsafe-inline' has to work.
-  // React writes inline styles for every `style={{...}}` prop and Paddle.js
-  // injects its own for the checkout overlay. Adding a nonce here would
+  // React writes inline styles for every `style={{...}}` prop and checkout.js
+  // injects its own for the payment overlay. Adding a nonce here would
   // silently disable 'unsafe-inline' and blank the UI.
   //
   // This is a real weakening, and a smaller one than the script equivalent:
@@ -72,19 +74,21 @@ export function buildCsp({ nonce, isDevelopment }: CspOptions): string {
   // closes the usual CSS-based exfiltration routes. The stricter fix is to
   // remove every inline style prop in favour of classes; that is recorded in
   // docs/LIMITATIONS.md rather than pretended away.
-  const styleSrc = ["'self'", "'unsafe-inline'", 'https://*.paddle.com'].join(' ');
+  const styleSrc = ["'self'", "'unsafe-inline'", 'https://*.razorpay.com'].join(' ');
 
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
     `style-src ${styleSrc}`,
-    "img-src 'self' data: blob:",
+    // Razorpay's overlay loads its own logos and method icons.
+    "img-src 'self' data: blob: https://*.razorpay.com",
     "font-src 'self'",
     // Development also needs a websocket back to the dev server for HMR.
-    `connect-src 'self' https://*.supabase.co https://*.paddle.com${
+    `connect-src 'self' https://*.supabase.co https://*.razorpay.com${
       isDevelopment ? ' ws: wss:' : ''
     }`,
-    'frame-src https://*.paddle.com',
+    // The payment form itself is an iframe from api.razorpay.com.
+    'frame-src https://api.razorpay.com https://checkout.razorpay.com',
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

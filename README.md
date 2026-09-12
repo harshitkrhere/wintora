@@ -21,7 +21,7 @@ npm run dev
 
 The gate passes on a clean checkout with no external services configured,
 because the domain layer has no dependency on them. Follow `docs/DEPLOYMENT.md`
-to wire up Supabase and Paddle.
+to wire up Supabase and Razorpay.
 
 ---
 
@@ -54,6 +54,7 @@ else, and the build fails if one appears.
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | Layering, diagrams, technology choices |
 | [DATABASE](docs/DATABASE.md) | Schema, RLS, atomic usage functions, indexes |
 | [BILLING](docs/BILLING.md) | Plan catalog, state machine, webhooks, refunds, reconciliation |
+| [PRICING](docs/PRICING.md) | Tier structure, price reasoning, retention mechanics, which persuasion is used and which is refused |
 | [ENTITLEMENTS](docs/ENTITLEMENTS.md) | Feature registry, plan matrix, metering, fairness rules |
 | [SECURITY](docs/SECURITY.md) | Auth, authorization, uploads, headers, logging, safe mode |
 | [PRIVACY](docs/PRIVACY.md) | Collection, retention, user rights, AI privacy, analytics |
@@ -77,7 +78,7 @@ supabase/migrations/  ordered SQL: schema, RLS, functions, catalog seed
 supabase/tests/       adversarial RLS isolation matrix (needs a live database)
 src/config/           feature registry, plan catalog, policy, disclaimers
 src/domain/           pure business logic, no I/O, no provider SDKs
-src/lib/              adapters: supabase, payments (Paddle), ai, http, logging
+src/lib/              adapters: supabase, payments (Razorpay), ai, http, logging
 src/app/              routes: public content, tools, API handlers, settings
 tests/                299 tests across 11 suites
 scripts/              CI gates: structural invariants, secret-leak scan

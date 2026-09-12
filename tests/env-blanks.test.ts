@@ -39,8 +39,9 @@ describe('blank environment values', () => {
   });
 
   it('a blank payment secret is not configured either', () => {
-    vi.stubEnv('PADDLE_API_KEY', 'pdl_sdbx_apikey_test');
-    vi.stubEnv('PADDLE_WEBHOOK_SECRET', '');
+    vi.stubEnv('RAZORPAY_KEY_ID', 'rzp_test_ABCDEFGHIJKLMN');
+    vi.stubEnv('RAZORPAY_KEY_SECRET', 'not-a-real-secret');
+    vi.stubEnv('RAZORPAY_WEBHOOK_SECRET', '');
     __resetEnvCache();
 
     expect(isConfigured('payments')).toBe(false);

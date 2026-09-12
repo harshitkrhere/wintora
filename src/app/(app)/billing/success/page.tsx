@@ -15,7 +15,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildSubscriptionSummary, type SubscriptionSummary } from '@/lib/billing/summary';
 import { createAdminClient } from '@/lib/supabase/server';
-import { requireUser } from '@/lib/http/api';
+import { optionalUser } from '@/lib/http/api';
+import { redirect } from 'next/navigation';
+import { POLICY } from '@/config/policy';
 
 export const metadata: Metadata = {
   title: 'Subscription confirmed',
@@ -35,31 +37,65 @@ function formatDate(iso: string | null): string {
 }
 
 export default async function BillingSuccessPage(): Promise<React.ReactElement> {
-  let summary: SubscriptionSummary | null = null;
+  // A signed-out visitor has no payment to be told about. Send them to sign
+  // in rather than showing anyone a "your payment went through" page.
+  const user = await optionalUser();
+  if (user === null) redirect('/signin?next=%2Fbilling%2Fsuccess');
 
-  try {
-    const user = await requireUser();
-    summary = await buildSubscriptionSummary(createAdminClient(), user.id);
-  } catch {
-    summary = null;
+  const admin = createAdminClient();
+  const summary: SubscriptionSummary = await buildSubscriptionSummary(admin, user.id);
+
+  // Is there actually a payment in flight? Only a checkout this user started
+  // within the window, or a subscription the provider has confirmed, earns
+  // the "finalising" copy. Anyone else landing here is told the truth.
+  const { data: pendingData } = await admin
+    .from('subscriptions')
+    .select('created_at')
+    .eq('user_id', user.id)
+    .eq('status', 'CHECKOUT_PENDING')
+    .maybeSingle();
+  const pending = pendingData as { created_at: string } | null;
+  const pendingFresh =
+    pending !== null &&
+    Date.now() - new Date(pending.created_at).getTime() <
+      POLICY.checkout.pendingTtlMinutes * 60 * 1000;
+
+  if (!summary.hasPaidPlan && !pendingFresh) {
+    return (
+      <div className="narrow page">
+        <h1>No recent payment</h1>
+        <p className="lede">
+          There is no payment being finalised on your account. If you just paid and this
+          seems wrong, your subscription page will show the subscription as soon as the
+          payment provider confirms it.
+        </p>
+        <div className="card__actions">
+          <Link href="/settings/subscription" className="btn btn--primary">
+            Go to your subscription page
+          </Link>
+          <Link href="/pricing" className="btn btn--secondary">
+            See plans
+          </Link>
+        </div>
+      </div>
+    );
   }
 
-  // The webhook has not arrived yet. Say that plainly instead of showing a
+  // The provider has not confirmed yet. Say that plainly instead of showing a
   // celebration for a subscription we have not verified.
-  if (summary === null || !summary.hasPaidPlan) {
+  if (!summary.hasPaidPlan) {
     return (
-      <div className="narrow" style={{ paddingTop: '4rem' }}>
+      <div className="narrow page">
         {/* A short refresh, because the wait is normally a few seconds. */}
         <meta httpEquiv="refresh" content="4" />
         <h1>Finalising your subscription</h1>
         <p className="lede">
-          Your payment went through. We are waiting for confirmation from our payment
-          provider before switching on your new features, which usually takes a few
-          seconds.
+          We are waiting for confirmation from the payment provider before switching on
+          your new features. This usually takes a few seconds.
         </p>
         <p className="small muted">
-          This page refreshes on its own. You will not be charged twice, and you do not
-          need to do anything.
+          This page refreshes on its own. You do not need to pay again or do anything
+          else.
         </p>
         <Link href="/settings/subscription" className="btn btn--secondary">
           Go to your subscription page
@@ -69,7 +105,7 @@ export default async function BillingSuccessPage(): Promise<React.ReactElement> 
   }
 
   return (
-    <div className="narrow" style={{ paddingTop: '4rem' }}>
+    <div className="narrow page">
       <p className="eyebrow">Confirmed</p>
       <h1>You are now subscribed to {summary.planDisplayName}.</h1>
 

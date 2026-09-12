@@ -74,7 +74,7 @@ flowchart TB
   end
 
   subgraph Ext["External providers"]
-      PAY["Paddle (Merchant of Record)"]
+      PAY["Razorpay (payment gateway)"]
     AIP["AI provider (abstracted)"]
     MAIL["Transactional email"]
   end
@@ -137,9 +137,9 @@ what the rules already found: it can never introduce a finding. See
 ```mermaid
 flowchart LR
   U["User picks a plan"] --> CO["POST /api/billing/checkout"]
-  CO --> SC["Paddle transaction, price id resolved from plans table"]
-  SC --> PAY["Paddle collects payment as seller of record"]
-  PAY --> WH["Paddle webhook POST /api/webhooks/paddle"]
+  CO --> SC["Razorpay subscription created server-side, plan id resolved from plan_prices"]
+  SC --> PAY["checkout.js takes the card; callback verified by /api/billing/verify"]
+  PAY --> WH["Razorpay webhook POST /api/webhooks/razorpay"]
   WH --> V{"Signature valid?"}
   V -- no --> R400["400, nothing written"]
   V -- yes --> IDEM{"event_id already processed?"}
@@ -287,7 +287,7 @@ template. Each published page carries a jurisdiction, its sources, and a
 | Database | Supabase Postgres | The data is deeply relational (user, subscription, plan, feature, entitlement, usage, case, document, finding, source). Quota consumption and billing state need real transactions. |
 | Authorization | Application checks **plus** Row Level Security | Two independent layers. A bug in a route handler still cannot read another user's rows. |
 | Storage | Supabase private buckets, short-lived signed URLs | No public object URLs for health-adjacent documents. |
-| Payments | Paddle, behind a `PaymentProvider` port | Merchant of Record: legal seller, remits sales tax/VAT/GST, accepts individual sellers. Chosen because Stripe is invite-only in India and the operator is not a registered company. The port keeps the choice reversible. |
+| Payments | Razorpay, behind a `PaymentProvider` port | Gateway based in India, chosen after Stripe (invite-only in India) and Paddle (Merchant of Record, since removed). The operator is the legal seller; international cards need a registered company. The port keeps the choice reversible. |
 | AI | Provider abstraction (`src/lib/ai`) | Cost-level routing (basic vs advanced model) protects plan margin; the provider is swappable. |
 | Jobs | Queue with idempotency keys | OCR, AI, retention and reconciliation must all be retry-safe. |
 
@@ -301,7 +301,7 @@ supabase/migrations/ ordered SQL: schema, functions, RLS policies, catalog seed
 supabase/tests/      RLS isolation tests (require a live Postgres)
 src/config/          feature registry, plan catalog, policy constants, disclaimers
 src/domain/          pure business logic, no I/O
-src/lib/             adapters: supabase, payments (Paddle), ai, http, logging, rate limiting
+src/lib/             adapters: supabase, payments (Razorpay), ai, http, logging, rate limiting
 src/app/             routes: public content, tools, dashboard, billing, API handlers
 tests/               vitest suites: entitlements, metering, state machine, webhooks, analysis, redaction, retention
 scripts/             CI gates: SQL invariants, secret-leak scan

@@ -23,8 +23,8 @@ const failures = [];
 const SERVER_ONLY_ENV = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'SUPABASE_DB_URL',
-  'PADDLE_API_KEY',
-  'PADDLE_WEBHOOK_SECRET',
+  'RAZORPAY_KEY_SECRET',
+  'RAZORPAY_WEBHOOK_SECRET',
   'OPENROUTER_API_KEY',
   'ANTHROPIC_API_KEY',
   'AZURE_DI_KEY',
@@ -37,8 +37,9 @@ const SERVER_ONLY_ENV = [
 
 /** Live credential shapes. Test keys and placeholders are allowed. */
 const SECRET_LITERALS = [
-  { name: 'Paddle live API key', pattern: /\bpdl_live_apikey_[A-Za-z0-9_]{16,}/ },
-  { name: 'Paddle webhook secret', pattern: /\bpdl_ntfset_[A-Za-z0-9_]{16,}/ },
+  // Razorpay key secrets have no fixed prefix, so the env-name rule is the
+  // real gate for them; a live key id in client code is still worth a look.
+  { name: 'Razorpay live key id', pattern: /\brzp_live_[A-Za-z0-9]{14}\b/ },
   { name: 'Anthropic API key', pattern: /\bsk-ant-[A-Za-z0-9_-]{20,}/ },
   { name: 'OpenRouter API key', pattern: /\bsk-or-v1-[a-f0-9]{32,}/ },
   { name: 'JWT', pattern: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\./ },
@@ -113,8 +114,6 @@ for (const file of [...sourceFiles, join(ROOT, '.env.example')]) {
 
   for (const match of content.matchAll(/NEXT_PUBLIC_[A-Z0-9_]+/g)) {
     const name = match[0];
-    // Paddle's client token is public by design, like a publishable key.
-    if (name === 'NEXT_PUBLIC_PADDLE_CLIENT_TOKEN') continue;
     if (name === 'NEXT_PUBLIC_SUPABASE_ANON_KEY') continue;
 
     if (SECRET_WORDS.test(name)) {

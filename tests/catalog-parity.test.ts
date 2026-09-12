@@ -12,9 +12,19 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { FEATURE_KEYS, FEATURES, INALIENABLE_FEATURES } from '@/config/features';
-import { ALL_PLANS, PLANS, PLAN_SLUGS, priceFor } from '@/config/plans';
+import {
+  ALL_PLANS,
+  BILLING_INTERVALS,
+  PLANS,
+  PLAN_SLUGS,
+  RECOMMENDED_PLAN,
+  annualSavingPercent,
+  priceFor,
+} from '@/config/plans';
 
 const SEED = readFileSync('supabase/migrations/0012_seed_catalog.sql', 'utf8');
+/** Prices moved to their own migration when the interval joined the key. */
+const PRICE_SEED = readFileSync('supabase/migrations/0015_price_intervals.sql', 'utf8');
 const TYPES = readFileSync('supabase/migrations/0001_extensions_and_types.sql', 'utf8');
 
 /** Feature keys as seeded into `public.features`. */
@@ -118,33 +128,98 @@ describe('plan matrix', () => {
 });
 
 describe('prices', () => {
-  it('seeds a price for every plan in both countries', () => {
-    for (const slug of PLAN_SLUGS) {
+  it('seeds every configured price, at its interval, in the price migration', () => {
+    for (const plan of ALL_PLANS) {
+      expect(plan.prices.length, plan.slug).toBeGreaterThan(0);
+      for (const price of plan.prices) {
+        const pattern = new RegExp(
+          `\\('${plan.slug}',\\s*'${price.currency}',\\s*'${price.country}',\\s*'${price.interval}',\\s*${price.amountCents}\\)`,
+        );
+        expect(
+          pattern.test(PRICE_SEED),
+          `${plan.slug} ${price.country}/${price.interval} ${price.amountCents} not in 0015`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('seeds nothing the config does not declare', () => {
+    const rows = [
+      ...PRICE_SEED.matchAll(
+        /\('(free|essential|plus|pro)',\s*'(USD|CAD)',\s*'(US|CA)',\s*'(month|year)',\s*(\d+)\)/g,
+      ),
+    ];
+    expect(rows.length).toBe(ALL_PLANS.reduce((n, p) => n + p.prices.length, 0));
+    for (const [, slug, currency, country, interval, amount] of rows) {
+      const price = priceFor(
+        slug as (typeof PLAN_SLUGS)[number],
+        country as 'US' | 'CA',
+        interval as 'month' | 'year',
+      );
+      expect(price, `${slug} ${country} ${interval}`).toBeDefined();
+      expect(price!.currency).toBe(currency);
+      expect(price!.amountCents).toBe(Number(amount));
+    }
+  });
+
+  it('sells every paid plan monthly and yearly in both countries, and free monthly only', () => {
+    for (const plan of ALL_PLANS) {
       for (const [country, currency] of [
         ['US', 'USD'],
         ['CA', 'CAD'],
       ] as const) {
-        const config = priceFor(slug, country)!;
-        expect(config, `${slug} / ${country}`).toBeDefined();
-        expect(config.currency).toBe(currency);
+        const month = priceFor(plan.slug, country, 'month');
+        expect(month, `${plan.slug} / ${country} / month`).toBeDefined();
+        expect(month!.currency).toBe(currency);
 
-        const pattern = new RegExp(
-          `\\('${slug}',\\s*'${currency}',\\s*'${country}',\\s*${config.amountCents}\\)`,
-        );
-        expect(pattern.test(SEED), `${slug} ${country} price not in seed`).toBe(true);
+        const year = priceFor(plan.slug, country, 'year');
+        if (plan.isFree) {
+          expect(year, 'free has no annual price').toBeUndefined();
+        } else {
+          expect(year, `${plan.slug} / ${country} / year`).toBeDefined();
+          expect(year!.currency).toBe(currency);
+        }
       }
+    }
+    expect(BILLING_INTERVALS).toEqual(['month', 'year']);
+  });
+
+  it('prices a year below twelve months, by a saving that is real but not a gimmick', () => {
+    // Between one and three months free. Less is not worth a year's commitment;
+    // more suggests the monthly price is padding.
+    for (const plan of ALL_PLANS.filter((p) => !p.isFree)) {
+      for (const country of ['US', 'CA'] as const) {
+        const saving = annualSavingPercent(plan.slug, country);
+        expect(saving, `${plan.slug} / ${country}`).not.toBeNull();
+        expect(saving!).toBeGreaterThanOrEqual(8);
+        expect(saving!).toBeLessThanOrEqual(25);
+      }
+    }
+    expect(annualSavingPercent('free', 'US')).toBeNull();
+  });
+
+  it('marks exactly one plan as recommended, and gives every plan a fit sentence', () => {
+    expect(ALL_PLANS.filter((p) => p.recommended).map((p) => p.slug)).toEqual([RECOMMENDED_PLAN]);
+    expect(PLANS[RECOMMENDED_PLAN].isFree).toBe(false);
+    for (const plan of ALL_PLANS) {
+      expect(plan.bestFor.length, plan.slug).toBeGreaterThan(10);
+      // Fit, not pressure. See docs/PRICING.md section 3.
+      expect(plan.bestFor, plan.slug).not.toMatch(/popular|best.?seller|limited|hurry|only \d|save/i);
     }
   });
 
   it('prices Canada in CAD and the US in USD, with no FX conversion', () => {
     // Deliberately separate, chosen numbers rather than a converted rate.
     for (const plan of ALL_PLANS) {
-      const us = priceFor(plan.slug, 'US')!;
-      const ca = priceFor(plan.slug, 'CA')!;
-      expect(us.currency).toBe('USD');
-      expect(ca.currency).toBe('CAD');
-      if (!plan.isFree) {
-        expect(ca.amountCents).not.toBe(us.amountCents);
+      for (const interval of BILLING_INTERVALS) {
+        const us = priceFor(plan.slug, 'US', interval);
+        const ca = priceFor(plan.slug, 'CA', interval);
+        if (us === undefined && ca === undefined) continue;
+        expect(us?.currency).toBe('USD');
+        expect(ca?.currency).toBe('CAD');
+        if (!plan.isFree) {
+          expect(ca!.amountCents).not.toBe(us!.amountCents);
+        }
       }
     }
   });
@@ -157,13 +232,20 @@ describe('prices', () => {
     }
   });
 
-  it('orders plans by tier and price consistently', () => {
+  it('orders plans by tier and price consistently, at every interval and in both countries', () => {
     const ordered = [...ALL_PLANS].sort((a, b) => a.tier - b.tier);
-    for (let i = 1; i < ordered.length; i += 1) {
-      const previous = priceFor(ordered[i - 1]!.slug, 'US')!.amountCents;
-      const current = priceFor(ordered[i]!.slug, 'US')!.amountCents;
-      expect(current, `${ordered[i]!.slug} costs more than ${ordered[i - 1]!.slug}`)
-        .toBeGreaterThan(previous);
+    for (const country of ['US', 'CA'] as const) {
+      for (const interval of BILLING_INTERVALS) {
+        const priced = ordered.filter((p) => priceFor(p.slug, country, interval) !== undefined);
+        for (let i = 1; i < priced.length; i += 1) {
+          const previous = priceFor(priced[i - 1]!.slug, country, interval)!.amountCents;
+          const current = priceFor(priced[i]!.slug, country, interval)!.amountCents;
+          expect(
+            current,
+            `${priced[i]!.slug} > ${priced[i - 1]!.slug} (${country}/${interval})`,
+          ).toBeGreaterThan(previous);
+        }
+      }
     }
   });
 });

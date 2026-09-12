@@ -11,6 +11,66 @@ early to conserve usage, so some findings carry no verdict.
 `billing_provider` missing `paddle` (the first CRITICAL) was fixed in
 migration `0014_billing_provider_paddle.sql` and verified against the live database.
 
+**Superseded in large part by the move to Razorpay** (migrations 0017 and
+0018, `docs/BILLING.md`). Paddle has been removed entirely, so every finding
+about Paddle's checkout URL, default payment link, domain approval, client
+token, `_ptxn` handling, `effective_from`, or `PADDLE_*` configuration is
+moot. The Razorpay integration was built with these findings in hand and
+closes the structural ones regardless of provider:
+
+- **Checkout has a server-side record.** The provider subscription is created
+  and written as `CHECKOUT_PENDING` before the browser sees it; a second click
+  reuses it inside the checkout window, so `attemptKey` is no longer the only
+  dedupe. `/checkout` opens only the signed-in user's own pending subscription.
+- **A failed webhook can be retried.** A redelivery of an event whose handler
+  failed reopens the claim instead of being swallowed as a duplicate.
+- **Deferred downgrades are real.** Razorpay's `schedule_change_at: cycle_end`
+  holds the change; `pending_plan_id` is set for display and cleared when the
+  provider reports the new plan.
+- **The success page** sends signed-out visitors to sign in, shows "finalising"
+  only when a checkout this user started is actually in flight, and the
+  verified callback activates the subscription without waiting for the webhook.
+- **Plan changes are refused** while a renewal is outstanding, while paused,
+  and once a cancellation is scheduled, with a plain message each time.
+- **Sync errors are raised**, not discarded; a rejected subscriptions write
+  fails the event so the provider retries it.
+- **Refunds and disputes** are attributed through the `payments` table, which
+  is now populated from every charge.
+- **A provider outage** is counted separately by reconciliation rather than
+  recorded as a thousand missing subscriptions.
+
+Still open, and provider-independent: no automated reconciliation path for a
+subscription the provider has and we do not; `pending_plan_id` is cleared only
+when a webhook reports the new plan, so a cancelled scheduled change would leave
+a stale notice until reconciliation; and nothing has run against real
+credentials in test mode yet.
+
+Addressed alongside the pricing restructure (migrations 0015 and 0016,
+`docs/PRICING.md`):
+
+- **profiles.country never populated from sign-up** (CRITICAL unverified / HIGH
+  confirmed): the profile trigger now reads the sign-up country from auth
+  metadata, and existing profiles are repaired (`0016`).
+- **Price shown and price charged keyed on different countries** (HIGH
+  unverified): `/pricing` and `/api/billing/checkout` both resolve a signed-in
+  customer's country through `billingCountry()`; the URL cannot override it for
+  a customer. `formatPrice` now renders CAD as `CA$25.99`, so the two currencies
+  are no longer visually identical. The displayed amount still comes from
+  `src/config/plans.ts` rather than the database; `tests/catalog-parity.test.ts`
+  asserts the two match the seed.
+- **An unresolvable Paddle price silently writes an ACTIVE subscription on the
+  FREE plan** (HIGH unverified, twice): `syncSubscription` now throws when a
+  live subscription's price id is not in `plan_prices`, so the event fails
+  visibly instead of recording a paying customer on Free-tier quotas. The
+  separate finding that a failed handler is never retried still stands.
+- **Six `PADDLE_PRICE_*` names are dead config** (MEDIUM confirmed): removed
+  from `.env.example` and from `PlanPrice`.
+
+Everything else in this document remains open unless a later note says
+otherwise. In particular the downgrade findings (`effective_from` is not a
+Paddle field; `pending_plan_id` is never cleared) apply equally to the new
+yearly-to-monthly downgrade path.
+
 | severity | confirmed | refuted | unverified |
 |---|---|---|---|
 | CRITICAL | 6 | 0 | 6 |

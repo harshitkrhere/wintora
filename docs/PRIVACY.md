@@ -16,7 +16,7 @@ the least, process the least, retain the least, expose the least.
 | Case | Provider name, bill type, amounts, service and statement dates, case status | The core function of the product |
 | Documents | Uploaded bills, EOBs, statements, correspondence | The core function of the product |
 | Extraction | Line items, totals, dates, codes as printed on the document | Deterministic analysis |
-| Billing | Paddle customer and subscription ids, invoice metadata | Subscription management |
+| Billing | Razorpay customer, subscription, payment and invoice ids; card brand and last four; invoice metadata | Subscription management |
 | Operational | Request logs with an opaque user reference, salted IP hash for the abuse window | Security and reliability |
 
 **Not collected:** Social Security or Social Insurance numbers as a product
@@ -37,13 +37,15 @@ The service is provided to consumers directly. Wintora is the controller for
 account and operational data, and processes case documents to deliver the
 service the user has asked for.
 
-**Billing data is different.** Payments are sold and processed by
-**Paddle.com Market Ltd** as Merchant of Record: Paddle is the legal seller,
-collects the payment, and is the controller of the payment and tax data it
-gathers at checkout. Wintora never sees a card number, and stores only Paddle
-references and invoice metadata. A customer exercising a privacy right over
-their payment data may need to exercise it with Paddle; the privacy notice must
-say so and link to theirs.
+**Billing data is different.** Payments are processed by **Razorpay Software
+Private Limited** as payment gateway: the card details are collected in
+Razorpay's own checkout iframe and Wintora never sees a card number. Wintora is
+the seller and the controller of the subscription record; Razorpay is a
+processor for the payment and an independent controller for the card data it
+holds under its own terms. Wintora stores Razorpay references, the card brand
+and last four digits, and invoice metadata. A customer exercising a privacy
+right over card data held by Razorpay may need to exercise it with Razorpay;
+the privacy notice must say so and link to theirs.
 
 **The operator is established in India**, and customers are in the United States
 and Canada. That is a cross-border transfer on every request, and it must be
@@ -184,8 +186,8 @@ What survives, and why, is stated up front rather than buried:
   a given date.
 - Backup copies until the backup retention schedule expires them.
 
-The Paddle customer object is handled per the payment provider terms; the
-subscription is canceled as part of deletion so a deleted account cannot
+The Razorpay customer object is handled per the payment provider terms; the
+subscription is cancelled as part of deletion so a deleted account cannot
 continue to be billed.
 
 ---
@@ -298,9 +300,9 @@ Stated plainly because it is the point:
   see the original deterministic wording, which is always correct.
 - Subprocessors are limited to what running the service requires (hosting,
   database, storage, payments, email, AI, OCR, malware scanning) and are listed
-  publicly at `/privacy/subprocessors` with their purpose and region. Paddle
-  appears there as seller of record rather than as an ordinary subprocessor,
-  because its role is different: it is a controller of the payment data it
+  publicly at `/privacy#subprocessors` with their purpose and region. Razorpay
+  appears there as the payment processor, with the note that it is an
+  independent controller of the card data it
   collects, not merely a processor acting on our instructions.
 
 ---

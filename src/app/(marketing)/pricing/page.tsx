@@ -5,6 +5,16 @@
  * catalog. Nothing on this page is hand-typed, so an advertised feature cannot
  * drift away from what the backend enforces.
  * `tests/catalog-parity.test.ts` asserts the registry matches the database seed.
+ *
+ * The page is a pure function of two inputs: the URL (billing interval, and
+ * country for visitors) and the account (country for customers). The interval
+ * switch is two links, so the choice lives in the address bar, survives a
+ * reload, can be shared, and needs no JavaScript to work.
+ *
+ * Persuasion on this page is limited to two things the product can stand
+ * behind: one plan is marked as recommended, and each plan says in one sentence
+ * who it fits. There is no countdown, no "most popular", no strike-through
+ * price and no anxiety. See docs/PRICING.md section 3.
  */
 
 import type { Metadata } from 'next';
@@ -13,16 +23,25 @@ import { CheckoutButton } from '@/components/CheckoutButton';
 import { ALL_FEATURES, FEATURES, type FeatureKey } from '@/config/features';
 import {
   ALL_PLANS,
+  annualSavingPercent,
   formatPrice,
+  isBillingInterval,
+  isPlanSlug,
+  perMonthEquivalentCents,
   priceFor,
+  type BillingInterval,
   type CountryCode,
   type PlanDefinition,
+  type PlanSlug,
 } from '@/config/plans';
+import { optionalUser } from '@/lib/http/api';
+import { billingCountry } from '@/lib/payments';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Plans and pricing',
   description:
-    'Four plans with published limits. Cancel any time and keep access until the period you paid for ends.',
+    'Four plans with published limits, billed monthly or yearly. Cancel any time and keep access until the period you paid for ends.',
 };
 
 const HIGHLIGHT_FEATURES: readonly FeatureKey[] = [
@@ -35,6 +54,26 @@ const HIGHLIGHT_FEATURES: readonly FeatureKey[] = [
   'DEADLINE_TRACKING',
   'HOUSEHOLD_CASES',
 ];
+
+/** Everything the page needs to render, resolved once. */
+interface PageState {
+  readonly interval: BillingInterval;
+  readonly country: CountryCode;
+  /** True when the country came from the account rather than the URL. */
+  readonly countryFromAccount: boolean;
+  readonly signedIn: boolean;
+  /** A plan the visitor was choosing before being sent to sign in. */
+  readonly resumingPlan: PlanSlug | null;
+}
+
+function pricingHref(state: Pick<PageState, 'interval' | 'country'>, patch: Partial<Pick<PageState, 'interval' | 'country'>>): string {
+  const next = { ...state, ...patch };
+  const params = new URLSearchParams();
+  if (next.interval !== 'month') params.set('interval', next.interval);
+  if (next.country !== 'US') params.set('country', next.country);
+  const query = params.toString();
+  return query.length > 0 ? `/pricing?${query}` : '/pricing';
+}
 
 function cell(plan: PlanDefinition, key: FeatureKey): React.ReactElement {
   const grant = plan.features[key];
@@ -70,38 +109,81 @@ function cell(plan: PlanDefinition, key: FeatureKey): React.ReactElement {
   );
 }
 
-function PlanCard({
+function PlanPriceBlock({
   plan,
-  country,
+  state,
 }: {
   plan: PlanDefinition;
-  country: CountryCode;
+  state: PageState;
 }): React.ReactElement {
-  const price = priceFor(plan.slug, country);
+  if (plan.isFree) {
+    return (
+      <p className="plan__price">
+        Free
+        <span className="plan__interval">no card needed</span>
+      </p>
+    );
+  }
+
+  const price = priceFor(plan.slug, state.country, state.interval);
+  if (price === undefined) {
+    return <p className="plan__price">—</p>;
+  }
+
+  const saving = annualSavingPercent(plan.slug, state.country);
+
+  return (
+    <div className="plan__pricing">
+      <p className="plan__price">
+        {formatPrice(price.amountCents, price.currency)}
+        <span className="plan__interval">/ {price.interval}</span>
+      </p>
+      {price.interval === 'year' ? (
+        <p className="plan__equiv small muted">
+          {formatPrice(perMonthEquivalentCents(price), price.currency)} a month, billed
+          once a year
+          {saving !== null && saving > 0 ? (
+            <>
+              . <span className="plan__saving">Saves {saving}%</span> against monthly.
+            </>
+          ) : null}
+        </p>
+      ) : saving !== null && saving > 0 ? (
+        <p className="plan__equiv small muted">
+          <Link href={pricingHref(state, { interval: 'year' })}>
+            Pay yearly and save {saving}%
+          </Link>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PlanCard({ plan, state }: { plan: PlanDefinition; state: PageState }): React.ReactElement {
   const highlights = HIGHLIGHT_FEATURES.map((key) => ({
     key,
     grant: plan.features[key],
   })).filter((row) => row.grant?.enabled === true);
 
+  const classes = ['card', 'plan'];
+  if (plan.recommended) classes.push('plan--recommended');
+  if (state.resumingPlan === plan.slug) classes.push('plan--resuming');
+
+  const headingId = `plan-${plan.slug}-name`;
+
   return (
-    <article className="card plan">
-      <div>
-        <h2 style={{ fontSize: '1.15rem', marginBottom: '0.15rem' }}>
+    <article className={classes.join(' ')} id={`plan-${plan.slug}`} aria-labelledby={headingId}>
+      <header className="plan__head">
+        {plan.recommended ? <p className="eyebrow plan__eyebrow">Recommended</p> : null}
+        <h2 id={headingId} className="plan__name">
           {plan.displayName}
         </h2>
-        <p className="small muted" style={{ minHeight: '3.2em' }}>
-          {plan.description}
-        </p>
-      </div>
+        <p className="plan__fit">{plan.bestFor}</p>
+      </header>
 
-      <div className="plan__price">
-        {price !== undefined ? formatPrice(price.amountCents, price.currency) : '—'}
-        <span className="plan__interval">
-          {plan.isFree ? '' : ` / ${plan.billingInterval}`}
-        </span>
-      </div>
+      <PlanPriceBlock plan={plan} state={state} />
 
-      <ul className="plan__features">
+      <ul className="plan__features" aria-label={`What ${plan.displayName} includes`}>
         {highlights.slice(0, 6).map(({ key, grant }) => (
           <li key={key} className={FEATURES[key].available ? undefined : 'muted'}>
             {grant?.limitValue !== undefined && grant.limitValue !== null
@@ -116,22 +198,70 @@ function PlanCard({
       </ul>
 
       {plan.isFree ? (
-        <Link
-          href="/medical-bill-checker"
-          className="btn btn--secondary"
-          style={{ marginTop: 'auto' }}
-        >
-          Start free
-        </Link>
+        <div className="plan__cta">
+          <Link href="/medical-bill-checker" className="btn btn--secondary btn--block">
+            Start free
+          </Link>
+        </div>
       ) : (
         <CheckoutButton
           planSlug={plan.slug}
           planName={plan.displayName}
-          variant={plan.slug === 'plus' ? 'primary' : 'secondary'}
+          interval={state.interval}
+          variant={plan.recommended ? 'primary' : 'secondary'}
         />
       )}
     </article>
   );
+}
+
+function IntervalSwitch({ state }: { state: PageState }): React.ReactElement {
+  const options: readonly { interval: BillingInterval; label: string }[] = [
+    { interval: 'month', label: 'Monthly' },
+    { interval: 'year', label: 'Yearly' },
+  ];
+
+  return (
+    <nav className="interval-switch" aria-label="Billing interval">
+      {options.map((option) => {
+        const active = option.interval === state.interval;
+        return (
+          <Link
+            key={option.interval}
+            href={pricingHref(state, { interval: option.interval })}
+            className="interval-switch__option"
+            aria-current={active ? 'page' : undefined}
+          >
+            {option.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+async function resolveState(
+  params: Record<string, string | string[] | undefined>,
+): Promise<PageState> {
+  const rawInterval = typeof params.interval === 'string' ? params.interval : 'month';
+  const interval: BillingInterval = isBillingInterval(rawInterval) ? rawInterval : 'month';
+
+  const rawPlan = typeof params.plan === 'string' ? params.plan : null;
+  const resumingPlan = rawPlan !== null && isPlanSlug(rawPlan) ? rawPlan : null;
+
+  // Anything other than an explicit CA falls back to US rather than guessing.
+  const urlCountry: CountryCode = params.country === 'CA' ? 'CA' : 'US';
+
+  // A customer sees the currency they will actually be charged in. Their
+  // country comes from the account, and the URL cannot override it, because a
+  // page that shows one currency and charges another is not a pricing page.
+  const user = await optionalUser();
+  if (user === null) {
+    return { interval, country: urlCountry, countryFromAccount: false, signedIn: false, resumingPlan };
+  }
+
+  const country = await billingCountry(createAdminClient(), user.id);
+  return { interval, country, countryFromAccount: true, signedIn: true, resumingPlan };
 }
 
 export default async function PricingPage({
@@ -140,32 +270,48 @@ export default async function PricingPage({
   // Next.js 15 passes search params as a promise.
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<React.ReactElement> {
-  const params = (await searchParams) ?? {};
-  // Anything other than an explicit CA falls back to US rather than guessing.
-  const country: CountryCode = params.country === 'CA' ? 'CA' : 'US';
+  const state = await resolveState((await searchParams) ?? {});
+  const countryName = state.country === 'CA' ? 'Canada (CAD)' : 'the United States (USD)';
 
   return (
-    <div className="shell" style={{ paddingTop: '3rem' }}>
-      <section>
+    <div className="shell pricing">
+      <section className="pricing__intro">
         <h1>Plans and pricing</h1>
         <p className="lede">
           Every limit below is the limit the software actually enforces. There is no
           feature on this page that the backend does not implement.
         </p>
 
-        <p className="small">
-          Showing prices for{' '}
-          <strong>{country === 'CA' ? 'Canada (CAD)' : 'the United States (USD)'}</strong>.{' '}
-          <Link href={`/pricing?country=${country === 'CA' ? 'US' : 'CA'}`}>
-            Show {country === 'CA' ? 'United States (USD)' : 'Canada (CAD)'}
-          </Link>
-        </p>
+        <div className="pricing__controls">
+          <IntervalSwitch state={state} />
+          <p className="small pricing__country">
+            {state.countryFromAccount ? (
+              <>
+                Prices for <strong>{countryName}</strong>, the country on your account.
+              </>
+            ) : (
+              <>
+                Showing prices for <strong>{countryName}</strong>.{' '}
+                <Link href={pricingHref(state, { country: state.country === 'CA' ? 'US' : 'CA' })}>
+                  Show {state.country === 'CA' ? 'United States (USD)' : 'Canada (CAD)'}
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+
+        {state.signedIn && state.resumingPlan !== null ? (
+          <p className="notice notice--accent" role="status">
+            You are signed in. Choose {ALL_PLANS.find((p) => p.slug === state.resumingPlan)?.displayName ?? 'a plan'}{' '}
+            below to continue to checkout.
+          </p>
+        ) : null}
       </section>
 
       <section>
         <div className="plan-grid">
           {ALL_PLANS.map((plan) => (
-            <PlanCard key={plan.slug} plan={plan} country={country} />
+            <PlanCard key={plan.slug} plan={plan} state={state} />
           ))}
         </div>
       </section>
@@ -175,7 +321,7 @@ export default async function PricingPage({
         <div className="table-scroll">
           <table>
             <caption className="sr-only">
-              Feature comparison across the Free, Essential, Plus and Pro plans
+              Feature comparison across the {ALL_PLANS.map((p) => p.displayName).join(', ')} plans
             </caption>
             <thead>
               <tr>
@@ -190,14 +336,12 @@ export default async function PricingPage({
             <tbody>
               {ALL_FEATURES.map((feature) => (
                 <tr key={feature.key}>
-                  <th scope="row" style={{ fontWeight: 500 }}>
+                  <th scope="row" className="table__feature">
                     {feature.name}
                     {!feature.available && (
                       <span className="small muted"> · not yet available</span>
                     )}
-                    <span className="muted small" style={{ display: 'block' }}>
-                      {feature.description}
-                    </span>
+                    <span className="muted small table__feature-desc">{feature.description}</span>
                   </th>
                   {ALL_PLANS.map((plan) => (
                     <td key={plan.slug}>{cell(plan, feature.key)}</td>
@@ -216,9 +360,10 @@ export default async function PricingPage({
             <div>
               <h3>Billing</h3>
               <p className="small">
-                Plans bill monthly in the currency shown, and renew automatically until
-                you cancel. The renewal date and amount are always visible on your
-                subscription page.
+                Plans bill monthly or yearly, in the currency shown, and renew
+                automatically until you cancel. A yearly plan is one payment for twelve
+                months; your monthly allowances still reset every month. The renewal date
+                and amount are always visible on your subscription page.
               </p>
             </div>
             <div>
@@ -232,8 +377,9 @@ export default async function PricingPage({
             <div>
               <h3>Changing plan</h3>
               <p className="small">
-                Upgrades take effect immediately with a prorated charge. Downgrades take
-                effect at the end of your current period, so you keep what you paid for.
+                Upgrades, including a move from monthly to yearly, take effect immediately
+                with a prorated charge. Downgrades take effect at the end of your current
+                period, so you keep what you paid for.
               </p>
             </div>
           </div>
@@ -267,6 +413,12 @@ export default async function PricingPage({
       </section>
 
       <section>
+        <p className="small muted">
+          The full <Link href="/terms">terms of service</Link>,{' '}
+          <Link href="/refunds">refund and cancellation policy</Link> and{' '}
+          <Link href="/privacy">privacy policy</Link> say the same things at greater
+          length.
+        </p>
         <p className="notice notice--accent">
           Prices shown are current for new subscriptions. If we change a price, existing
           subscribers stay on the price they signed up at until we contact them

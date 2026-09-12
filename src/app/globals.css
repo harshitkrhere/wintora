@@ -764,7 +764,14 @@ tbody tr:last-child td {
   gap: 0.75rem;
 }
 .plan__price {
-  font-size: 2.1rem;
+  /* Amount and interval are separate flex items: the interval never breaks
+     mid-phrase, and on a narrow card it drops whole beneath the amount. The
+     size scales with the viewport so CA$399.00 fits a 230px card. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.35rem;
+  font-size: clamp(1.55rem, 1.1rem + 1.2vw, 2.1rem);
   font-weight: 660;
   letter-spacing: -0.03em;
   color: var(--ink-900);
@@ -774,6 +781,7 @@ tbody tr:last-child td {
   color: var(--ink-500);
   font-weight: 400;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 .plan__features {
   list-style: none;
@@ -795,6 +803,256 @@ tbody tr:last-child td {
 }
 .plan__features li.muted::before {
   background: var(--ink-300);
+}
+
+/* The pricing page. Every rule below replaces an inline style: the page is a
+   pure function of the catalog and the URL, and its presentation lives here. */
+.pricing {
+  padding-top: 3rem;
+}
+.pricing__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.25rem;
+}
+.pricing__country {
+  margin: 0;
+}
+
+/* Two links, one current. The state is the URL, so this needs no script and
+   cannot disagree with the prices shown. */
+.interval-switch {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+}
+.interval-switch__option {
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--ink-700);
+  text-decoration: none;
+  /* Reserve the bold width so switching never shifts the layout. */
+  min-width: 6.5rem;
+  text-align: center;
+}
+.interval-switch__option:hover {
+  color: var(--ink-900);
+  text-decoration: none;
+}
+.interval-switch__option[aria-current='page'] {
+  background: var(--surface);
+  color: var(--ink-900);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.plan__head {
+  display: grid;
+  gap: 0.15rem;
+}
+.plan__eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--accent-700);
+}
+.plan__name {
+  font-size: 1.15rem;
+  margin: 0;
+}
+.plan__fit {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink-500);
+  /* Three lines, reserved, so cards line up whatever the sentence length. */
+  min-height: 3.6em;
+}
+.plan__pricing {
+  display: grid;
+  gap: 0.15rem;
+  /* Reserved for the yearly equivalence line, so toggling the interval does
+     not move the feature list. */
+  min-height: 4.6rem;
+}
+.plan__pricing .plan__price,
+.plan__equiv {
+  margin: 0;
+}
+.plan__saving {
+  color: var(--accent-700);
+  font-weight: 600;
+}
+.plan__cta {
+  margin-top: auto;
+}
+.plan__cta-note {
+  margin: 0.6rem 0 0;
+}
+.btn--block {
+  width: 100%;
+}
+
+/* The recommended plan is the one visual emphasis on the page. A border and a
+   label; no scale transform, no badge, no colour wash. */
+.plan--recommended {
+  border-color: var(--accent-600);
+  box-shadow: var(--shadow-md);
+}
+/* The plan a person was choosing before being sent to sign in. */
+.plan--resuming {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+
+.table__feature {
+  font-weight: 500;
+}
+.table__feature-desc {
+  display: block;
+}
+
+/* ------------------------------------------------- app pages: shared parts */
+
+/* A page inside the app shell. Replaces the per-page paddingTop inline style. */
+.page {
+  padding-top: 3rem;
+}
+.page__header {
+  margin-bottom: 2rem;
+}
+.page__title {
+  margin-bottom: 0.35rem;
+}
+.h-small {
+  font-size: 1rem;
+}
+
+/* Card internals. A card's first heading, its lead line, its action row and
+   its closing note, so cards never need inline margins to line up. */
+.card__title {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+.card__title--small {
+  font-size: 0.98rem;
+}
+.card__title--spaced {
+  margin-top: 1.25rem;
+}
+.card__lead {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+.card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.card__last {
+  margin-bottom: 0;
+}
+
+/* Definition list as label / value rows. */
+.dl {
+  margin: 0;
+  font-size: 0.94rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.dl__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.dl__row dt {
+  margin: 0;
+}
+.dl__value {
+  margin: 0;
+  text-align: right;
+}
+
+/* Subscription management controls. */
+.manage {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.manage__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.manage__confirm {
+  display: grid;
+  gap: 0.35rem;
+}
+.manage__confirm-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.manage__confirm .card__actions {
+  margin-top: 0.5rem;
+}
+
+/* Long-form policy pages: readable measure, generous section spacing, and
+   tables that scroll rather than break the page on a phone. */
+.legal section {
+  margin-top: 2.25rem;
+}
+.legal h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.6rem;
+}
+.legal ul,
+.legal ol {
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.45rem;
+}
+.legal p,
+.legal li {
+  font-size: 0.97rem;
+  line-height: 1.6;
+}
+.legal table {
+  display: block;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+.legal th,
+.legal td {
+  vertical-align: top;
+}
+.contact__email {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.contact__address {
+  font-style: normal;
+  white-space: pre-line;
+}
+
+/* Pre-payment disclosures on the checkout page. */
+.disclosures {
+  margin-top: 2rem;
+}
+.disclosures__title {
+  font-size: 1.05rem;
+}
+.disclosures__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
 }
 
 /* ------------------------------------------------------------ forms */

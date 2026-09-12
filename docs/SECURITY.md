@@ -56,7 +56,7 @@ parent. If layer 1 has a bug, layer 2 still returns zero rows.
 The `service_role` key bypasses RLS. It is used only in server-side code paths
 that have already performed an explicit ownership check, and it never appears in
 a client bundle. `scripts/verify-no-secret-leaks.mjs` fails the build if
-`SUPABASE_SERVICE_ROLE_KEY`, `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET` or
+`SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` or
 `OPENROUTER_API_KEY` appears in any file containing `"use client"`, in anything
 under `src/components/`, or behind a `NEXT_PUBLIC_` name. It also scans for the
 literal shapes of live credentials, so a key pasted into a file by accident fails
@@ -175,15 +175,19 @@ ownership check.
 Covered in detail in `docs/BILLING.md`, section 5. The security-relevant
 properties:
 
-- Raw body signature verification before any parsing. Paddle signs
-  `<timestamp>:<raw body>` with HMAC-SHA256 and sends it as `Paddle-Signature`;
-  `verifyPaddleSignature` recomputes it and compares in constant time.
-- Constant-time signature comparison, and a timestamp tolerance that rejects
-  old signatures. The tolerance is 300 seconds rather than Paddle's own 5-second
-  SDK default: five seconds drops legitimate events on a slow network hop, and a
-  dropped billing event means a paying customer does not receive what they
-  bought. The **real** replay defence is the next item, which makes a replay a
-  no-op however old it is.
+- Raw body signature verification before any parsing. Razorpay signs the raw
+  body with HMAC-SHA256 under the webhook secret and sends the hex digest as
+  `X-Razorpay-Signature`; `verifyRazorpayWebhookSignature` recomputes it and
+  compares in constant time.
+- Razorpay signs no timestamp, so freshness comes from the event's own
+  `created_at`, refused beyond three days (wider than Razorpay's retry window,
+  so an honest late retry is never dropped). The **real** replay defence is the
+  next item, which makes a replay a no-op however old it is.
+- The checkout callback is signed separately, over `payment_id|subscription_id`
+  with the **key secret**, and verified in constant time by
+  `/api/billing/verify`, which then reads the subscription back from Razorpay
+  rather than trusting the browser's report. A forged callback can therefore
+  claim nothing.
 - Idempotency on `(provider, event_id)` with a unique constraint, so redelivery
   cannot double-apply.
 - `payload_hash` stored so a modified body reusing a known event id is
@@ -205,12 +209,12 @@ Built in `src/lib/http/csp.ts`, applied by `src/middleware.ts`, and pinned by
 ```
 Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 Content-Security-Policy: default-src 'self';
-  script-src 'self' 'nonce-<per-request>' https://cdn.paddle.com;
-  style-src 'self' 'unsafe-inline' https://*.paddle.com;
+  script-src 'self' 'nonce-<per-request>' https://checkout.razorpay.com;
+  style-src 'self' 'unsafe-inline' https://*.razorpay.com;
   img-src 'self' data: blob:;
   font-src 'self';
-  connect-src 'self' https://*.supabase.co https://*.paddle.com;
-  frame-src https://*.paddle.com;
+  connect-src 'self' https://*.supabase.co https://*.razorpay.com;
+  frame-src https://api.razorpay.com https://checkout.razorpay.com;
   frame-ancestors 'none'; base-uri 'self'; form-action 'self';
   object-src 'none'; worker-src 'self' blob:; upgrade-insecure-requests
 X-Content-Type-Options: nosniff
@@ -225,6 +229,18 @@ on the *request* headers as well as the response, which is how Next.js learns to
 stamp it onto the inline scripts carrying the RSC streaming payload. Without
 that the page renders and never hydrates.
 
+Which responses carry a nonce is decided in `src/middleware.ts` by two lists.
+`PRIVATE_PREFIXES` (dashboard, cases, settings, billing, checkout, upload, api)
+are nonced, `noindex` and `no-store`. `NONCED_PUBLIC_PREFIXES` are public
+pages that are nonetheless dynamically rendered, so they can carry a nonce and
+therefore must: the four auth pages, whose segment layout forces dynamic
+rendering precisely so that a page a person types a password into never runs
+with `'unsafe-inline'` scripts, and `/pricing`, which reads the billing
+interval from the URL and the country from the account. Those stay indexable
+and are served `private, no-store`. Every other public page is statically
+prerendered and falls back to `'unsafe-inline'` for the reason given in
+`src/lib/http/csp.ts`.
+
 **Styles allow `'unsafe-inline'`, and carry no nonce.** Two honest points about
 this:
 
@@ -232,9 +248,10 @@ this:
   `'unsafe-inline'` is **ignored** whenever a nonce or hash is present in the
   same directive. Listing both silently blocks every inline style.
 - It is a real weakening. React emits an inline style for every `style={{...}}`
-  prop and Paddle.js injects its own for the checkout overlay, so the practical
+  prop and checkout.js injects its own for the payment overlay, so the practical
   choice was inline styles or no working checkout. Inline CSS cannot execute
-  code, and `img-src` is restricted to `'self' data: blob:`, which closes the
+  code, and `img-src` is restricted to ourselves and `https://*.razorpay.com`
+  (the overlay's own icons), which closes the
   usual CSS-based exfiltration routes. The stricter fix is to remove every
   inline style prop in favour of classes; that is recorded in
   `docs/LIMITATIONS.md` rather than pretended away.

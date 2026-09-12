@@ -24,7 +24,7 @@
     "db:push": "supabase db push",
     "db:verify": "supabase db query --linked --file supabase/tests/rls_isolation.sql",
     "db:advisors": "supabase db advisors --linked --type security",
-    "paddle:seed": "node scripts/seed-paddle.mjs",
+    "razorpay:seed": "node scripts/seed-razorpay.mjs",
     "ai:models": "node scripts/openrouter-models.mjs",
     "ai:smoke": "node scripts/ai-smoke.mjs",
     "ocr:smoke": "node scripts/ocr-smoke.mjs",

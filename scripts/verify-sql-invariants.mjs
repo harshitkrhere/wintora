@@ -180,7 +180,7 @@ function checkDomainPurity(files) {
     if (/\bfetch\s*\(/.test(content)) {
       fail('purity', path, 'domain performs network I/O');
     }
-    if (/from\s+['"]@supabase|from\s+['"]@paddle/.test(content)) {
+    if (/from\s+['"]@supabase|from\s+['"]razorpay/.test(content)) {
       fail('purity', path, 'domain imports a provider SDK directly');
     }
   }

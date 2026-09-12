@@ -55,6 +55,21 @@ export const POLICY = {
     partialRefundEffect: 'NONE' as const,
     /** A chargeback revokes and records a security event. */
     disputeEffect: 'REVOKE_IMMEDIATELY' as const,
+    /**
+     * The promise made to customers on /refunds. Under a gateway the refund
+     * decision is ours, so this is a commercial policy rather than a reaction
+     * to a reseller's terms. Generous on purpose: a stressed person who bought
+     * the wrong thing should get their money back without an argument, and a
+     * refund costs far less than a chargeback on a young merchant account.
+     */
+    customer: {
+      /** Full refund of the FIRST payment on a subscription, on request. */
+      firstChargeWindowDays: 14,
+      /** Full refund of a renewal charge, on request, within this many days. */
+      renewalWindowDays: 7,
+      /** The processor's range for the money to reach the card once issued. */
+      returnBusinessDays: '5 to 10',
+    },
   },
 
   pause: {
@@ -62,6 +77,17 @@ export const POLICY = {
     maxDays: 90,
     /** A paused subscription is not being paid for, so entitlements drop to free. */
     entitlementsDuringPause: 'free' as const,
+  },
+
+  checkout: {
+    /**
+     * How long a started checkout stays open. The provider-side subscription
+     * is created when the customer clicks, so that they cannot pay for a plan
+     * the browser chose; it is reused if they click again within this window
+     * and abandoned after it, so a hesitant customer does not leave a trail of
+     * half-created subscriptions.
+     */
+    pendingTtlMinutes: 60,
   },
 
   trials: {

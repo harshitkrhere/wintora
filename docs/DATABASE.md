@@ -181,7 +181,7 @@ erDiagram
 create table subscriptions (
   id                        uuid primary key default gen_random_uuid(),
   user_id                   uuid not null references auth.users(id) on delete cascade,
-  provider                  billing_provider not null default 'paddle',
+  provider                  billing_provider not null default 'razorpay',
   provider_customer_id      text not null,
   provider_subscription_id  text unique,
   plan_id                   uuid not null references plans(id),

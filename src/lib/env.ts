@@ -17,8 +17,6 @@ const publicSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
-  /** Paddle's client-side token. Public by design, like a publishable key. */
-  NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: z.string().optional(),
   NEXT_PUBLIC_ANALYTICS_DOMAIN: z.string().optional(),
   NEXT_PUBLIC_ANALYTICS_SCRIPT_URL: z.string().optional(),
 });
@@ -34,20 +32,24 @@ const serverSchema = z.object({
   SUPABASE_DB_URL: z.string().optional(),
   SUPABASE_DOCUMENTS_BUCKET: z.string().default('user-documents'),
 
-  // Paddle is a Merchant of Record: the legal seller to the customer. See
-  // docs/BILLING.md. Stripe is not used: it is invite-only in India.
-  PAYMENT_PROVIDER: z.enum(['paddle']).default('paddle'),
-  PADDLE_API_KEY: z.string().optional(),
-  PADDLE_WEBHOOK_SECRET: z.string().optional(),
-  PADDLE_ENVIRONMENT: z.enum(['sandbox', 'production']).default('sandbox'),
+  // Razorpay is the only payment provider with an adapter, so there is no
+  // PAYMENT_PROVIDER switch: a switch with one position is a place for stale
+  // configuration to hide. Razorpay is a gateway, not a Merchant of Record;
+  // the operator is the legal seller (docs/BILLING.md). Test and live modes are
+  // told apart by the key id prefix (rzp_test_ / rzp_live_).
+  /** Public by design: checkout.js is given it in the browser. */
+  RAZORPAY_KEY_ID: z.string().regex(/^rzp_(test|live)_[A-Za-z0-9]+$/).optional(),
+  /** Server-only. Authenticates the API and verifies the checkout callback. */
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  /** Server-only. Verifies the X-Razorpay-Signature on every webhook. */
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   /**
-   * Paddle's own SDKs default to 5 seconds, which is tight for a public
-   * network hop and drops legitimate events. A dropped billing event means a
-   * paying customer does not get what they bought. The real replay defence is
-   * the unique (provider, event_id) constraint, so this is defence in depth
-   * and is set wide enough not to reject honest traffic.
+   * Razorpay signs no timestamp, so freshness comes from the event's own
+   * created_at. Razorpay retries a failed delivery with backoff for about a
+   * day; three days accepts every honest retry. The real replay defence is the
+   * unique (provider, event_id) constraint, so this is defence in depth.
    */
-  PADDLE_WEBHOOK_TOLERANCE_SECONDS: z.coerce.number().int().positive().default(300),
+  RAZORPAY_EVENT_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(259_200),
 
   /**
    * OpenRouter by default: it brokers free model endpoints, and the operator is
@@ -210,7 +212,6 @@ export function publicEnv(): PublicEnv {
         NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
         NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
         NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN,
         NEXT_PUBLIC_ANALYTICS_DOMAIN: process.env.NEXT_PUBLIC_ANALYTICS_DOMAIN,
         NEXT_PUBLIC_ANALYTICS_SCRIPT_URL: process.env.NEXT_PUBLIC_ANALYTICS_SCRIPT_URL,
       }),
@@ -250,10 +251,12 @@ export function isConfigured(
         env.SUPABASE_SERVICE_ROLE_KEY !== undefined
       );
     case 'payments':
-      // Both are required: without the webhook secret the endpoint fails
+      // All three are required: without the webhook secret the endpoint fails
       // closed, so checkout would succeed and entitlements would never arrive.
       return (
-        env.PADDLE_API_KEY !== undefined && env.PADDLE_WEBHOOK_SECRET !== undefined
+        env.RAZORPAY_KEY_ID !== undefined &&
+        env.RAZORPAY_KEY_SECRET !== undefined &&
+        env.RAZORPAY_WEBHOOK_SECRET !== undefined
       );
     case 'ai':
       // Each provider needs its own key. A key for the provider that is not

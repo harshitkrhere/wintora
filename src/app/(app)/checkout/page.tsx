@@ -1,25 +1,30 @@
 /**
  * /checkout
  *
- * The **default payment link** configured in Paddle must point here.
+ * Opens the payment form for the checkout THIS user started.
  *
- * Paddle Billing has no fully-hosted checkout: `transaction.checkout.url` is
- * this URL with `?_ptxn=<transaction id>` appended, and this page opens the
- * overlay. Without it, `/api/billing/checkout` redirects somewhere that does
- * not exist.
+ * There is no transaction reference in the URL to validate or to leak. The
+ * page finds the signed-in user's own CHECKOUT_PENDING subscription, created
+ * by /api/billing/checkout against a price resolved from `plan_prices`, and
+ * hands its id to the browser along with the provider's public key. Someone
+ * else's checkout cannot be opened here because it is never looked up.
  *
- * The page grants nothing and charges nothing. It opens a transaction the
- * server already created against a price resolved from `plan_prices`.
+ * The page grants nothing and charges nothing. Razorpay's form charges; the
+ * verified callback and the signed webhook grant.
  *
- * noindex: a checkout URL carries a transaction reference and has no business
- * in a search index.
+ * noindex: a checkout page has no business in a search index.
  */
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { PaddleCheckout } from '@/components/PaddleCheckout';
+import { redirect } from 'next/navigation';
+import { RazorpayCheckout } from '@/components/RazorpayCheckout';
 import { CHECKOUT_DISCLOSURES, CHECKOUT_DISCLOSURE_ORDER } from '@/config/disclosures';
-import { publicEnv, serverEnv } from '@/lib/env';
+import { PLANS, formatPrice, isPlanSlug, type BillingInterval, type CurrencyCode } from '@/config/plans';
+import { POLICY } from '@/config/policy';
+import { optionalUser } from '@/lib/http/api';
+import { razorpayKeyId } from '@/lib/payments';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Checkout',
@@ -28,46 +33,79 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function CheckoutPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}): Promise<React.ReactElement> {
-  const params = (await searchParams) ?? {};
+interface PendingRow {
+  provider_subscription_id: string | null;
+  amount_cents: number;
+  currency: string;
+  billing_interval: BillingInterval;
+  created_at: string;
+  plans: { slug: string } | null;
+}
 
-  // Paddle appends _ptxn. Accept only a single well-formed value.
-  const raw = params._ptxn;
-  const candidate = Array.isArray(raw) ? raw[0] : raw;
-  const transactionId =
-    typeof candidate === 'string' && /^txn_[A-Za-z0-9]+$/.test(candidate)
-      ? candidate
-      : null;
+export default async function CheckoutPage(): Promise<React.ReactElement> {
+  const user = await optionalUser();
+  if (user === null) redirect('/signin?next=%2Fcheckout');
 
-  const clientToken = publicEnv().NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? null;
-  const environment = serverEnv().PADDLE_ENVIRONMENT;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('subscriptions')
+    .select('provider_subscription_id, amount_cents, currency, billing_interval, created_at, plans!subscriptions_plan_id_fkey(slug)')
+    .eq('user_id', user.id)
+    .eq('status', 'CHECKOUT_PENDING')
+    .maybeSingle();
+
+  const pending = data as unknown as PendingRow | null;
+  const ttlMs = POLICY.checkout.pendingTtlMinutes * 60 * 1000;
+  const fresh =
+    pending !== null && Date.now() - new Date(pending.created_at).getTime() < ttlMs;
+
+  if (pending === null || pending.provider_subscription_id === null || !fresh) {
+    return (
+      <div className="narrow page">
+        <p className="eyebrow">Checkout</p>
+        <h1>No checkout in progress</h1>
+        <p className="lede">
+          {pending !== null && !fresh
+            ? 'That checkout has expired. Nothing was charged.'
+            : 'Choose a plan first, and the payment form will open here.'}
+        </p>
+        <Link href="/pricing" className="btn btn--primary">
+          See plans
+        </Link>
+      </div>
+    );
+  }
+
+  const slug = pending.plans?.slug;
+  const planName = slug !== undefined && isPlanSlug(slug) ? PLANS[slug].displayName : 'your plan';
+  const currency: CurrencyCode = pending.currency === 'CAD' ? 'CAD' : 'USD';
+  const price = formatPrice(pending.amount_cents, currency);
+  const description = `${planName} plan, ${price} every ${pending.billing_interval}`;
 
   return (
-    <div className="narrow" style={{ paddingTop: '3rem' }}>
+    <div className="narrow page">
       <p className="eyebrow">Checkout</p>
-      <h1 style={{ marginBottom: '0.35rem' }}>Complete your subscription</h1>
+      <h1 className="page__title">Complete your subscription</h1>
       <p className="lede">
-        The secure payment form opens on this page. Your card details go straight to
-        the payment provider and never touch Wintora.
+        {planName}: <strong>{price}</strong> every {pending.billing_interval}, in{' '}
+        {currency}. The secure payment form opens on this page. Your card details go
+        straight to Razorpay and never touch Wintora.
       </p>
 
-      <PaddleCheckout
-        transactionId={transactionId}
-        clientToken={clientToken}
-        environment={environment}
-        planName={typeof params.plan === 'string' ? params.plan : null}
+      <RazorpayCheckout
+        keyId={razorpayKeyId()}
+        subscriptionId={pending.provider_subscription_id}
+        planName={planName}
+        description={description}
+        email={user.email}
       />
 
       {/* Consumer-law disclosures, shown BEFORE the customer pays rather than
           buried in Terms. Rendered from the registry in the declared order, so
           a redesign cannot quietly drop one. */}
-      <section style={{ marginTop: '2rem' }}>
-        <h2 style={{ fontSize: '1.05rem' }}>Before you pay</h2>
-        <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: '0.6rem' }}>
+      <section className="disclosures">
+        <h2 className="disclosures__title">Before you pay</h2>
+        <ul className="disclosures__list">
           {CHECKOUT_DISCLOSURE_ORDER.map((key) => (
             <li key={key} className="small muted">
               {CHECKOUT_DISCLOSURES[key]}
@@ -76,7 +114,7 @@ export default async function CheckoutPage({
         </ul>
       </section>
 
-      <p className="notice" style={{ marginTop: '1.5rem' }}>
+      <p className="notice">
         Changed your mind? <Link href="/pricing">Go back to plans</Link>. Nothing is
         charged until you complete the form above.
       </p>

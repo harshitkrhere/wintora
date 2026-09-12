@@ -2,21 +2,28 @@
  * The payment provider port.
  *
  * Everything the application needs from a billing provider, expressed without
- * naming one. Stripe is an adapter; a Merchant of Record is another adapter.
- * The state machine, entitlement engine, metering and policy never see either.
+ * naming one. Razorpay is an adapter. The state machine, entitlement engine,
+ * metering and policy never see it.
  *
  * This exists because the provider is the one component of Wintora most likely
  * to be forced to change for reasons that have nothing to do with the product:
  * availability in a founder's country, underwriting decisions, or a provider
- * shutting down. Those should cost one file, not a rewrite.
+ * shutting down. It has already changed twice (Stripe, then Paddle, now
+ * Razorpay). Each change should cost one adapter, not a rewrite.
  *
  * Pure module: types and contracts only, no I/O.
  */
 
-import type { CountryCode, CurrencyCode, PlanSlug } from '@/config/plans';
+import type { BillingInterval, CountryCode, CurrencyCode, PlanSlug } from '@/config/plans';
 import type { SubscriptionStatus } from './states';
 
-export const PAYMENT_PROVIDERS = ['stripe', 'paddle', 'dodo', 'kelviq'] as const;
+/**
+ * The providers the application knows how to talk to. The database enum
+ * `billing_provider` also carries historical values ('stripe', 'paddle',
+ * 'apple', 'google') because Postgres cannot drop an enum value in place; no
+ * code path writes them and no adapter exists for them.
+ */
+export const PAYMENT_PROVIDERS = ['razorpay'] as const;
 export type ProviderName = (typeof PAYMENT_PROVIDERS)[number];
 
 /**
@@ -25,12 +32,12 @@ export type ProviderName = (typeof PAYMENT_PROVIDERS)[number];
  *
  *   - An MoR remits sales tax, VAT and GST itself, which removes most of the
  *     tax obligation but also means the customer's contract is with them.
- *   - Refunds and chargebacks are theirs to decide, so our refund policy
- *     becomes a reaction to their decision rather than our own.
- *   - Migrating away is harder, because the subscriptions are contracted with
- *     them and cannot simply be ported.
+ *   - Under a gateway, WE are the seller. The customer contracts with the
+ *     operator, the operator's name should appear on the statement, refunds
+ *     are the operator's decision, and any consumption tax where the customer
+ *     lives is the operator's obligation once a threshold is crossed.
  *
- * Recorded on the subscription so the billing page can tell a customer who
+ * Recorded on the provider so the billing page can tell a customer who
  * actually charged them, which some jurisdictions require.
  */
 export type ProviderModel = 'GATEWAY' | 'MERCHANT_OF_RECORD';
@@ -39,12 +46,14 @@ export interface ProviderCapabilities {
   readonly model: ProviderModel;
   /** Signed webhooks. Required: see `webhookSupport` below. */
   readonly webhooks: boolean;
-  /** Provider hosts a self-service billing portal we can link to. */
-  readonly hostedPortal: boolean;
-  /** Proration on mid-period upgrades. Without it, upgrades need a policy. */
+  /** Proration on mid-period plan changes, handled by the provider. */
   readonly proration: boolean;
   /** Schedule a plan change for period end rather than applying it now. */
   readonly scheduledPlanChange: boolean;
+  /** Pause and resume a live subscription. */
+  readonly pause: boolean;
+  /** Undo a cancellation that is scheduled for period end. */
+  readonly undoScheduledCancel: boolean;
   /** Provider remits sales tax / VAT / GST itself. True for every MoR. */
   readonly remitsTax: boolean;
   readonly currencies: readonly CurrencyCode[];
@@ -91,9 +100,16 @@ export interface NormalizedEvent {
   readonly kind: ProviderEventKind | null;
   readonly occurredAt: Date;
   readonly subscription?: ProviderSubscription;
+  readonly payment?: ProviderPayment;
   readonly invoice?: ProviderInvoice;
   readonly refund?: ProviderRefund;
   readonly customerRef?: string;
+  /**
+   * The provider's payment id this event is about, when it carries no
+   * subscription or customer. Refunds and disputes reference a payment, and
+   * the `payments` table maps a payment back to its user.
+   */
+  readonly paymentRef?: string;
   /** Our user id, when the provider carries it in metadata. */
   readonly userId?: string;
 }
@@ -122,12 +138,37 @@ export interface ProviderSubscription {
   readonly amountCents: number;
   readonly currentPeriodStart: Date | null;
   readonly currentPeriodEnd: Date | null;
-  readonly cancelAtPeriodEnd: boolean;
+  /**
+   * Whether a cancellation is scheduled for period end. Null when the provider
+   * does not expose it on the object; our own record is then authoritative.
+   */
+  readonly cancelAtPeriodEnd: boolean | null;
   readonly canceledAt: Date | null;
   readonly trialStart: Date | null;
   readonly trialEnd: Date | null;
-  /** Provider's own last-modified time, for out-of-order protection. */
+  /**
+   * Provider's own last-modified time, for out-of-order protection. Providers
+   * that do not stamp one on the object use the event time instead.
+   */
   readonly updatedAt: Date;
+}
+
+/**
+ * One charge. Never a card number: brand and last four only, exactly as the
+ * provider returns them. `payments_no_pan` in the database enforces the same.
+ */
+export interface ProviderPayment {
+  readonly providerPaymentId: string;
+  readonly providerInvoiceId: string | null;
+  readonly amountCents: number;
+  readonly currency: CurrencyCode;
+  /** Provider's own status string, kept verbatim. */
+  readonly status: string;
+  readonly method: string | null;
+  readonly cardBrand: string | null;
+  readonly cardLast4: string | null;
+  readonly failureCode: string | null;
+  readonly createdAt: Date;
 }
 
 export interface ProviderInvoice {
@@ -142,6 +183,8 @@ export interface ProviderInvoice {
   readonly pdfUrl: string | null;
   readonly periodStart: Date | null;
   readonly periodEnd: Date | null;
+  readonly issuedAt: Date | null;
+  readonly paidAt: Date | null;
 }
 
 export interface ProviderRefund {
@@ -161,36 +204,44 @@ export interface CheckoutRequest {
   readonly userId: string;
   readonly email: string | null;
   readonly planSlug: PlanSlug;
+  readonly interval: BillingInterval;
   readonly country: CountryCode;
   /** Resolved server-side from `plan_prices`. Never supplied by a client. */
   readonly providerPriceId: string;
   readonly providerCustomerId: string | null;
   /** Stable across retries of the same attempt. Not a timestamp. */
   readonly attemptKey: string;
-  /**
-   * The page in THIS application that hosts the payment overlay.
-   *
-   * Distinct from `successUrl`, and the distinction is not cosmetic. A provider
-   * that hosts checkout on the merchant's own domain (Paddle does) appends its
-   * transaction reference to this URL and sends the customer here TO PAY.
-   * Passing the success URL instead sends them to a "thank you" page for a
-   * transaction they never paid, which is worse than an error because it looks
-   * like it worked.
-   */
-  readonly checkoutUrl: string;
-  /** Where the customer lands after paying. */
-  readonly successUrl: string;
-  readonly cancelUrl: string;
+  /** What the price row says will be charged, for the checkout display. */
+  readonly amountCents: number;
+  readonly currency: CurrencyCode;
+  /** How long the customer has to complete payment before the session lapses. */
+  readonly expiresAt: Date;
 }
 
+/**
+ * A checkout the provider has prepared and we host. The browser opens it with
+ * the provider's public key and this reference; it cannot change the plan, the
+ * amount or the currency, all of which were fixed server-side.
+ */
 export interface CheckoutResult {
-  readonly url: string;
-  readonly sessionId: string;
+  readonly providerSubscriptionId: string;
+  readonly amountCents: number;
+  readonly currency: CurrencyCode;
+  readonly expiresAt: Date | null;
+}
+
+/** What the browser hands back after the provider's checkout completes. */
+export interface CheckoutCallback {
+  readonly providerPaymentId: string;
+  readonly providerSubscriptionId: string;
+  readonly signature: string;
 }
 
 export interface PlanChangeRequest {
   readonly providerSubscriptionId: string;
   readonly newProviderPriceId: string;
+  /** The interval of the new price, for providers that count billing cycles. */
+  readonly newInterval: BillingInterval;
   /** Upgrades apply now with proration; downgrades at period end. */
   readonly isUpgrade: boolean;
 }
@@ -227,19 +278,35 @@ export interface PaymentProvider {
   /** Find or create the provider-side customer, returning its reference. */
   ensureCustomer(user: { id: string; email: string | null }): Promise<string>;
 
+  /** Prepare a subscription for the customer to authorise in the browser. */
   createCheckout(request: CheckoutRequest): Promise<CheckoutResult>;
 
-  /** Link to the provider's hosted billing portal, if it has one. */
-  createPortalSession(providerCustomerId: string, returnUrl: string): Promise<{ url: string }>;
+  /**
+   * Verify what the browser reports after checkout. Must throw on a bad or
+   * absent signature. A verified callback proves the payment happened; it does
+   * not by itself grant anything, because the subscription state is then read
+   * back from the provider.
+   */
+  verifyCheckoutCallback(callback: CheckoutCallback): void;
 
   changePlan(request: PlanChangeRequest): Promise<PlanChangeResult>;
 
   cancelAtPeriodEnd(providerSubscriptionId: string): Promise<ProviderSubscription>;
 
+  cancelImmediately(providerSubscriptionId: string): Promise<ProviderSubscription>;
+
+  /** Undo a cancellation scheduled for period end, where the provider allows it. */
   reactivate(providerSubscriptionId: string): Promise<ProviderSubscription>;
 
-  /** Read current provider state. Used by reconciliation. */
+  pause(providerSubscriptionId: string): Promise<ProviderSubscription>;
+
+  resume(providerSubscriptionId: string): Promise<ProviderSubscription>;
+
+  /** Read current provider state. Used by reconciliation and after checkout. */
   getSubscription(providerSubscriptionId: string): Promise<ProviderSubscription | null>;
+
+  /** The provider's invoices for a subscription, newest first. */
+  listInvoices(providerSubscriptionId: string): Promise<readonly ProviderInvoice[]>;
 
   /**
    * Verify a webhook against the raw request bytes and translate it.

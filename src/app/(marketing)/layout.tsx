@@ -61,8 +61,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </ul>
             </div>
             <div>
-              <h3>Contact</h3>
+              <h3>Legal</h3>
               <ul>
+                <li><Link href="/terms">Terms of service</Link></li>
+                <li><Link href="/privacy">Privacy policy</Link></li>
+                <li><Link href="/refunds">Refunds and cancellation</Link></li>
+                <li><Link href="/contact">Contact</Link></li>
                 {OPERATOR.contactEmail ? (
                   <li><a href={`mailto:${OPERATOR.contactEmail}`}>{OPERATOR.contactEmail}</a></li>
                 ) : null}

@@ -107,6 +107,22 @@ export async function parseBody<T extends z.ZodTypeAny>(
   return result.data;
 }
 
+/**
+ * The signed-in user, or null. For pages that render for everyone but can do
+ * better with an account: reading it makes the page dynamic, so it must not be
+ * called from anything that is meant to be statically prerendered.
+ */
+export async function optionalUser(): Promise<AuthedContext['user'] | null> {
+  const cookieStore = await cookies();
+  const client = createUserClient({
+    get: (name) => cookieStore.get(name),
+    set: (name, value, options) => {
+      cookieStore.set(name, value, options);
+    },
+  });
+  return getCurrentUser(client);
+}
+
 /** Resolve the signed-in user, or throw 401. */
 export async function requireUser(): Promise<AuthedContext['user']> {
   const cookieStore = await cookies();

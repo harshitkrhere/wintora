@@ -8,7 +8,11 @@
  *   2. Verify the signature. The adapter does this, because only it knows the
  *      provider's scheme.
  *   3. Claim the event on (provider, event_id). A unique violation means
- *      redelivery: return 200 and change nothing.
+ *      redelivery. If the first attempt was processed, return 200 and change
+ *      nothing. If it FAILED, the provider is retrying exactly as we asked it
+ *      to by returning 500, so the retry is let through: a claim that could
+ *      never be released would turn every transient failure into a customer
+ *      who paid and received nothing.
  *   4. Reject stale events using the provider's own object timestamp, so a late
  *      delivery cannot roll a subscription backwards.
  *   5. Dispatch on the NORMALISED event kind, so handlers contain no
@@ -42,12 +46,14 @@ export function hashPayload(rawBody: string | Buffer): string {
   return createHash('sha256').update(rawBody).digest('hex');
 }
 
-export type ClaimResult = 'NEW' | 'DUPLICATE';
+/** RETRY: the event was seen before and its handler failed; process it again. */
+export type ClaimResult = 'NEW' | 'DUPLICATE' | 'RETRY';
 
 export interface WebhookEventStore {
   /**
-   * Insert the event row. Returns DUPLICATE on a unique violation, which IS
-   * the idempotency mechanism. Must not throw on a duplicate.
+   * Insert the event row. On a unique violation, which IS the idempotency
+   * mechanism, return DUPLICATE if the earlier attempt completed and RETRY if
+   * it failed. Must not throw on a duplicate.
    */
   claim(event: {
     provider: ProviderName;
@@ -83,7 +89,8 @@ export async function processWebhookEvent(
 ): Promise<ProcessResult> {
   const base = { eventId: event.eventId, eventType: event.rawType };
 
-  // 3. Claim. A redelivery stops here having changed nothing.
+  // 3. Claim. A redelivery of a completed event stops here having changed
+  //    nothing; a redelivery of a failed one is the retry we asked for.
   const claim = await store.claim({
     provider,
     eventId: event.eventId,
@@ -143,7 +150,14 @@ export function createInMemoryWebhookStore(): WebhookEventStore & {
       applied.set(subscriptionId, at);
     },
     async claim(event): Promise<ClaimResult> {
-      if (events.has(event.eventId)) return 'DUPLICATE';
+      const existing = events.get(event.eventId);
+      if (existing !== undefined) {
+        if (existing.status.startsWith('FAILED')) {
+          existing.status = 'RECEIVED';
+          return 'RETRY';
+        }
+        return 'DUPLICATE';
+      }
       events.set(event.eventId, { status: 'RECEIVED', payloadHash: event.payloadHash });
       return 'NEW';
     },

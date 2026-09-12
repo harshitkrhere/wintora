@@ -37,7 +37,7 @@ select 1 as step, 'webhook' as item,
 from webhooks
 
 union all
--- 2. Paddle customer linked to the account, written before payment.
+-- 2. Razorpay customer linked to the account, written before payment.
 select 2, 'customer',
        provider || ' ' || provider_customer_id, '1', created_at::text
 from public.billing_customers
@@ -64,7 +64,7 @@ union all
 select 5, 'VERDICT',
   case
     when not exists (select 1 from public.webhook_events)
-      then 'No webhook has ever arrived. Check the Paddle notification destination and signing secret.'
+      then 'No webhook has ever arrived. Check the Razorpay webhook URL and secret.'
     when exists (select 1 from public.webhook_events where status = 'FAILED')
       then 'A webhook arrived and the handler FAILED. See error_class in webhook_events.'
     when not exists (select 1 from subs)

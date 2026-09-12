@@ -56,75 +56,79 @@ Copy into your environment:
 
 ---
 
-## 3. Paddle
+## 3. Razorpay
 
-Paddle is a **Merchant of Record**: the legal seller of every subscription. See
-`docs/BILLING.md`. Stripe is not used, because it is invite-only in India where
-this service is operated from.
+Razorpay is a **payment gateway**, not a Merchant of Record: the operator is the
+legal seller of every subscription. See `docs/BILLING.md`. Everything below is
+done in the Razorpay dashboard with **test-mode keys** first; a live key should
+not exist anywhere until the section 13 matrix in BILLING.md has passed.
 
-Sandbox and live are **separate accounts with separate dashboards and separate
-keys**. Develop against `sandbox-vendors.paddle.com`; live credentials will not
-authenticate there and vice versa.
+1. **KYC and International Payments.** Complete account activation, then
+   Account & Settings → International payments → activate **International
+   Cards**. Wintora sells only in USD and CAD, so without this no customer can
+   pay. Razorpay's documentation restricts international cards to registered
+   businesses; expect to need a sole-proprietorship registration (an Udyam
+   certificate is free) and to describe the product plainly: consumer software
+   about medical bills, no debt collection, no negotiation, no advice, no
+   patient payments through the product.
+2. **API keys.** Account & Settings → API Keys. Put them in `.env.local`
+   (never in the repository):
 
-Marked `PAYMENT_REVIEW_REQUIRED` in `docs/LIMITATIONS.md`. Until it is done,
-`resolvePriceId` throws rather than charging a default amount, which is the
-intended behaviour.
-
-1. **Business verification.** Paddle underwrites every seller. Disclose plainly
-   that this is consumer software about medical bills, and equally plainly what
-   it is not: no debt collection, no negotiation, no legal or medical advice, no
-   patient payments, no money moving through the product. Under-describing a
-   business is grounds for termination and withheld payouts.
-
-2. **Credentials**, from Developer Tools → Authentication:
-
-   | Value | Env var | Prefix |
+   | Value | Variable | Shape |
    | --- | --- | --- |
-   | API key | `PADDLE_API_KEY` | `pdl_sdbx_apikey_` / `pdl_live_apikey_` |
-   | Client-side token | `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | `test_` / `live_` |
-   | Notification secret | `PADDLE_WEBHOOK_SECRET` | `pdl_ntfset_` |
+   | Key id | `RAZORPAY_KEY_ID` | `rzp_test_…` / `rzp_live_…` (public) |
+   | Key secret | `RAZORPAY_KEY_SECRET` | no fixed prefix (server-only) |
+   | Webhook secret | `RAZORPAY_WEBHOOK_SECRET` | whatever you set on the webhook (server-only) |
 
-   The client-side token is public by design, like a publishable key: it can
-   open a checkout for a transaction that already exists, and cannot create one
-   or change a price.
-
-3. **Products and prices**:
+   Test and live are told apart by the key id prefix. `npm run doctor` warns
+   about a live key outside production.
+3. **Plans.** Razorpay Plans are created from `plan_prices`, never by hand:
 
    ```bash
-   npm run paddle:seed            # dry run
-   npm run paddle:seed -- --apply # create them
+   npm run razorpay:seed            # dry run
+   npm run razorpay:seed -- --apply # create them
    ```
 
-   Creates one Product per paid plan and one Price per currency, then writes the
-   ids into `plans.provider_product_id` and `plan_prices.provider_price_id`.
-   Amounts come from `plan_prices`, so Paddle cannot drift from what the backend
-   enforces. It is idempotent: re-running adopts what already exists.
-
-4. **Default payment link**, under Checkout → Checkout settings:
-
-   ```
-   https://<your-deployment>/checkout
-   ```
-
-   Paddle Billing has **no fully-hosted checkout**. `transaction.checkout.url` is
-   this link with `?_ptxn=<id>` appended, and `/checkout` in this app opens the
-   overlay. Without it Paddle returns no checkout URL at all.
-
-5. **Notification destination** → `https://<your-deployment>/api/webhooks/paddle`,
-   subscribed to the 13 events in `docs/BILLING.md` section 5. Store its secret
-   in `PADDLE_WEBHOOK_SECRET`. The endpoint fails closed without it, so checkout
-   would succeed and entitlements would never arrive.
-
+   One Plan per (plan, country, currency, interval); ids are written back to
+   `plan_prices.provider_price_id`. Until a row has an id, checkout refuses to
+   sell it. Amounts come from the database, so Razorpay cannot drift from what
+   the backend enforces.
+4. **Webhook.** Settings → Webhooks → Add:
+   URL `https://<your-deployment>/api/webhooks/razorpay`, a secret of your own
+   choosing (copy it into `RAZORPAY_WEBHOOK_SECRET`), and exactly the events
+   listed in `docs/BILLING.md` section 5. The endpoint fails closed without
+   the secret, so a customer could pay and never receive their plan.
+5. **Checkout** needs no dashboard configuration. `/checkout` opens
+   checkout.js for the signed-in customer's own pending subscription; there is
+   no payment link and no approved-domain step.
 6. **Statement descriptor** — confirm against a real test transaction and update
    `src/config/disclosures.ts`. An unrecognised descriptor is one of the
    commonest causes of consumer chargebacks.
 
 Wintora never stores a card number, CVC or PAN. Collection happens entirely in
-Paddle's checkout and portal.
+Razorpay's checkout iframe. The `payments` table keeps brand and last four only.
+
+### Going live
+
+Test and live are separate worlds at Razorpay: separate key pairs, separate
+webhooks with separate secrets, and separate Plans. Going live is therefore
+three steps, in this order, and only after the manual matrix in
+`docs/BILLING.md` section 13 has passed in test mode:
+
+1. Put the **live** key pair in the production secret store (never in the
+   repository or `.env.local`). `npm run doctor` warns about a live key
+   anywhere outside production.
+2. Create a **live-mode webhook** in the dashboard with a new secret, and set
+   `RAZORPAY_WEBHOOK_SECRET` in production to that.
+3. Re-run `npm run razorpay:seed -- --apply` against production with the live
+   keys. The script checks every stored Plan id against the current key,
+   reports the test-mode ones as `stale-id`, and recreates them in live mode.
+   Until it has run, checkout refuses every paid plan, which is the correct
+   failure.
 
 ### Local webhook testing
 
-Paddle cannot reach `localhost`. Either deploy (see 4a, recommended) or tunnel:
+Razorpay cannot reach `localhost`. Either deploy (see 4a, recommended) or tunnel:
 
 ```bash
 npx cloudflared tunnel --url http://localhost:3000
@@ -135,9 +139,9 @@ npm run tunnel -- --apply
 ```
 
 That reads the hostname from cloudflared's local metrics server, writes
-`NEXT_PUBLIC_APP_URL`, and prints the two URLs to paste into Paddle. A quick
-tunnel gets a **new hostname on every restart**, and three places need updating
-each time, which is the main argument for deploying instead.
+`NEXT_PUBLIC_APP_URL`, and prints the webhook URL to paste into Razorpay. A
+quick tunnel gets a **new hostname on every restart**, which is the main
+argument for deploying instead.
 
 ---
 
@@ -149,9 +153,9 @@ Every name is documented in `.env.example`. The security-relevant ones:
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser | Safe only because RLS is enabled and forced |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server | Bypasses RLS. Treat as the most sensitive value in the system |
-| `PADDLE_API_KEY` | Server | Sandbox and live keys are not interchangeable |
-| `PADDLE_WEBHOOK_SECRET` | Server | Endpoint fails closed without it |
-| `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | Browser | Public by design; opens a checkout, cannot create one |
+| `RAZORPAY_KEY_ID` | Server, and handed to the browser by the checkout page | Public by design; opens a checkout, cannot create one |
+| `RAZORPAY_KEY_SECRET` | Server | Authenticates the API and verifies checkout callbacks |
+| `RAZORPAY_WEBHOOK_SECRET` | Server | Endpoint fails closed without it |
 | `CRON_SECRET` | Server | Cron routes fail closed without it |
 | `LOG_HASH_SECRET` | Server | Keys the opaque user reference in logs. Rotating it breaks correlation with older logs, which is the intended trade |
 | `SAFE_MODE` | Server | `true` stops document processing while keeping auth, billing and export working |
@@ -164,8 +168,8 @@ Never in the repository, never in a build argument, never in a log.
 | Secret | Procedure |
 | --- | --- |
 | `SUPABASE_SERVICE_ROLE_KEY` | Rotate in the Supabase dashboard, update the secret store, redeploy. No downtime: the old key stays valid until revoked. |
-| `PADDLE_API_KEY` | Create a new key, deploy, then revoke the old one. |
-| `PADDLE_WEBHOOK_SECRET` | Add a second notification destination with the new secret, deploy, verify events arrive, remove the old destination. |
+| `RAZORPAY_KEY_SECRET` | Regenerate the key pair in the dashboard (this changes the key id too), deploy both, then the old pair stops working. Brief window: do it at a quiet hour. |
+| `RAZORPAY_WEBHOOK_SECRET` | Add a second webhook with the new secret, deploy, verify events arrive, remove the old webhook. |
 | `CRON_SECRET` | Update the scheduler and the application together; a mismatch fails closed, which is safe. |
 | `LOG_HASH_SECRET` | Rotate on a schedule. Old logs stop correlating, which is acceptable. |
 
@@ -173,7 +177,7 @@ Never in the repository, never in a build argument, never in a log.
 
 ## 4a. Deploying to Vercel
 
-The first deploy is what gives you a stable HTTPS URL, which is what Paddle
+The first deploy is what gives you a stable HTTPS URL, which is what Razorpay
 webhooks need. A cloudflared quick tunnel works for a single session and gets a
 new hostname every restart; a deployment does not.
 
@@ -198,11 +202,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY    (same as local)
 SUPABASE_SERVICE_ROLE_KEY        (same as local)
 SUPABASE_DB_URL                  (same as local)
 
-PAYMENT_PROVIDER                 paddle
-PADDLE_ENVIRONMENT               sandbox
-PADDLE_API_KEY                   (sandbox key)
-PADDLE_WEBHOOK_SECRET            (from the notification destination)
-NEXT_PUBLIC_PADDLE_CLIENT_TOKEN  (sandbox client token)
+RAZORPAY_KEY_ID                  (test key id, rzp_test_…)
+RAZORPAY_KEY_SECRET              (test key secret)
+RAZORPAY_WEBHOOK_SECRET          (the secret you set on the webhook)
 
 CRON_SECRET                      generate a NEW one, not the local value
 LOG_HASH_SECRET                  generate a NEW one, not the local value
@@ -224,10 +226,9 @@ state-changing request. The production build has no loopback allowance.
 
 ### After the first deploy
 
-Point Paddle at the deployment and stop using the tunnel:
+Point Razorpay at the deployment and stop using the tunnel:
 
-- Notification destination → `https://<your-project>.vercel.app/api/webhooks/paddle`
-- Default payment link → `https://<your-project>.vercel.app/checkout`
+- Webhook URL → `https://<your-project>.vercel.app/api/webhooks/razorpay`
 - Supabase → Authentication → URL Configuration → add the deployment origin to
   Site URL and Redirect URLs, or the auth callback bounces
 - Google Cloud → OAuth client → the Supabase callback URL is unchanged, but the
@@ -238,15 +239,14 @@ Point Paddle at the deployment and stop using the tunnel:
 Every pull request gets its own URL, and `NEXT_PUBLIC_APP_URL` will not match
 it. Previews are therefore fine for looking at pages and useless for checkout or
 webhooks. That is the correct trade: a preview should not be able to take a
-payment. Test billing on the production deployment with sandbox Paddle
+payment. Test billing on the production deployment with Razorpay test-mode
 credentials.
 
 ### Custom domain, later
 
 Add it under Settings → Domains, update `NEXT_PUBLIC_APP_URL`, and update the
-same four places above. It is a DNS change and an env var, not a migration.
-Paddle **live** requires domain verification, so the domain has to exist before
-going live even though sandbox does not need it.
+same places above. It is a DNS change and an env var, not a migration, and
+Razorpay needs no domain approval for checkout.
 
 ---
 
@@ -286,32 +286,23 @@ Configuration" even though the correct record is present.
   variable changes nothing until a new build runs.
 - **Settings -> Domains:** `www.wintora.online` as Production, apex redirecting to it.
 
-### 3. Paddle -> Checkout settings
+### 3. Razorpay -> Webhooks
 
 | Field | Value |
 | --- | --- |
-| Approved domain | `www.wintora.online` |
-| Default payment link | `https://www.wintora.online/checkout` |
+| URL | `https://www.wintora.online/api/webhooks/razorpay` |
+| Secret | copy into `RAZORPAY_WEBHOOK_SECRET` in Vercel |
+| Events | the list in `docs/BILLING.md` section 5 |
 
-`/checkout` is the page that reads `?_ptxn=` and opens the overlay. It is not
-`/billing/success`: Paddle appends the transaction reference to the payment link
-and sends the customer there **to pay**. Pointing it at the success page shows a
-"thank you" for a transaction nobody paid. An unapproved domain fails earlier,
-with `transaction_checkout_url_domain_is_not_approved`.
+The secret belongs to the webhook. Creating a new webhook with a new secret and
+not deploying it fails signature verification on every delivery: the customer
+pays and is never granted the plan. Checkout itself needs no domain approval and
+no payment link.
 
-Approval is per domain. Moving from a `.vercel.app` host to a custom domain means
-approving the new one before checkout works again.
+### 4. Razorpay -> nothing else
 
-### 4. Paddle -> Notifications
-
-| Field | Value |
-| --- | --- |
-| Destination | `https://www.wintora.online/api/webhooks/paddle` |
-| Signing secret | copy into `PADDLE_WEBHOOK_SECRET` in Vercel |
-
-The secret belongs to the destination. Creating a new destination issues a new
-secret, and a stale one fails signature verification on every delivery: the
-customer pays and is never granted the plan.
+There is no hosted checkout page and no customer portal to configure. `/checkout`
+and `/settings/subscription` are ours.
 
 ### 5. Supabase -> Authentication -> URL Configuration
 
@@ -421,12 +412,14 @@ and privacy reviews that no amount of engineering discharges.
 2. `GET /sitemap.xml` lists only reviewed public pages.
 3. A private route responds with `X-Robots-Tag: noindex`.
 4. Response headers carry the CSP with a nonce, HSTS, and `nosniff`.
-5. `POST /api/webhooks/paddle` with no signature returns 400 and writes a
+5. `POST /api/webhooks/razorpay` with no signature returns 400 and writes a
    `security_events` row.
-6. A test subscription in the Paddle sandbox moves the `subscriptions` row and
-   bumps `entitlement_versions.version`.
-7. `/billing/success` shows the "finalising" state before the webhook lands, and
-   the confirmed state after. It must never grant access itself.
+6. A test-mode subscription moves the `subscriptions` row and bumps
+   `entitlement_versions.version`, first through the verified checkout
+   callback and then, as a duplicate, through the webhook.
+7. `/billing/success` shows the "finalising" state before either lands, the
+   confirmed state after, and sends a signed-out visitor to sign in. It must
+   never grant access itself.
 8. The storage bucket is not publicly listable.
 9. `select count(*) from pg_tables t where t.schemaname = 'public' and not exists
    (select 1 from pg_class c where c.relname = t.tablename and c.relrowsecurity)`

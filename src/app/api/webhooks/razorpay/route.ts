@@ -1,5 +1,5 @@
 /**
- * POST /api/webhooks/paddle
+ * POST /api/webhooks/razorpay
  *
  * The only inbound path that changes subscription state.
  *
@@ -7,6 +7,11 @@
  * before any parsing, and the idempotency claim comes before any business state
  * change. An invalid signature returns 400, records a security event, and
  * changes nothing.
+ *
+ * Razorpay signs the raw body with the webhook secret (X-Razorpay-Signature)
+ * and identifies each event with X-Razorpay-Event-Id, which is what makes a
+ * redelivery a no-op. It retries a non-2xx response with backoff for about a
+ * day, so a handler failure returns 500 on purpose.
  *
  * See docs/BILLING.md section 5 and docs/THREAT_MODEL.md T5.
  */
@@ -24,6 +29,8 @@ import { WebhookVerificationError, hashPayload, processWebhookEvent } from '@/li
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const ROUTE = '/api/webhooks/razorpay';
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const requestId = newRequestId();
   const startedAt = Date.now();
@@ -31,7 +38,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // 1. Raw bytes. Never JSON.parse first: re-serialising breaks the signature.
   const rawBody = await request.text();
 
-  const provider = getPaymentProvider();
+  // An unconfigured provider is a deployment fault, not a bad request. 503
+  // tells Razorpay to retry later, which is exactly right: once the keys are
+  // in place the redelivery is processed normally.
+  let provider;
+  try {
+    provider = getPaymentProvider();
+  } catch (error) {
+    log.error('webhook received but payments are not configured', {
+      requestId,
+      route: ROUTE,
+      errorClass: error instanceof Error ? error.name : 'UnknownError',
+    });
+    return NextResponse.json({ error: 'Payments are not configured' }, { status: 503 });
+  }
   const admin = createAdminClient();
 
   // 2. Verify, then translate into our normalised event shape.
@@ -40,7 +60,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     event = provider.verifyAndParseWebhook(
       rawBody,
       request.headers,
-      serverEnv().PADDLE_WEBHOOK_SECRET,
+      serverEnv().RAZORPAY_WEBHOOK_SECRET,
     );
   } catch (error) {
     const reason =
@@ -53,15 +73,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       detail: {
         reason,
         provider: provider.name,
-        hasSignature: request.headers.get('paddle-signature') !== null,
+        hasSignature: request.headers.get('x-razorpay-signature') !== null,
+        hasEventId: request.headers.get('x-razorpay-event-id') !== null,
       },
     });
 
-    log.warn('rejected unverified webhook', {
-      requestId,
-      route: '/api/webhooks/paddle',
-      errorClass: reason,
-    });
+    log.warn('rejected unverified webhook', { requestId, route: ROUTE, errorClass: reason });
 
     // 400, and nothing else happened.
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
@@ -78,15 +95,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   log.info('webhook processed', {
     requestId,
-    route: '/api/webhooks/paddle',
+    route: ROUTE,
     eventType: result.eventType,
     outcome: result.outcome,
     latencyMs: Date.now() - startedAt,
     errorClass: result.errorClass,
   });
 
-  // A handler failure returns 500 so Paddle retries. The idempotency claim in
-  // step 3 is what makes that retry safe.
+  // A handler failure returns 500 so Razorpay retries. The idempotency claim
+  // in step 3 is what makes that retry safe.
   if (result.outcome === 'FAILED') {
     return NextResponse.json({ received: true, outcome: result.outcome }, { status: 500 });
   }

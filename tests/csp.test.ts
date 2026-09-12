@@ -79,26 +79,29 @@ describe('the rest of the policy holds in both modes', () => {
   it('permits only the origins the product actually talks to', () => {
     const connectSrc = directive(prod, 'connect-src')!;
     expect(connectSrc).toContain('https://*.supabase.co');
-    expect(connectSrc).toContain('https://*.paddle.com');
+    expect(connectSrc).toContain('https://*.razorpay.com');
     // No wildcard escape hatch.
     expect(connectSrc).not.toContain(' *');
   });
 
-  it('allows Paddle.js and nothing else third-party for scripts', () => {
+  it('allows checkout.js and nothing else third-party for scripts', () => {
     const scriptSrc = directive(prod, 'script-src')!;
-    expect(scriptSrc).toContain('https://cdn.paddle.com');
+    expect(scriptSrc).toContain('https://checkout.razorpay.com');
     expect(scriptSrc.split(' ').filter((s) => s.startsWith('https://'))).toEqual([
-      'https://cdn.paddle.com',
+      'https://checkout.razorpay.com',
     ]);
   });
 
-  it('frames only Paddle, for the checkout overlay', () => {
-    expect(directive(prod, 'frame-src')).toBe('https://*.paddle.com');
+  it('frames only Razorpay, for the payment form', () => {
+    expect(directive(prod, 'frame-src')).toBe(
+      'https://api.razorpay.com https://checkout.razorpay.com',
+    );
   });
 
-  it('restricts images, which closes CSS-based exfiltration routes', () => {
-    // Relevant precisely because style-src allows inline.
-    expect(directive(prod, 'img-src')).toBe("'self' data: blob:");
+  it('restricts images to ourselves and the payment form, which closes CSS-based exfiltration routes', () => {
+    // Relevant precisely because style-src allows inline. The one third party
+    // is the payment overlay's own icons; no wildcard host.
+    expect(directive(prod, 'img-src')).toBe("'self' data: blob: https://*.razorpay.com");
   });
 });
 

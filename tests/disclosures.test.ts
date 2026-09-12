@@ -1,9 +1,9 @@
 /**
  * Commercial disclosures.
  *
- * These strings are representations made to a customer before they pay. Under
- * a Merchant of Record two of them are not optional: who the customer is
- * actually contracting with, and what name will appear on their statement.
+ * These strings are representations made to a customer before they pay. Two
+ * of them are not optional: who the customer is actually contracting with, and
+ * what name will appear on their statement.
  *
  * An unrecognised statement descriptor is one of the commonest causes of a
  * consumer chargeback, and chargebacks on a new merchant account cost far more
@@ -22,22 +22,26 @@ import {
 import { PROHIBITED_CLAIMS } from '@/config/disclaimers';
 
 describe('seller of record', () => {
-  it('names the entity the customer actually contracts with', () => {
+  it('names the party the customer actually contracts with', () => {
     expect(SELLER_OF_RECORD.legalName.length).toBeGreaterThan(0);
-    expect(SELLER_OF_RECORD.role).toBe('MERCHANT_OF_RECORD');
+    // A gateway processes; we sell. That makes tax and refunds ours.
+    expect(SELLER_OF_RECORD.role).toBe('GATEWAY');
+    expect(SELLER_OF_RECORD.legalName).toBe(OPERATOR.tradingName);
   });
 
-  it('records that the seller, not us, handles refunds and tax', () => {
-    // Both are true of a Merchant of Record, and both change what we may
-    // promise a customer. Our refund policy is a reaction to their decision.
-    expect(SELLER_OF_RECORD.handlesRefunds).toBe(true);
-    expect(SELLER_OF_RECORD.remitsTax).toBe(true);
+  it('records that under a gateway refunds and tax are ours, not the processor\'s', () => {
+    // Both change what we may promise a customer, and both are obligations we
+    // now carry rather than a reaction to someone else's decision.
+    expect(SELLER_OF_RECORD.handlesRefunds).toBe(false);
+    expect(SELLER_OF_RECORD.remitsTax).toBe(false);
   });
 
-  it('declares a statement descriptor', () => {
+  it('declares a statement descriptor that names both the processor and us', () => {
     expect(SELLER_OF_RECORD.statementDescriptor.length).toBeGreaterThan(0);
-    // It must not be the bare product name, because the charge is not from us.
-    expect(SELLER_OF_RECORD.statementDescriptor.toLowerCase()).toContain('paddle');
+    // Razorpay prefixes card charges with its own name; a descriptor that
+    // omitted it would not match what the customer sees.
+    expect(SELLER_OF_RECORD.statementDescriptor.toLowerCase()).toContain('razorpay');
+    expect(SELLER_OF_RECORD.statementDescriptor.toLowerCase()).toContain('wintora');
   });
 
   it('links the seller terms and privacy notice', () => {
@@ -82,15 +86,21 @@ describe('checkout disclosures', () => {
     expect(CHECKOUT_DISCLOSURES.dataOnCancellation).toMatch(/never deletes/i);
   });
 
-  it('names the seller in the seller and refund copy', () => {
+  it('names the seller and the processor in the seller copy', () => {
     expect(CHECKOUT_DISCLOSURES.seller).toContain(SELLER_OF_RECORD.legalName);
-    expect(CHECKOUT_DISCLOSURES.refunds).toContain(SELLER_OF_RECORD.legalName);
+    expect(CHECKOUT_DISCLOSURES.seller).toContain(SELLER_OF_RECORD.processorName);
+    expect(CHECKOUT_DISCLOSURES.statement).toContain(SELLER_OF_RECORD.statementDescriptor);
   });
 
-  it('does not promise a refund outcome we do not control', () => {
-    // The decision is the seller's. Saying otherwise would be a promise we
-    // cannot keep, which is worse than saying nothing.
-    expect(CHECKOUT_DISCLOSURES.refunds).toMatch(/decision is theirs/i);
+  it('says plainly that the refund decision is ours, and promises no outcome', () => {
+    // Under a gateway the decision is ours. Saying so is required; promising a
+    // result is not, and would be a promise we might not keep.
+    expect(CHECKOUT_DISCLOSURES.refunds).toMatch(/we decide/i);
+    expect(CHECKOUT_DISCLOSURES.refunds).not.toMatch(/guarantee|always refund|full refund/i);
+  });
+
+  it('never claims tax is added after the price shown', () => {
+    expect(CHECKOUT_DISCLOSURES.tax).toMatch(/never added afterwards/i);
   });
 
   it('makes no prohibited claim', () => {

@@ -380,33 +380,34 @@ if (!present('NEXT_PUBLIC_APP_URL')) {
 // Payments
 // ---------------------------------------------------------------------------
 
-if (present('PADDLE_API_KEY')) {
-  const key = env.PADDLE_API_KEY;
-  const isLive = key.includes('_live_');
-  const declaredProduction = env.PADDLE_ENVIRONMENT === 'production';
+if (present('RAZORPAY_KEY_ID')) {
+  const keyId = env.RAZORPAY_KEY_ID;
+  const isLive = keyId.startsWith('rzp_live_');
+  const isTest = keyId.startsWith('rzp_test_');
 
-  // A live key against the sandbox base URL, or the reverse, fails at the worst
-  // possible moment: the first real payment.
-  if (isLive !== declaredProduction) {
-    report(
-      FAIL,
-      'PADDLE_API_KEY',
-      isLive
-        ? 'live key but PADDLE_ENVIRONMENT is not "production"'
-        : 'sandbox key but PADDLE_ENVIRONMENT is "production"',
-    );
+  if (!isLive && !isTest) {
+    report(FAIL, 'RAZORPAY_KEY_ID', 'does not look like a Razorpay key id (rzp_test_… or rzp_live_…)');
+  } else if (isLive && env.NODE_ENV !== 'production') {
+    // A live key outside production charges real cards from a developer's laptop.
+    report(WARN, 'RAZORPAY_KEY_ID', 'LIVE key in a non-production environment');
   } else {
-    report(OK, 'PADDLE_API_KEY', declaredProduction ? 'live key' : 'sandbox key');
+    report(OK, 'RAZORPAY_KEY_ID', isLive ? 'live key' : 'test key');
   }
 
-  if (!present('PADDLE_WEBHOOK_SECRET')) {
+  if (!present('RAZORPAY_KEY_SECRET')) {
+    report(FAIL, 'RAZORPAY_KEY_SECRET', 'missing: the API cannot be called and checkout callbacks cannot be verified');
+  } else {
+    report(OK, 'RAZORPAY_KEY_SECRET', 'set');
+  }
+
+  if (!present('RAZORPAY_WEBHOOK_SECRET')) {
     report(
       FAIL,
-      'PADDLE_WEBHOOK_SECRET',
+      'RAZORPAY_WEBHOOK_SECRET',
       'missing: the webhook endpoint fails closed, so a customer could pay and never receive their plan',
     );
   } else {
-    report(OK, 'PADDLE_WEBHOOK_SECRET', 'set');
+    report(OK, 'RAZORPAY_WEBHOOK_SECRET', 'set');
   }
 }
 
@@ -415,9 +416,9 @@ if (present('PADDLE_API_KEY')) {
 // ---------------------------------------------------------------------------
 
 const OPTIONAL = [
-  ['PADDLE_API_KEY', 'checkout, portal and plan changes are unavailable'],
-  ['PADDLE_WEBHOOK_SECRET', 'the webhook endpoint fails closed, so entitlements never arrive'],
-  ['NEXT_PUBLIC_PADDLE_CLIENT_TOKEN', 'Paddle.js cannot open a checkout in the browser'],
+  ['RAZORPAY_KEY_ID', 'checkout and plan changes are unavailable'],
+  ['RAZORPAY_KEY_SECRET', 'checkout and plan changes are unavailable'],
+  ['RAZORPAY_WEBHOOK_SECRET', 'the webhook endpoint fails closed, so entitlements never arrive'],
   ['NEXT_PUBLIC_APP_URL', 'checkout redirects and canonical URLs will be wrong'],
   ['CRON_SECRET', 'scheduled jobs fail closed'],
   ['LOG_HASH_SECRET', 'IP hashes fall back to a known development salt'],

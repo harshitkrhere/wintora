@@ -6,8 +6,15 @@
  * is the operational source of truth: an administrator changes a limit or a
  * price there and enforcement changes immediately, with no deploy.
  *
- * Prices are PLACEHOLDERS pending commercial review. They live here and in the
- * database, and nowhere else. See docs/BILLING.md section 1.
+ * Each paid plan is sold monthly and annually. The interval lives on the PRICE,
+ * not the plan, so "Plus" is one plan with four prices (two currencies, two
+ * intervals) rather than two plans. Plan comparison, entitlements and the
+ * feature matrix never see the interval; only checkout and display do.
+ *
+ * The commercial reasoning behind the numbers is in docs/PRICING.md. Changing a
+ * number here changes nothing until it is also seeded (see
+ * supabase/migrations/0015_price_intervals.sql); after seeding, the database
+ * is what checkout charges.
  */
 
 import type { FeatureKey } from './features';
@@ -19,15 +26,26 @@ export const COUNTRIES = ['US', 'CA'] as const;
 export type CountryCode = (typeof COUNTRIES)[number];
 
 export type CurrencyCode = 'USD' | 'CAD';
-export type BillingInterval = 'month' | 'year';
+
+export const BILLING_INTERVALS = ['month', 'year'] as const;
+export type BillingInterval = (typeof BILLING_INTERVALS)[number];
+
+export function isBillingInterval(value: string): value is BillingInterval {
+  return (BILLING_INTERVALS as readonly string[]).includes(value);
+}
 
 export interface PlanPrice {
   readonly country: CountryCode;
   readonly currency: CurrencyCode;
+  readonly interval: BillingInterval;
   /** Integer minor units. No float ever touches money. */
   readonly amountCents: number;
-  /** Filled in by `npm run paddle:seed -- --apply` before launch. */
-  readonly providerPriceIdEnv?: string;
+}
+
+/** A plan at an interval: what a customer actually buys. */
+export interface Offer {
+  readonly slug: PlanSlug;
+  readonly interval: BillingInterval;
 }
 
 export interface PlanFeatureGrant {
@@ -46,8 +64,20 @@ export interface PlanDefinition {
   /** Ordinal used to decide whether a plan change is an upgrade or a downgrade. */
   readonly tier: number;
   readonly isFree: boolean;
+  /**
+   * Seeds the legacy `plans.billing_interval` column only. Since migration
+   * 0015 the interval that is charged lives on each price; see PlanPrice.
+   */
   readonly billingInterval: BillingInterval;
   readonly sortOrder: number;
+  /**
+   * One plain sentence about who this plan fits. It is the only piece of
+   * persuasion on the pricing page, and it is a statement of fit rather than
+   * of popularity: "most popular" is a claim we have no data for.
+   */
+  readonly bestFor: string;
+  /** The plan the pricing page leads with. Exactly one plan may set this. */
+  readonly recommended: boolean;
   readonly prices: readonly PlanPrice[];
   readonly features: Readonly<Partial<Record<FeatureKey, PlanFeatureGrant>>>;
 }
@@ -71,9 +101,11 @@ export const PLANS: Readonly<Record<PlanSlug, PlanDefinition>> = {
     isFree: true,
     billingInterval: 'month',
     sortOrder: 10,
+    bestFor: 'For one bill you want to understand before you pay it.',
+    recommended: false,
     prices: [
-      { country: 'US', currency: 'USD', amountCents: 0 },
-      { country: 'CA', currency: 'CAD', amountCents: 0 },
+      { country: 'US', currency: 'USD', interval: 'month', amountCents: 0 },
+      { country: 'CA', currency: 'CAD', interval: 'month', amountCents: 0 },
     ],
     features: {
       DOCUMENT_UPLOAD: on(),
@@ -125,19 +157,13 @@ export const PLANS: Readonly<Record<PlanSlug, PlanDefinition>> = {
     isFree: false,
     billingInterval: 'month',
     sortOrder: 20,
+    bestFor: 'For a few bills a year, one dispute at a time.',
+    recommended: false,
     prices: [
-      {
-        country: 'US',
-        currency: 'USD',
-        amountCents: 999,
-        providerPriceIdEnv: 'PADDLE_PRICE_ESSENTIAL_USD',
-      },
-      {
-        country: 'CA',
-        currency: 'CAD',
-        amountCents: 1299,
-        providerPriceIdEnv: 'PADDLE_PRICE_ESSENTIAL_CAD',
-      },
+      { country: 'US', currency: 'USD', interval: 'month', amountCents: 1499 },
+      { country: 'US', currency: 'USD', interval: 'year', amountCents: 14900 },
+      { country: 'CA', currency: 'CAD', interval: 'month', amountCents: 1999 },
+      { country: 'CA', currency: 'CAD', interval: 'year', amountCents: 19900 },
     ],
     features: {
       DOCUMENT_UPLOAD: on(),
@@ -180,19 +206,13 @@ export const PLANS: Readonly<Record<PlanSlug, PlanDefinition>> = {
     isFree: false,
     billingInterval: 'month',
     sortOrder: 30,
+    bestFor: 'For an ongoing dispute, or several bills from one episode of care.',
+    recommended: true,
     prices: [
-      {
-        country: 'US',
-        currency: 'USD',
-        amountCents: 1999,
-        providerPriceIdEnv: 'PADDLE_PRICE_PLUS_USD',
-      },
-      {
-        country: 'CA',
-        currency: 'CAD',
-        amountCents: 2599,
-        providerPriceIdEnv: 'PADDLE_PRICE_PLUS_CAD',
-      },
+      { country: 'US', currency: 'USD', interval: 'month', amountCents: 1999 },
+      { country: 'US', currency: 'USD', interval: 'year', amountCents: 19900 },
+      { country: 'CA', currency: 'CAD', interval: 'month', amountCents: 2599 },
+      { country: 'CA', currency: 'CAD', interval: 'year', amountCents: 25900 },
     ],
     features: {
       DOCUMENT_UPLOAD: on(),
@@ -234,19 +254,13 @@ export const PLANS: Readonly<Record<PlanSlug, PlanDefinition>> = {
     isFree: false,
     billingInterval: 'month',
     sortOrder: 40,
+    bestFor: 'For a household, or anyone managing care for someone else.',
+    recommended: false,
     prices: [
-      {
-        country: 'US',
-        currency: 'USD',
-        amountCents: 2999,
-        providerPriceIdEnv: 'PADDLE_PRICE_PRO_USD',
-      },
-      {
-        country: 'CA',
-        currency: 'CAD',
-        amountCents: 3999,
-        providerPriceIdEnv: 'PADDLE_PRICE_PRO_CAD',
-      },
+      { country: 'US', currency: 'USD', interval: 'month', amountCents: 2999 },
+      { country: 'US', currency: 'USD', interval: 'year', amountCents: 29900 },
+      { country: 'CA', currency: 'CAD', interval: 'month', amountCents: 3999 },
+      { country: 'CA', currency: 'CAD', interval: 'year', amountCents: 39900 },
     ],
     features: {
       DOCUMENT_UPLOAD: on(),
@@ -298,8 +312,38 @@ export function getPlan(slug: PlanSlug): PlanDefinition {
 export function priceFor(
   slug: PlanSlug,
   country: CountryCode,
+  interval: BillingInterval = 'month',
 ): PlanPrice | undefined {
-  return PLANS[slug].prices.find((p) => p.country === country);
+  return PLANS[slug].prices.find(
+    (p) => p.country === country && p.interval === interval,
+  );
+}
+
+/** The plan the pricing page leads with. */
+export const RECOMMENDED_PLAN: PlanSlug =
+  ALL_PLANS.find((p) => p.recommended)?.slug ?? 'plus';
+
+/**
+ * How much a year costs compared with twelve months, as a whole percentage.
+ * Computed from the catalog so the words on the page cannot drift from the
+ * numbers. Null when the plan has no annual price.
+ */
+export function annualSavingPercent(
+  slug: PlanSlug,
+  country: CountryCode,
+): number | null {
+  const month = priceFor(slug, country, 'month');
+  const year = priceFor(slug, country, 'year');
+  if (month === undefined || year === undefined || month.amountCents === 0) {
+    return null;
+  }
+  const twelveMonths = month.amountCents * 12;
+  return Math.round(((twelveMonths - year.amountCents) / twelveMonths) * 100);
+}
+
+/** The monthly equivalent of an annual price, in minor units, rounded. */
+export function perMonthEquivalentCents(price: PlanPrice): number {
+  return price.interval === 'year' ? Math.round(price.amountCents / 12) : price.amountCents;
 }
 
 /**
@@ -334,9 +378,27 @@ export function comparePlans(from: PlanSlug, to: PlanSlug): -1 | 0 | 1 {
   return a < b ? 1 : -1;
 }
 
+/**
+ * Upgrade or downgrade between two OFFERS. The plan tier decides; when the plan
+ * is the same, moving to annual is an upgrade (the customer commits to more)
+ * and moving back to monthly is a downgrade, so it waits for the period end
+ * like any other downgrade.
+ */
+export function compareOffers(from: Offer, to: Offer): -1 | 0 | 1 {
+  const byPlan = comparePlans(from.slug, to.slug);
+  if (byPlan !== 0) return byPlan;
+  if (from.interval === to.interval) return 0;
+  return to.interval === 'year' ? 1 : -1;
+}
+
+/**
+ * Always the en-US formatter, whatever the currency. en-CA renders CAD as a
+ * bare "$25.99", which is indistinguishable from the USD card; en-US renders
+ * it "CA$25.99". A customer must be able to tell which currency they are
+ * looking at from the number alone.
+ */
 export function formatPrice(amountCents: number, currency: CurrencyCode): string {
-  const locale = currency === 'CAD' ? 'en-CA' : 'en-US';
-  return new Intl.NumberFormat(locale, {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
   }).format(amountCents / 100);

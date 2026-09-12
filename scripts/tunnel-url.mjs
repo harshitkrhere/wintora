@@ -5,9 +5,8 @@
  *   npm run tunnel            # show the URL and what to paste where
  *   npm run tunnel -- --apply # also write NEXT_PUBLIC_APP_URL into .env.local
  *
- * A quick tunnel gets a new random hostname on every restart, and three places
- * need it: NEXT_PUBLIC_APP_URL, the Paddle notification destination, and the
- * Paddle default payment link. Copying it by hand three times, every restart,
+ * A quick tunnel gets a new random hostname on every restart, and two places
+ * need it: NEXT_PUBLIC_APP_URL and the Razorpay webhook URL. Copying it by hand, every restart,
  * is exactly the kind of thing that gets done twice and forgotten once.
  *
  * cloudflared publishes the hostname on its local metrics server, so this reads
@@ -56,9 +55,11 @@ const base = `https://${found.hostname}`;
 
 console.log(`\nTunnel found on metrics port ${found.port}\n`);
 console.log(`  Public URL   ${base}\n`);
-console.log('  Paste these into the Paddle sandbox dashboard:\n');
-console.log(`    Notification destination URL   ${base}/api/webhooks/paddle`);
-console.log(`    Default payment link           ${base}/checkout\n`);
+console.log('  Paste this into the Razorpay dashboard (Settings > Webhooks):\n');
+console.log(`    Webhook URL   ${base}/api/webhooks/razorpay\n`);
+console.log(
+  `  No payment link is needed: checkout opens on ${base}/checkout for the signed-in customer.\n`,
+);
 
 if (!APPLY) {
   console.log('  Re-run with --apply to write NEXT_PUBLIC_APP_URL into .env.local.\n');

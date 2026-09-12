@@ -10,6 +10,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { buildCsp } from '@/lib/http/csp';
 
+/**
+ * Surfaces that must never be indexed or cached: they render account data.
+ * Every one of these is dynamically rendered and therefore also nonced.
+ */
 const PRIVATE_PREFIXES = [
   '/dashboard',
   '/cases',
@@ -20,6 +24,22 @@ const PRIVATE_PREFIXES = [
   '/checkout',
   '/upload',
 ];
+
+/**
+ * Public surfaces that are nonetheless dynamically rendered, so they CAN carry
+ * a nonce and therefore must, because a strict script-src is the point:
+ *
+ *   - the auth pages: (auth)/layout.tsx forces dynamic rendering for the
+ *     whole segment, precisely so that the pages a person types a password
+ *     into never run with 'unsafe-inline' scripts;
+ *   - /pricing: reads the billing interval from the URL and the country from
+ *     the account. It stays indexable, so it is not private.
+ *
+ * The coupling is the same as for PRIVATE_PREFIXES: a page listed here that
+ * becomes statically prerenderable will be sent a nonce it does not carry and
+ * will stop hydrating.
+ */
+const NONCED_PUBLIC_PREFIXES = ['/signin', '/signup', '/forgot-password', '/reset-password', '/pricing'];
 
 export function middleware(request: NextRequest): NextResponse {
   const path = request.nextUrl.pathname;
@@ -34,8 +54,10 @@ export function middleware(request: NextRequest): NextResponse {
   // no-store` below, and why none of them may be made static without revisiting
   // this.
   const isPrivate = PRIVATE_PREFIXES.some((prefix) => path.startsWith(prefix));
+  const isNonced =
+    isPrivate || NONCED_PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix));
 
-  const nonce = isPrivate ? Buffer.from(crypto.randomUUID()).toString('base64') : null;
+  const nonce = isNonced ? Buffer.from(crypto.randomUUID()).toString('base64') : null;
   const csp = buildCsp({
     nonce,
     isDevelopment: process.env.NODE_ENV !== 'production',
@@ -78,6 +100,10 @@ export function middleware(request: NextRequest): NextResponse {
   if (isPrivate) {
     response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
     response.headers.set('Cache-Control', 'no-store, max-age=0');
+  } else if (isNonced) {
+    // A nonced response is unique per request and must not be served from a
+    // shared cache to anyone else. Indexing is left to the page's own metadata.
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0');
   }
 
   return response;

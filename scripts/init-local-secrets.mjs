@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * Generate the two self-issued secrets straight into .env.local.
+ * Generate the self-issued secrets straight into .env.local.
  *
- * CRON_SECRET and LOG_HASH_SECRET are not fetched from any provider: they are
- * random values you invent. Generating them on the terminal and pasting them
+ * CRON_SECRET, LOG_HASH_SECRET and RAZORPAY_WEBHOOK_SECRET are not fetched from
+ * any provider: they are random values you invent. (The webhook secret is one
+ * you then type into Razorpay's webhook form, so Razorpay signs with the same
+ * value this file holds.) Generating them on the terminal and pasting them
  * into a file means they pass through the clipboard, the scrollback, and
  * whatever else is reading either. This writes them directly and prints only
  * the byte length, so the value never appears on screen.
@@ -19,7 +21,7 @@ import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ENV_FILE = '.env.local';
 const EXAMPLE_FILE = '.env.example';
-const KEYS = ['CRON_SECRET', 'LOG_HASH_SECRET'];
+const KEYS = ['CRON_SECRET', 'LOG_HASH_SECRET', 'RAZORPAY_WEBHOOK_SECRET'];
 
 const forceIndex = process.argv.indexOf('--force');
 const forced = forceIndex === -1 ? [] : process.argv.slice(forceIndex + 1);
@@ -71,4 +73,8 @@ writeFileSync(ENV_FILE, contents, 'utf8');
 console.log(`\n${ENV_FILE}`);
 for (const result of results) console.log(`  ${result}`);
 console.log('\nValues were written directly and never printed.');
-console.log('Rotating LOG_HASH_SECRET breaks correlation with older logs, by design.\n');
+console.log('Rotating LOG_HASH_SECRET breaks correlation with older logs, by design.');
+console.log(
+  'RAZORPAY_WEBHOOK_SECRET must match the secret entered on the Razorpay webhook: ' +
+    'copy it from .env.local into the dashboard form, never the other way round.\n',
+);
