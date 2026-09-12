@@ -104,6 +104,8 @@ export function BillCheckerTool({
     initial ? linesFromDraft(initial) : [newLine(), newLine(), newLine()],
   );
   const [subtotal, setSubtotal] = useState(fromCents(initial?.subtotal?.amountCents));
+  const [total, setTotal] = useState(fromCents(initial?.total?.amountCents));
+  const [accountReference, setAccountReference] = useState(initial?.accountReference?.value ?? '');
   const [amountDue, setAmountDue] = useState(fromCents(initial?.amountDue?.amountCents));
   const [insurancePaid, setInsurancePaid] = useState(fromCents(initial?.insurancePaid?.amountCents));
   const [adjustments, setAdjustments] = useState(fromCents(initial?.adjustments?.amountCents));
@@ -161,6 +163,8 @@ export function BillCheckerTool({
           confidence: 'HIGH' as const,
         })),
         ...(toCents(subtotal) !== null ? { subtotalCents: toCents(subtotal)! } : {}),
+        ...(toCents(total) !== null ? { totalCents: toCents(total)! } : {}),
+        ...(accountReference.trim().length > 0 ? { accountReference: accountReference.trim() } : {}),
         ...(toCents(amountDue) !== null ? { amountDueCents: toCents(amountDue)! } : {}),
         ...(toCents(insurancePaid) !== null
           ? { insurancePaidCents: toCents(insurancePaid)! }
@@ -313,6 +317,16 @@ export function BillCheckerTool({
                 id={`${formId}-subtotal`}
                 value={subtotal}
                 onChange={(e) => setSubtotal(e.target.value)}
+                inputMode="decimal"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`${formId}-total`}>Total charges</label>
+              <input
+                id={`${formId}-total`}
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
                 inputMode="decimal"
                 placeholder="0.00"
               />

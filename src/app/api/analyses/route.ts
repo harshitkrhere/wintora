@@ -112,7 +112,7 @@ export const POST = handler('/api/analyses', async (request: NextRequest, contex
       {
         analysis: run.value,
         headline: headline(run.value),
-        nextSteps: suggestedActions(run.value),
+        nextSteps: suggestedActions(run.value, { savedToCase: true }),
         disclaimer: wantsComparison
           ? DISCLAIMERS.EOB_COMPARISON
           : DISCLAIMERS.ANALYSIS_RESULT,

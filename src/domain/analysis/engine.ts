@@ -175,7 +175,10 @@ export function headline(result: AnalysisResult): string {
 }
 
 /** Next steps offered to the user, derived from the findings themselves. */
-export function suggestedActions(result: AnalysisResult): readonly string[] {
+export function suggestedActions(
+  result: AnalysisResult,
+  options: { savedToCase?: boolean } = {},
+): readonly string[] {
   const codes = new Set(result.findings.map((f) => f.code));
   const actions: string[] = [];
 
@@ -198,7 +201,11 @@ export function suggestedActions(result: AnalysisResult): readonly string[] {
     actions.push('Upload your EOB to compare the two documents');
   }
   if (actions.length === 0) {
-    actions.push('Save this to a case so you have a record');
+    actions.push(
+      options.savedToCase
+        ? 'Nothing to chase on this statement. Keep it on the case in case a later bill or EOB disagrees with it.'
+        : 'Save this to a case so you have a record',
+    );
   }
 
   return actions;
