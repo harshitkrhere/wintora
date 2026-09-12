@@ -61,7 +61,17 @@ export function buildCsp({ nonce, isDevelopment }: CspOptions): string {
     // Razorpay's checkout.js. It renders the payment form in an iframe served
     // by Razorpay, so card details never enter a document we control.
     'https://checkout.razorpay.com',
-    ...(isDevelopment ? ["'unsafe-eval'"] : []),
+    ...(isDevelopment
+      ? [
+          "'unsafe-eval'",
+          // @vercel/analytics only reaches Vercel's own edge in production,
+          // where the script is same-origin (/_vercel/insights/script.js).
+          // Locally there is no edge in front of `next dev`, so the package
+          // falls back to this cross-origin debug build instead; production
+          // needs nothing added here.
+          'https://va.vercel-scripts.com',
+        ]
+      : []),
   ].join(' ');
 
   // Styles deliberately carry NO nonce, because 'unsafe-inline' has to work.
