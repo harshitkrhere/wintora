@@ -32,11 +32,15 @@ export function CaseStatusButton({ caseId, status }: { caseId: string; status: s
   }, [caseId, next, router]);
 
   return (
-    <span>
-      <button type="button" className="btn btn--secondary" onClick={change} disabled={busy}>
+    <>
+      <button type="button" className="btn btn--secondary" onClick={change} disabled={busy} aria-busy={busy}>
         {busy ? 'Saving…' : next === 'CLOSED' ? 'Close case' : 'Reopen case'}
       </button>
-      {error ? <span className="small notice--error" style={{ marginLeft: '0.75rem' }}>{error}</span> : null}
-    </span>
+      {error ? (
+        <span className="field__error" role="alert">
+          {error}
+        </span>
+      ) : null}
+    </>
   );
 }

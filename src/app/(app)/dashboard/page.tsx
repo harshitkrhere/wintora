@@ -1,7 +1,7 @@
 /**
  * /dashboard — where a signed-in person lands.
  *
- * One thing to do, the cases they have, and a single quiet line about the
+ * One thing to do, the cases they have, and a quiet row of figures about the
  * plan. Everything else is a click away and does not need to be here.
  */
 
@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/http/api';
 import { CaseCard } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
+import { Icon } from '@/components/Icons';
 
 export const metadata: Metadata = { title: 'Dashboard', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -41,14 +42,15 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     <div className="shell stack--lg page">
       <div className="page-head">
         <div className="page-head__text">
-          <h1 style={{ marginBottom: '0.35rem' }}>
+          <p className="eyebrow">Home</p>
+          <h1>
             {open.length > 0
               ? `${open.length} open case${open.length === 1 ? '' : 's'}`
               : cases.length === 0
                 ? 'Check a bill'
                 : 'Your cases'}
           </h1>
-          <p className="lede" style={{ margin: 0 }}>
+          <p className="lede">
             {open.length > 0
               ? 'Pick up where you left off, or start a new one.'
               : cases.length === 0
@@ -57,20 +59,24 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           </p>
         </div>
         <Link href="/upload" className="btn btn--primary btn--lg">
+          <Icon name="upload" />
           Upload a bill
         </Link>
       </div>
 
       {open.length > 0 ? (
         <section className="stack">
+          <div className="section-head">
+            <h2>Open cases</h2>
+            {cases.length > 5 || cases.length > open.length ? (
+              <Link href="/cases" className="small">
+                All cases
+              </Link>
+            ) : null}
+          </div>
           {open.slice(0, 5).map((c) => (
             <CaseCard key={c.id} summary={c} />
           ))}
-          {cases.length > 5 || cases.length > open.length ? (
-            <p className="small" style={{ margin: 0 }}>
-              <Link href="/cases">All cases</Link>
-            </p>
-          ) : null}
         </section>
       ) : cases.length === 0 ? (
         // A brand-new account: nothing has ever been here. Say what the
@@ -98,21 +104,30 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
         />
       )}
 
-      <section>
-        <div className="stat-row">
-          <span>
-            <strong>{summary.planDisplayName}</strong> plan
-          </span>
-          {quota.map((q) =>
-            q.limit === null ? null : (
-              <span key={q.featureKey}>
-                <strong>{q.remaining ?? 0}</strong> of {q.limit} {q.label.toLowerCase()}
-              </span>
-            ),
-          )}
+      <section className="stack">
+        <div className="section-head">
+          <h2>Your plan</h2>
           <Link href="/settings/subscription" className="small">
             Manage
           </Link>
+        </div>
+        <div className="stats">
+          <div className="stat">
+            <span className="stat__label">Plan</span>
+            <span className="stat__value">{summary.planDisplayName}</span>
+            <span className="stat__meta">{summary.status}</span>
+          </div>
+          {quota.map((q) =>
+            q.limit === null ? null : (
+              <div className="stat" key={q.featureKey}>
+                <span className="stat__label">{q.label}</span>
+                <span className="stat__value">
+                  {q.remaining ?? 0} <small>of {q.limit}</small>
+                </span>
+                <span className="stat__meta">remaining this period</span>
+              </div>
+            ),
+          )}
         </div>
       </section>
     </div>

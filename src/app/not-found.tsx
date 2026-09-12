@@ -18,21 +18,20 @@ export const metadata: Metadata = { title: 'Page not found', robots: { index: fa
 export default function NotFound(): React.ReactElement {
   return (
     <main id="main" className="auth-shell">
-      <div className="auth-card" style={{ width: 'min(520px, 100%)' }}>
-        <Link href="/" className="brand" aria-label="Wintora home">
-          <LeafMark />
-          <span>Wintora</span>
+      <div className="auth-card auth-card--wide">
+        <Link href="/" className="auth-card__mark" aria-label="Wintora home">
+          <LeafMark size={42} />
         </Link>
         <h1>That page is not here</h1>
         <p className="lede">
           Sorry about that. The link may be old, or it may have been typed slightly
           wrong. Nothing of yours has been affected.
         </p>
-        <div className="stack" style={{ gap: '0.6rem' }}>
-          <Link href="/dashboard" className="btn btn--primary">
+        <div className="auth-actions">
+          <Link href="/dashboard" className="btn btn--primary btn--lg">
             Go to your dashboard
           </Link>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="auth-actions--row">
             <Link href="/cases" className="btn btn--quiet">
               Your cases
             </Link>

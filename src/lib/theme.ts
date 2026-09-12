@@ -18,8 +18,8 @@ export const THEME_KEY = 'wintora:theme';
 /** Fired on window after a choice is applied, so every toggle on the page agrees. */
 export const THEME_EVENT = 'wintora:theme';
 
-/** What the browser chrome is painted; matches --paper in each theme. */
-export const THEME_COLOR: Record<Theme, string> = { light: '#ffffff', dark: '#0c1420' };
+/** What the browser chrome is painted; matches --bg in each theme. */
+export const THEME_COLOR: Record<Theme, string> = { light: '#f6f8fc', dark: '#0b1220' };
 
 export function readChoice(): ThemeChoice {
   try {

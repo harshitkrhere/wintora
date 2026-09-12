@@ -23,6 +23,7 @@ import {
   type RazorpayCheckoutResponse,
   type RazorpayInstance,
 } from '@/lib/razorpay/checkout-client';
+import { Icon } from './Icons';
 
 type Phase =
   | { kind: 'loading' }
@@ -33,7 +34,8 @@ type Phase =
   | { kind: 'dismissed' }
   | { kind: 'failed'; message: string; charged: boolean };
 
-const BRAND_TEAL = '#12a693';
+/** The colour of the provider's form: the product's primary blue, so the two feel like one flow. */
+const BRAND_BLUE = '#2563eb';
 
 export function RazorpayCheckout({
   keyId,
@@ -94,7 +96,7 @@ export function RazorpayCheckout({
         name: 'Wintora',
         description,
         prefill: email !== null ? { email } : undefined,
-        theme: { color: BRAND_TEAL },
+        theme: { color: BRAND_BLUE },
         // A closed form is a decision, not an error. The customer is told
         // plainly that nothing was charged.
         modal: { ondismiss: () => setPhase({ kind: 'dismissed' }) },
@@ -137,8 +139,11 @@ export function RazorpayCheckout({
     case 'ready':
     case 'open':
       return (
-        <div aria-live="polite" className="card">
-          <h2 className="card__title">Opening checkout for {planName}</h2>
+        <div aria-live="polite" className="wait">
+          <div className="progress" aria-hidden>
+            <div className="progress__bar" />
+          </div>
+          <p className="wait__note">Opening checkout for {planName}</p>
           <p className="small muted card__last">
             {phase.kind === 'loading'
               ? 'Loading the secure payment form…'
@@ -150,8 +155,11 @@ export function RazorpayCheckout({
     case 'verifying':
     case 'done':
       return (
-        <div aria-live="polite" role="status" className="card">
-          <h2 className="card__title">Confirming your payment</h2>
+        <div aria-live="polite" role="status" className="wait">
+          <div className="progress" aria-hidden>
+            <div className="progress__bar" />
+          </div>
+          <p className="wait__note">Confirming your payment</p>
           <p className="small muted card__last">
             One moment while we confirm it with the payment provider. Do not pay again.
           </p>
@@ -160,45 +168,55 @@ export function RazorpayCheckout({
 
     case 'dismissed':
       return (
-        <div role="status" className="card">
-          <h2 className="card__title">Checkout closed</h2>
-          <p className="small">Nothing has been charged. You can reopen the form whenever you like.</p>
-          <div className="card__actions">
-            <button type="button" className="btn btn--primary" onClick={() => void open()}>
-              Reopen checkout
-            </button>
-            <a href="/pricing" className="btn btn--secondary">
-              Back to plans
-            </a>
+        <div role="status" className="card status-card">
+          <div className="icon-tile icon-tile--neutral" aria-hidden>
+            <Icon name="lock" />
+          </div>
+          <div className="status-card__body">
+            <h2 className="card__title">Checkout closed</h2>
+            <p className="small muted">Nothing has been charged. You can reopen the form whenever you like.</p>
+            <div className="card__actions">
+              <button type="button" className="btn btn--primary" onClick={() => void open()}>
+                Reopen checkout
+              </button>
+              <a href="/pricing" className="btn btn--secondary">
+                Back to plans
+              </a>
+            </div>
           </div>
         </div>
       );
 
     case 'failed':
       return (
-        <div role="alert" className="card">
-          <h2 className="card__title">
-            {phase.charged ? 'We could not confirm the payment' : 'The payment did not go through'}
-          </h2>
-          <p className="small">{phase.message}</p>
-          <p className="small muted">
-            {phase.charged
-              ? 'If your card was charged, your subscription will appear on your subscription page as soon as the payment provider confirms it. If it does not, contact us and we will sort it out.'
-              : 'Nothing has been charged. You can try again, or use a different card.'}
-          </p>
-          <div className="card__actions">
-            {phase.charged ? (
-              <a href="/settings/subscription" className="btn btn--primary">
-                Go to your subscription page
+        <div role="alert" className="card status-card">
+          <div className={`icon-tile ${phase.charged ? 'icon-tile--warning' : 'icon-tile--error'}`} aria-hidden>
+            <Icon name="alert" />
+          </div>
+          <div className="status-card__body">
+            <h2 className="card__title">
+              {phase.charged ? 'We could not confirm the payment' : 'The payment did not go through'}
+            </h2>
+            <p className="small">{phase.message}</p>
+            <p className="small muted">
+              {phase.charged
+                ? 'If your card was charged, your subscription will appear on your subscription page as soon as the payment provider confirms it. If it does not, contact us and we will sort it out.'
+                : 'Nothing has been charged. You can try again, or use a different card.'}
+            </p>
+            <div className="card__actions">
+              {phase.charged ? (
+                <a href="/settings/subscription" className="btn btn--primary">
+                  Go to your subscription page
+                </a>
+              ) : (
+                <button type="button" className="btn btn--primary" onClick={() => void open()}>
+                  Try again
+                </button>
+              )}
+              <a href="/pricing" className="btn btn--secondary">
+                Back to plans
               </a>
-            ) : (
-              <button type="button" className="btn btn--primary" onClick={() => void open()}>
-                Try again
-              </button>
-            )}
-            <a href="/pricing" className="btn btn--secondary">
-              Back to plans
-            </a>
+            </div>
           </div>
         </div>
       );

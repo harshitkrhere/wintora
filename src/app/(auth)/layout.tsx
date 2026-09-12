@@ -19,9 +19,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }):
   return (
     <main id="main" className="auth-shell">
       <div className="auth-card">
-        <Link href="/" className="brand" aria-label="Wintora home">
-          <LeafMark />
-          <span>Wintora</span>
+        <Link href="/" className="auth-card__mark" aria-label="Wintora home">
+          <LeafMark size={42} />
         </Link>
         {children}
       </div>

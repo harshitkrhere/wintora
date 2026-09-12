@@ -34,11 +34,11 @@ export default async function UploadPage({
     typeof params.case === 'string' && /^[0-9a-f-]{36}$/i.test(params.case) ? params.case : null;
 
   return (
-    <div className="shell stack--lg page">
-      <div>
+    <div className="medium stack--lg page">
+      <div className="page-head__text">
         <p className="eyebrow">Upload</p>
         <h1>Check a bill from your documents</h1>
-        <p className="muted">
+        <p className="lede">
           Upload a PDF or a photo. We read the figures, you confirm them, and the same
           deterministic engine that runs the free tool checks the arithmetic.
         </p>
@@ -46,7 +46,7 @@ export default async function UploadPage({
 
       <UploadFlow initialCaseId={initialCaseId} />
 
-      <p className="small muted">
+      <p className="caption">
         Prefer to type the numbers in? <Link href="/medical-bill-checker">Use the bill checker</Link>.
       </p>
     </div>

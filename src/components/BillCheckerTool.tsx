@@ -15,6 +15,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { POLICY } from '@/config/policy';
 import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from './FindingCard';
+import { Icon } from './Icons';
 import type { ExtractionDraft } from '@/domain/documents/draft';
 
 interface DraftLine {
@@ -311,24 +312,35 @@ export function BillCheckerTool({
     return <SignUpWall variant="exhausted" limit={limit} />;
   }
 
+  const money = new Intl.NumberFormat(currency === 'CAD' ? 'en-CA' : 'en-US', {
+    style: 'currency',
+    currency,
+  });
+
   return (
     <div className="stack--lg">
       {wall === 'last' ? (
         <SignUpWall variant="last" limit={limit} />
       ) : (
       <form onSubmit={submit} className="card" aria-labelledby={`${formId}-heading`}>
-        <h2 id={`${formId}-heading`} style={{ marginTop: 0 }}>
-          Enter the figures from your statement
-        </h2>
-        <p className="small muted">
-          Copy the numbers exactly as they are printed. You do not need every line for
-          the checks to be useful.
-        </p>
+        <div className="card__header">
+          <div>
+            <h2 id={`${formId}-heading`} className="card__title">
+              Enter the figures from your statement
+            </h2>
+            <p className="small muted m-0">
+              Copy the numbers exactly as they are printed. You do not need every line for
+              the checks to be useful.
+            </p>
+          </div>
+          <span className="icon-tile" aria-hidden>
+            <Icon name="receipt" />
+          </span>
+        </div>
 
-        <fieldset style={{ border: 'none', padding: 0, margin: '1.25rem 0 0' }}>
-          <legend className="eyebrow" style={{ padding: 0 }}>
-            Line items
-          </legend>
+        <fieldset className="form-group form-group--first">
+          <legend className="form-group__legend">Line items</legend>
+          <p className="form-group__hint">Each charge as it appears on the statement.</p>
 
           {lines.map((line, index) => (
             <div className="line-item-row" key={line.id}>
@@ -369,35 +381,29 @@ export function BillCheckerTool({
                 aria-label={`Remove line ${index + 1}`}
                 disabled={lines.length === 1}
               >
-                ×
+                <Icon name="close" />
               </button>
             </div>
           ))}
 
           <button
             type="button"
-            className="btn btn--secondary"
+            className="btn btn--secondary btn--sm"
             onClick={addLine}
           >
+            <Icon name="plus" />
             Add another line
           </button>
 
-          <p className="small muted" style={{ marginTop: '0.75rem' }}>
-            Your lines currently add up to{' '}
-            <strong>
-              {new Intl.NumberFormat(currency === 'CAD' ? 'en-CA' : 'en-US', {
-                style: 'currency',
-                currency,
-              }).format(typedTotal / 100)}
-            </strong>
-            .
+          <p className="running-total">
+            <span>Your lines currently add up to</span>
+            <strong>{money.format(typedTotal / 100)}</strong>
           </p>
         </fieldset>
 
-        <fieldset style={{ border: 'none', padding: 0, margin: '1.5rem 0 0' }}>
-          <legend className="eyebrow" style={{ padding: 0 }}>
-            Totals as printed
-          </legend>
+        <fieldset className="form-group">
+          <legend className="form-group__legend">Totals as printed</legend>
+          <p className="form-group__hint">Leave blank anything the statement does not show.</p>
 
           <div className="field-row">
             <div className="field">
@@ -474,10 +480,9 @@ export function BillCheckerTool({
         </fieldset>
 
         {showEob ? (
-          <fieldset style={{ border: 'none', padding: 0, margin: '1.5rem 0 0' }}>
-            <legend className="eyebrow" style={{ padding: 0 }}>
-              From your explanation of benefits
-            </legend>
+          <fieldset className="form-group">
+            <legend className="form-group__legend">From your explanation of benefits</legend>
+            <p className="form-group__hint">The two figures your insurer printed for the same care.</p>
             <div className="field-row">
               <div className="field">
                 <label htmlFor={`${formId}-eob-resp`}>Your responsibility</label>
@@ -504,7 +509,7 @@ export function BillCheckerTool({
         ) : null}
 
         <div className="form-actions">
-          <button type="submit" className="btn btn--primary" disabled={busy}>
+          <button type="submit" className="btn btn--primary btn--lg" disabled={busy} aria-busy={busy}>
             {busy ? 'Checking…' : 'Check my bill'}
           </button>
           <span className="small muted">
@@ -513,7 +518,7 @@ export function BillCheckerTool({
         </div>
 
         {error !== null ? (
-          <p role="alert" className="notice" style={{ marginTop: '1rem' }}>
+          <p role="alert" className="notice notice--error mt-4">
             {error}
           </p>
         ) : null}
@@ -547,6 +552,11 @@ function AllowanceNote({ caseId, allowance }: { caseId: string | null; allowance
 function SignUpWall({ variant, limit }: { variant: 'last' | 'exhausted'; limit: number }): React.ReactElement {
   return (
     <div className="empty" role="status">
+      <div className="empty__mark" aria-hidden>
+        <span>
+          <Icon name="lock" className="empty__icon" />
+        </span>
+      </div>
       <h2 className="empty__title">
         {variant === 'last' ? 'That was your last free check' : `You have used your ${limit} free checks`}
       </h2>
@@ -556,7 +566,7 @@ function SignUpWall({ variant, limit }: { variant: 'last' | 'exhausted'; limit: 
         keeps your results, so you can come back to them.
       </p>
       <div className="empty__actions">
-        <a href="/signup?next=%2Fmedical-bill-checker" className="btn btn--primary">
+        <a href="/signup?next=%2Fmedical-bill-checker" className="btn btn--primary btn--lg">
           Create a free account
         </a>
         <a href="/signin?next=%2Fmedical-bill-checker" className="btn btn--quiet">
@@ -580,11 +590,11 @@ function Results({ result }: { result: ApiResponse }): React.ReactElement {
   }, []);
 
   return (
-    <section ref={top} aria-live="polite" className="stack--lg reveal">
+    <section ref={top} aria-live="polite" className="stack--md reveal">
       <div>
         <p className="eyebrow">What we found</p>
-        <h2 style={{ marginBottom: '0.35rem' }}>{result.headline}</h2>
-        <p className="small muted">
+        <h2 className="m-0">{result.headline}</h2>
+        <p className="small muted mt-1">
           {lineItemCount} line item{lineItemCount === 1 ? '' : 's'} checked against {checks} rules.
         </p>
       </div>
@@ -615,8 +625,8 @@ function Results({ result }: { result: ApiResponse }): React.ReactElement {
 
       {result.nextSteps.length > 0 ? (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>What you can do next</h3>
-          <ul className="plan__features">
+          <h3 className="card__title">What you can do next</h3>
+          <ul className="check-list">
             {result.nextSteps.map((step) => (
               <li key={step}>{step}</li>
             ))}
@@ -624,23 +634,24 @@ function Results({ result }: { result: ApiResponse }): React.ReactElement {
         </div>
       ) : null}
 
-      <p className="notice">{result.disclaimer}</p>
-      {result.storage !== undefined ? (
-        <p className="notice notice--accent">{result.storage.note}</p>
-      ) : (
-        <p className="notice notice--accent">
-          {result.replayed === true
-            ? 'This result was already saved to your case; nothing was counted twice.'
-            : 'Saved to your case.'}
-          {result.quota?.limit !== null && result.quota?.limit !== undefined ? (
-            <>
-              {' '}
-              {result.quota.remaining ?? 0} of {result.quota.limit} analyses left this period.
-            </>
-          ) : null}
-        </p>
-      )}
+      <div className="stack">
+        <p className="notice">{result.disclaimer}</p>
+        {result.storage !== undefined ? (
+          <p className="notice notice--info">{result.storage.note}</p>
+        ) : (
+          <p className="notice notice--success">
+            {result.replayed === true
+              ? 'This result was already saved to your case; nothing was counted twice.'
+              : 'Saved to your case.'}
+            {result.quota?.limit !== null && result.quota?.limit !== undefined ? (
+              <>
+                {' '}
+                {result.quota.remaining ?? 0} of {result.quota.limit} analyses left this period.
+              </>
+            ) : null}
+          </p>
+        )}
+      </div>
     </section>
   );
 }
-

@@ -10,9 +10,11 @@ export default function ForgotPasswordPage(): React.ReactElement {
       <h1>Reset your password</h1>
       <p className="lede">Enter your email and we will send a link to choose a new one.</p>
       <ForgotPasswordForm />
-      <p className="small muted" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
-        <Link href="/signin">Back to sign in</Link>
-      </p>
+      <div className="auth-links">
+        <p>
+          <Link href="/signin">Back to sign in</Link>
+        </p>
+      </div>
     </>
   );
 }

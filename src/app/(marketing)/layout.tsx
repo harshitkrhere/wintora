@@ -28,14 +28,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <main id="main">{children}</main>
 
       <footer className="site-footer">
-        <div className="shell stack--lg">
+        <div className="shell stack--md">
           <div className="footer-grid">
             <div>
-              <Link href="/" className="brand" style={{ fontSize: '1rem' }}>
-                <LeafMark size={24} />
+              <Link href="/" className="brand">
+                <LeafMark size={26} />
                 <span>Wintora</span>
               </Link>
-              <p className="small" style={{ marginTop: '0.75rem', maxWidth: '34ch' }}>
+              <p className="footer__tagline">
                 Understand your medical bills before you pay. Review, compare, take action.
               </p>
             </div>
@@ -75,7 +75,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
 
           <p className="notice">{GLOBAL_DISCLAIMER}</p>
-          <p className="small" style={{ margin: 0 }}>
+          <p className="footer-legal">
             Wintora is a software utility. It is not a law firm, medical provider, insurer,
             debt collector, credit-repair business or government agency, and it is not
             affiliated with or endorsed by any government body.

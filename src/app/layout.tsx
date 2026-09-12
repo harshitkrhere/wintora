@@ -33,11 +33,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // One per theme, matching --paper. src/lib/theme.ts rewrites these when a
+  // One per theme, matching --bg. src/lib/theme.ts rewrites these when a
   // person chooses a theme explicitly.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0c1420' },
+    { media: '(prefers-color-scheme: light)', color: '#f6f8fc' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
   ],
   width: 'device-width',
   initialScale: 1,

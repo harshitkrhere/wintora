@@ -37,51 +37,59 @@ const CHECK_DESCRIPTIONS: Record<string, string> = {
     'Compares the amount for the same procedure code across both documents.',
 };
 
+const PIPELINE: readonly { title: string; text: string }[] = [
+  {
+    title: 'Extraction.',
+    text: 'The text and figures are read from the document and turned into structured line items and totals, each with a confidence score.',
+  },
+  {
+    title: 'Validation.',
+    text: 'The structure is checked, and any field that could not be read confidently is marked as such.',
+  },
+  {
+    title: 'The rule engine.',
+    text: 'Deterministic checks run over the numbers. This is where every finding comes from. Given the same document it produces the same result, every time.',
+  },
+  {
+    title: 'Redaction.',
+    text: 'If a language model is going to be used at all, names, dates of birth, identification numbers, addresses and contact details are replaced with placeholders first.',
+  },
+  {
+    title: 'Rewording, optionally.',
+    text: 'A model may rewrite a finding to read more clearly. It is given the finding and its evidence and nothing else. It has no tools, no network access and no access to any database.',
+  },
+  {
+    title: 'Validation of the output.',
+    text: 'Anything the model writes is checked before you see it. Every figure must appear in the evidence. Legal conclusions, medical advice, accusations, guarantees and invented citations are rejected, and the original wording is shown instead.',
+  },
+];
+
 export default function MethodologyPage(): React.ReactElement {
   return (
-    <div className="narrow" style={{ paddingTop: '3rem' }}>
-      <h1>How the analysis works</h1>
-      <p className="lede">
-        Every finding you see comes from fixed arithmetic rules run over the figures on
-        your documents. A language model is never the thing that decides what is true.
-      </p>
+    <div className="medium page tool-page">
+      <header className="tool-page__intro">
+        <p className="eyebrow">Methodology</p>
+        <h1>How the analysis works</h1>
+        <p className="lede">
+          Every finding you see comes from fixed arithmetic rules run over the figures on
+          your documents. A language model is never the thing that decides what is true.
+        </p>
+      </header>
 
       <section>
         <h2>The order things happen in</h2>
-        <ol className="stack">
-          <li>
-            <strong>Extraction.</strong> The text and figures are read from the document
-            and turned into structured line items and totals, each with a confidence
-            score.
-          </li>
-          <li>
-            <strong>Validation.</strong> The structure is checked, and any field that
-            could not be read confidently is marked as such.
-          </li>
-          <li>
-            <strong>The rule engine.</strong> Deterministic checks run over the numbers.
-            This is where every finding comes from. Given the same document it produces
-            the same result, every time.
-          </li>
-          <li>
-            <strong>Redaction.</strong> If a language model is going to be used at all,
-            names, dates of birth, identification numbers, addresses and contact details
-            are replaced with placeholders first.
-          </li>
-          <li>
-            <strong>Rewording, optionally.</strong> A model may rewrite a finding to
-            read more clearly. It is given the finding and its evidence and nothing
-            else. It has no tools, no network access and no access to any database.
-          </li>
-          <li>
-            <strong>Validation of the output.</strong> Anything the model writes is
-            checked before you see it. Every figure must appear in the evidence. Legal
-            conclusions, medical advice, accusations, guarantees and invented citations
-            are rejected, and the original wording is shown instead.
-          </li>
+        <ol className="steps">
+          {PIPELINE.map((step) => (
+            <li key={step.title}>
+              <div>
+                <strong>{step.title}</strong>
+                <span className="muted">{step.text}</span>
+              </div>
+            </li>
+          ))}
         </ol>
 
-        <p className="notice notice--accent">
+        <p className="notice notice--info mt-5">
           Because findings come from the rules rather than from a model, text inside an
           uploaded document cannot influence what we report, even if that text is
           written to look like an instruction.
@@ -89,27 +97,27 @@ export default function MethodologyPage(): React.ReactElement {
       </section>
 
       <section>
-        <h2>The checks that run</h2>
-        <p className="small muted">Rule engine version {ENGINE_VERSION}.</p>
+        <div className="section-head mb-4">
+          <h2>The checks that run</h2>
+          <span className="badge badge--neutral">Engine {ENGINE_VERSION}</span>
+        </div>
 
-        <h3 style={{ fontSize: '1rem' }}>On a single statement</h3>
-        <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: '0.5rem' }}>
+        <h3>On a single statement</h3>
+        <ul className="rule-list">
           {BILL_CHECKS.map((code) => (
-            <li key={code} className="small">
-              <strong>{code}</strong>
+            <li key={code}>
+              <code>{code}</code>
               <br />
               <span className="muted">{CHECK_DESCRIPTIONS[code]}</span>
             </li>
           ))}
         </ul>
 
-        <h3 style={{ fontSize: '1rem', marginTop: '1.5rem' }}>
-          When comparing a statement with an EOB
-        </h3>
-        <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: '0.5rem' }}>
+        <h3 className="mt-6">When comparing a statement with an EOB</h3>
+        <ul className="rule-list">
           {EOB_CHECKS.map((code) => (
-            <li key={code} className="small">
-              <strong>{code}</strong>
+            <li key={code}>
+              <code>{code}</code>
               <br />
               <span className="muted">{CHECK_DESCRIPTIONS[code]}</span>
             </li>
@@ -136,21 +144,19 @@ export default function MethodologyPage(): React.ReactElement {
       <section>
         <h2>What this can and cannot tell you</h2>
         <div className="two-col">
-          <div>
-            <h3 style={{ fontSize: '1rem' }}>It can</h3>
-            <ul className="plan__features">
+          <div className="card">
+            <h3>It can</h3>
+            <ul className="check-list">
               {CAPABILITY_STATEMENT.does.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
           </div>
-          <div>
-            <h3 style={{ fontSize: '1rem' }}>It cannot</h3>
-            <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: '0.4rem' }}>
+          <div className="card card--soft">
+            <h3>It cannot</h3>
+            <ul className="x-list">
               {CAPABILITY_STATEMENT.doesNot.map((item) => (
-                <li key={item} className="small muted">
-                  — {item}
-                </li>
+                <li key={item}>{item}</li>
               ))}
             </ul>
           </div>
@@ -172,7 +178,9 @@ export default function MethodologyPage(): React.ReactElement {
         </p>
       </section>
 
-      <p className="notice">{GLOBAL_DISCLAIMER}</p>
+      <footer className="tool-page__footer">
+        <p className="notice">{GLOBAL_DISCLAIMER}</p>
+      </footer>
     </div>
   );
 }

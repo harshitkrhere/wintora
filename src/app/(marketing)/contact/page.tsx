@@ -10,6 +10,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { OPERATOR, SELLER_OF_RECORD } from '@/config/disclosures';
+import { Icon } from '@/components/Icons';
 
 export const metadata: Metadata = {
   title: 'Contact',
@@ -31,17 +32,24 @@ export default function ContactPage(): React.ReactElement {
       </p>
 
       <section>
-        <h2>Email</h2>
-        <p>
-          <a href={`mailto:${email}`} className="contact__email">
-            {email}
-          </a>
-        </p>
-        <p>
-          We aim to answer within two business days. Include the email address on your
-          account so we can find you; never include a card number or a password in an
-          email.
-        </p>
+        <div className="card status-card">
+          <span className="icon-tile" aria-hidden>
+            <Icon name="mail" />
+          </span>
+          <div className="status-card__body">
+            <h2 className="card__title">Email</h2>
+            <p>
+              <a href={`mailto:${email}`} className="contact__email">
+                {email}
+              </a>
+            </p>
+            <p className="small muted card__last">
+              We aim to answer within two business days. Include the email address on your
+              account so we can find you; never include a card number or a password in an
+              email.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section>

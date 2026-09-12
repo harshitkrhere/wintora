@@ -34,6 +34,15 @@ async function call(path: string, method: string, body?: unknown): Promise<{ ok:
   }
 }
 
+function Note({ note }: { note: { ok: boolean; text: string } | null }): React.ReactElement | null {
+  if (note === null) return null;
+  return (
+    <p className={`notice ${note.ok ? 'notice--success' : 'notice--error'}`} role={note.ok ? 'status' : 'alert'}>
+      {note.text}
+    </p>
+  );
+}
+
 export function ExportAction(): React.ReactElement {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
@@ -46,10 +55,12 @@ export function ExportAction(): React.ReactElement {
 
   return (
     <div className="stack">
-      <button type="button" className="btn btn--secondary" onClick={go} disabled={busy}>
-        {busy ? 'Requesting…' : 'Request a copy of my data'}
-      </button>
-      {note ? <p className={`notice ${note.ok ? 'notice--accent' : 'notice--error'}`} style={{ margin: 0 }}>{note.text}</p> : null}
+      <div className="actions">
+        <button type="button" className="btn btn--secondary" onClick={go} disabled={busy} aria-busy={busy}>
+          {busy ? 'Requesting…' : 'Request a copy of my data'}
+        </button>
+      </div>
+      <Note note={note} />
     </div>
   );
 }
@@ -74,7 +85,7 @@ export function DeleteAction(): React.ReactElement {
 
   return (
     <div className="stack">
-      <div className="field" style={{ margin: 0 }}>
+      <div className="field">
         <label htmlFor="delete-confirm">Type DELETE MY ACCOUNT to confirm</label>
         <input
           id="delete-confirm"
@@ -82,17 +93,19 @@ export function DeleteAction(): React.ReactElement {
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="off"
           spellCheck={false}
+          placeholder="DELETE MY ACCOUNT"
         />
+        <p className="field__hint">The button unlocks once the words match exactly.</p>
       </div>
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn--secondary" onClick={go} disabled={!armed || busy}>
+      <div className="actions">
+        <button type="button" className="btn btn--danger" onClick={go} disabled={!armed || busy} aria-busy={busy}>
           {busy ? 'Working…' : 'Schedule deletion'}
         </button>
         <button type="button" className="btn btn--quiet" onClick={cancel} disabled={busy}>
           Cancel a scheduled deletion
         </button>
       </div>
-      {note ? <p className={`notice ${note.ok ? 'notice--accent' : 'notice--error'}`} style={{ margin: 0 }}>{note.text}</p> : null}
+      <Note note={note} />
     </div>
   );
 }

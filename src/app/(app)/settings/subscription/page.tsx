@@ -15,6 +15,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ManageSubscription } from '@/components/ManageSubscription';
+import { Icon } from '@/components/Icons';
 import { BILLING_PAGE_DISCLOSURES } from '@/config/disclosures';
 import { formatPrice, type CurrencyCode } from '@/config/plans';
 import { POLICY } from '@/config/policy';
@@ -69,6 +70,31 @@ async function loadInvoices(
   }
 }
 
+/** The colour a subscription status wears. Amber for anything that needs a hand. */
+function statusTone(status: string): string {
+  switch (status) {
+    case 'ACTIVE':
+    case 'TRIALING':
+      return 'badge--success';
+    case 'PAST_DUE':
+    case 'GRACE':
+      return 'badge--warning';
+    case 'PAUSED':
+    case 'CANCELED_PENDING_EXPIRY':
+      return 'badge--info';
+    default:
+      return 'badge--neutral';
+  }
+}
+
+function invoiceTone(status: string): string {
+  const s = status.toLowerCase();
+  if (s === 'paid') return 'badge--success';
+  if (s === 'issued' || s === 'pending') return 'badge--info';
+  if (s === 'failed' || s === 'expired') return 'badge--warning';
+  return 'badge--neutral';
+}
+
 export default async function SubscriptionPage(): Promise<React.ReactElement> {
   const user = await optionalUser();
 
@@ -111,144 +137,217 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
     ? await loadInvoices(live?.provider_subscription_id ?? null)
     : { invoices: [], unavailable: false };
 
+  const availableBenefits = summary.benefits.filter((b) => b.available);
+  const pendingBenefits = summary.benefits.filter((b) => !b.available);
+
   return (
-    <div className="shell page">
-      <header className="page__header">
-        <p className="eyebrow">Subscription</p>
-        <h1 className="page__title">
-          {summary.planDisplayName} <span className="pill">{summary.status}</span>
-        </h1>
-        <p className="lede">{summary.statusDescription}</p>
-      </header>
+    <div className="shell page stack--lg">
+      <div className="page-head">
+        <div className="page-head__text">
+          <p className="eyebrow">
+            Settings · <Link href="/settings/privacy">Your data</Link>
+          </p>
+          <h1 className="page__title">
+            {summary.planDisplayName}
+            <span className={`badge ${statusTone(summary.status)} badge--dot`}>{summary.status}</span>
+          </h1>
+          <p className="lede">{summary.statusDescription}</p>
+        </div>
+        <div className="page-head__actions">
+          <Link href="/pricing" className="btn btn--secondary">
+            {summary.hasPaidPlan ? 'Change plan' : 'See plans'}
+          </Link>
+        </div>
+      </div>
 
       {/* A scheduled downgrade is stated with its exact effective date. Paid
           access is never revoked early. */}
-      {summary.pendingPlan !== null ? (
-        <p className="notice notice--accent">
-          Your plan changes to {summary.pendingPlan} on{' '}
-          {formatDate(summary.pendingPlanEffectiveAt)}. Until then you keep everything
-          your current plan includes, and nothing is removed from your account.
-        </p>
+      {summary.pendingPlan !== null ||
+      summary.status === 'PAST_DUE' ||
+      summary.status === 'GRACE' ||
+      summary.cancelAtPeriodEnd ||
+      summary.status === 'PAUSED' ? (
+        <div className="stack--sm">
+          {summary.pendingPlan !== null ? (
+            <p className="notice notice--info">
+              Your plan changes to {summary.pendingPlan} on{' '}
+              {formatDate(summary.pendingPlanEffectiveAt)}. Until then you keep everything
+              your current plan includes, and nothing is removed from your account.
+            </p>
+          ) : null}
+
+          {summary.status === 'PAST_DUE' || summary.status === 'GRACE' ? (
+            <p className="notice notice--warning">
+              We could not process your renewal payment
+              {summary.priceFormatted !== null ? ` of ${summary.priceFormatted}` : ''}. Your
+              features stay active until {formatDate(summary.gracePeriodEnd)}. Update your
+              card below to keep them.
+            </p>
+          ) : null}
+
+          {summary.cancelAtPeriodEnd ? (
+            <p className="notice notice--info">
+              Your subscription is set to end on {formatDate(summary.currentPeriodEnd)}. Your{' '}
+              {summary.planDisplayName} features stay active until then. After that your
+              account moves to Free, and your cases and documents stay in your account.
+            </p>
+          ) : null}
+
+          {summary.status === 'PAUSED' ? (
+            <p className="notice notice--info">
+              Your subscription is paused and you are not being charged. Your account is on the
+              Free plan while it is paused; nothing has been deleted. It resumes automatically
+              after {POLICY.pause.maxDays} days, or sooner if you resume it below.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
-      {summary.status === 'PAST_DUE' || summary.status === 'GRACE' ? (
-        <p className="notice notice--accent">
-          We could not process your renewal payment
-          {summary.priceFormatted !== null ? ` of ${summary.priceFormatted}` : ''}. Your
-          features stay active until {formatDate(summary.gracePeriodEnd)}. Update your
-          card below to keep them.
-        </p>
-      ) : null}
-
-      {summary.cancelAtPeriodEnd ? (
-        <p className="notice">
-          Your subscription is set to end on {formatDate(summary.currentPeriodEnd)}. Your{' '}
-          {summary.planDisplayName} features stay active until then. After that your
-          account moves to Free, and your cases and documents stay in your account.
-        </p>
-      ) : null}
-
-      {summary.status === 'PAUSED' ? (
-        <p className="notice">
-          Your subscription is paused and you are not being charged. Your account is on the
-          Free plan while it is paused; nothing has been deleted. It resumes automatically
-          after {POLICY.pause.maxDays} days, or sooner if you resume it below.
-        </p>
-      ) : null}
-
-      <section>
-        <div className="two-col">
-          <div className="card">
+      <section className="two-col">
+        <div className="card">
+          <div className="card__header">
             <h2 className="card__title">Billing</h2>
-            <dl className="dl">
-              <Row label="Price">
-                {summary.priceFormatted ?? 'Free'}
-                {summary.priceFormatted !== null ? ` / ${summary.billingInterval}` : ''}
-              </Row>
-              <Row label="Currency">{summary.currency ?? '—'}</Row>
-              <Row label="Current period">
-                {formatDate(summary.currentPeriodStart)} to{' '}
-                {formatDate(summary.currentPeriodEnd)}
-              </Row>
-              <Row label="Next billing date">{formatDate(summary.nextBillingDate)}</Row>
-              <Row label="Auto-renewal">{summary.autoRenews ? 'On' : 'Off'}</Row>
-              {lastPayment !== null && lastPayment.card_last4 !== null ? (
-                <Row label="Card">
-                  {lastPayment.card_brand ?? 'Card'} ending {lastPayment.card_last4}
-                </Row>
-              ) : null}
-            </dl>
-
-            <div className="card__actions">
-              <Link href="/pricing" className="btn btn--secondary">
-                {summary.hasPaidPlan ? 'Change plan' : 'See plans'}
-              </Link>
-            </div>
-
-            {manageable ? (
-              <ManageSubscription
-                status={summary.status}
-                cancelAtPeriodEnd={summary.cancelAtPeriodEnd}
-                canPause={POLICY.pause.enabled && getPaymentProvider().capabilities.pause}
-                periodEndLabel={formatDate(summary.currentPeriodEnd)}
-                email={user.email}
-              />
-            ) : null}
-
-            <p className="small muted card__last">{BILLING_PAGE_DISCLOSURES.whoCharged}</p>
+            <span className="icon-tile" aria-hidden>
+              <Icon name="card" />
+            </span>
           </div>
+          <dl className="dl">
+            <Row label="Price">
+              {summary.priceFormatted ?? 'Free'}
+              {summary.priceFormatted !== null ? ` / ${summary.billingInterval}` : ''}
+            </Row>
+            <Row label="Currency">{summary.currency ?? '—'}</Row>
+            <Row label="Current period">
+              {formatDate(summary.currentPeriodStart)} to{' '}
+              {formatDate(summary.currentPeriodEnd)}
+            </Row>
+            <Row label="Next billing date">{formatDate(summary.nextBillingDate)}</Row>
+            <Row label="Auto-renewal">{summary.autoRenews ? 'On' : 'Off'}</Row>
+            {lastPayment !== null && lastPayment.card_last4 !== null ? (
+              <Row label="Card">
+                {lastPayment.card_brand ?? 'Card'} ending {lastPayment.card_last4}
+              </Row>
+            ) : null}
+          </dl>
 
-          <div className="card">
+          {manageable ? (
+            <ManageSubscription
+              status={summary.status}
+              cancelAtPeriodEnd={summary.cancelAtPeriodEnd}
+              canPause={POLICY.pause.enabled && getPaymentProvider().capabilities.pause}
+              periodEndLabel={formatDate(summary.currentPeriodEnd)}
+              email={user.email}
+            />
+          ) : null}
+
+          <div className="card__footer">
+            <p className="caption card__last">{BILLING_PAGE_DISCLOSURES.whoCharged}</p>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__header">
             <h2 className="card__title">Available now</h2>
-            <ul className="plan__features">
-              {summary.benefits
-                .filter((b) => b.available)
-                .map((benefit) => (
-                  <li key={benefit.key}>
+            <span className="icon-tile icon-tile--success" aria-hidden>
+              <Icon name="shield" />
+            </span>
+          </div>
+          <ul className="check-list">
+            {availableBenefits.map((benefit) => (
+              <li key={benefit.key}>
+                {benefit.limit !== null
+                  ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
+                  : benefit.text}
+              </li>
+            ))}
+          </ul>
+
+          {pendingBenefits.length > 0 && (
+            <>
+              <h2 className="card__title card__title--spaced">Included, not yet available</h2>
+              <p className="caption card__lead">
+                Part of your plan, still being built. Nothing here is counted against you
+                and nothing expires while you wait.
+              </p>
+              <ul className="check-list muted">
+                {pendingBenefits.map((benefit) => (
+                  <li key={benefit.key} className="muted">
                     {benefit.limit !== null
                       ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
                       : benefit.text}
                   </li>
                 ))}
-            </ul>
-
-            {summary.benefits.some((b) => !b.available) && (
-              <>
-                <h2 className="card__title card__title--spaced">Included, not yet available</h2>
-                <p className="muted small card__lead">
-                  Part of your plan, still being built. Nothing here is counted against you
-                  and nothing expires while you wait.
-                </p>
-                <ul className="plan__features muted">
-                  {summary.benefits
-                    .filter((b) => !b.available)
-                    .map((benefit) => (
-                      <li key={benefit.key}>
-                        {benefit.limit !== null
-                          ? `${benefit.limit.toLocaleString('en-US')} ${benefit.unit ?? ''} — ${benefit.text}`.trim()
-                          : benefit.text}
-                      </li>
-                    ))}
-                </ul>
-              </>
-            )}
-          </div>
+              </ul>
+            </>
+          )}
         </div>
       </section>
 
+      <section className="stack">
+        <div className="section-head">
+          <h2>Remaining this period</h2>
+          <span className="caption">Resets on {formatDate(summary.quotaResetsAt)}</span>
+        </div>
+        <div className="stats">
+          {summary.usage.map((line) => {
+            const pct =
+              line.limit === null || line.limit === 0
+                ? 0
+                : Math.min(100, Math.round((line.used / line.limit) * 100));
+
+            return (
+              <div className="stat" key={line.featureKey}>
+                <span className="stat__label">{line.label}</span>
+                <span className="stat__value">
+                  {line.limit === null ? (
+                    <>
+                      {line.used.toLocaleString('en-US')} <small>used · unlimited</small>
+                    </>
+                  ) : (
+                    <>
+                      {(line.remaining ?? 0).toLocaleString('en-US')}{' '}
+                      <small>of {line.limit.toLocaleString('en-US')} left</small>
+                    </>
+                  )}
+                </span>
+                {line.limit !== null ? (
+                  <div
+                    className="usage-bar stat__meta"
+                    role="progressbar"
+                    aria-valuenow={pct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${line.label} used`}
+                  >
+                    {/* The one inline style on the page: a value, not a design. */}
+                    <div className="usage-bar__fill" style={{ width: `${pct}%` }} />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        <p className="caption m-0">
+          Quota periods follow your billing period, not the calendar month; on a yearly plan
+          they still reset every month.
+        </p>
+      </section>
+
       {manageable ? (
-        <section>
-          <h2>Invoices</h2>
-          <p className="small muted">{BILLING_PAGE_DISCLOSURES.invoiceSource}</p>
+        <section className="stack">
+          <div className="section-head">
+            <h2>Invoices</h2>
+            <span className="caption">{BILLING_PAGE_DISCLOSURES.invoiceSource}</span>
+          </div>
           {unavailable ? (
-            <p className="notice">
+            <p className="notice notice--warning">
               Invoices are temporarily unavailable from the payment provider. Nothing is
               wrong with your subscription; try again in a few minutes.
             </p>
           ) : invoices.length === 0 ? (
-            <p className="small muted">No invoices yet.</p>
+            <p className="caption m-0">No invoices yet.</p>
           ) : (
-            <div className="table-scroll">
+            <div className="table-scroll table--responsive">
               <table>
                 <caption className="sr-only">Your invoices, newest first</caption>
                 <thead>
@@ -265,13 +364,15 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
                 <tbody>
                   {invoices.map((invoice) => (
                     <tr key={invoice.providerInvoiceId}>
-                      <td>{formatDate(invoice.issuedAt)}</td>
-                      <td>{invoice.number ?? '—'}</td>
-                      <td>{formatPrice(invoice.amountDueCents, invoice.currency as CurrencyCode)}</td>
-                      <td>
-                        <span className="pill">{invoice.status}</span>
+                      <td data-label="Date">{formatDate(invoice.issuedAt)}</td>
+                      <td data-label="Number">{invoice.number ?? '—'}</td>
+                      <td data-label="Amount" className="tnum">
+                        {formatPrice(invoice.amountDueCents, invoice.currency as CurrencyCode)}
                       </td>
-                      <td>
+                      <td data-label="Status">
+                        <span className={`badge ${invoiceTone(invoice.status)}`}>{invoice.status}</span>
+                      </td>
+                      <td data-label="Invoice">
                         {invoice.hostedUrl !== null ? (
                           <a href={invoice.hostedUrl} rel="noopener noreferrer" target="_blank">
                             View
@@ -286,87 +387,42 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
               </table>
             </div>
           )}
-          <p className="small muted">{BILLING_PAGE_DISCLOSURES.refundRoute}</p>
+          <p className="caption m-0">{BILLING_PAGE_DISCLOSURES.refundRoute}</p>
         </section>
       ) : null}
 
-      <section>
-        <h2>Remaining this period</h2>
-        <p className="small muted">
-          Resets on {formatDate(summary.quotaResetsAt)}. Quota periods follow your
-          billing period, not the calendar month; on a yearly plan they still reset every
-          month.
-        </p>
-
-        <div className="two-col">
-          {summary.usage.map((line) => {
-            const pct =
-              line.limit === null || line.limit === 0
-                ? 0
-                : Math.min(100, Math.round((line.used / line.limit) * 100));
-
-            return (
-              <div className="card" key={line.featureKey}>
-                <h3 className="card__title card__title--small">{line.label}</h3>
-                <p className="card__lead">
-                  {line.limit === null ? (
-                    <>Unlimited — {line.used.toLocaleString('en-US')} used</>
-                  ) : (
-                    <>
-                      <strong>{(line.remaining ?? 0).toLocaleString('en-US')}</strong> of{' '}
-                      {line.limit.toLocaleString('en-US')} remaining
-                    </>
-                  )}
-                </p>
-                {line.limit !== null ? (
-                  <div
-                    className="usage-bar"
-                    role="progressbar"
-                    aria-valuenow={pct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${line.label} used`}
-                  >
-                    {/* The one inline style on the page: a value, not a design. */}
-                    <div className="usage-bar__fill" style={{ width: `${pct}%` }} />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
+      <section className="stack">
+        <div className="section-head">
+          <h2>What happens if…</h2>
         </div>
-      </section>
-
-      <section>
-        <h2>What happens if…</h2>
-        <div className="two-col">
-          <div>
-            <h3 className="h-small">You cancel</h3>
-            <p className="small">
+        <div className="terms-grid">
+          <div className="card">
+            <h3>You cancel</h3>
+            <p>
               Your paid features stay active until {formatDate(summary.currentPeriodEnd)}.
               After that your account moves to Free. Your cases, documents, findings and
               letters stay in your account.
             </p>
           </div>
-          <div>
-            <h3 className="h-small">A payment fails</h3>
-            <p className="small">
+          <div className="card">
+            <h3>A payment fails</h3>
+            <p>
               Nothing changes immediately. You keep your features for {POLICY.grace.days}{' '}
               days while you update your card, and we tell you the exact date access would
               change if it is not resolved.
             </p>
           </div>
-          <div>
-            <h3 className="h-small">You downgrade</h3>
-            <p className="small">
+          <div className="card">
+            <h3>You downgrade</h3>
+            <p>
               The change takes effect at the end of your current period. Nothing is
               deleted. If you are over the new limit, existing items stay readable and
               only new ones are blocked.
             </p>
           </div>
-          <div>
-            <h3 className="h-small">You want your data</h3>
-            <p className="small">
+          <div className="card">
+            <h3>You want your data</h3>
+            <p>
               Export and deletion work on every plan, including Free and expired
               accounts. <Link href="/settings/privacy">Export or delete your data</Link>.
             </p>
@@ -386,7 +442,7 @@ function Row({
 }): React.ReactElement {
   return (
     <div className="dl__row">
-      <dt className="muted">{label}</dt>
+      <dt>{label}</dt>
       <dd className="dl__value">{children}</dd>
     </div>
   );

@@ -34,9 +34,11 @@ export default async function SignUpPage({
 
       <AuthForm mode="signup" next={next} initialError={null} />
 
-      <p className="small muted" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
-        Already have one? <Link href={linkWithNext('/signin', next)}>Sign in</Link>.
-      </p>
+      <div className="auth-links">
+        <p>
+          Already have one? <Link href={linkWithNext('/signin', next)}>Sign in</Link>
+        </p>
+      </div>
     </>
   );
 }

@@ -47,12 +47,14 @@ export default async function SignInPage({
 
       <AuthForm mode="signin" next={next} initialError={initialError} />
 
-      <p className="small muted" style={{ marginTop: '1.25rem', marginBottom: '0.35rem' }}>
-        <Link href="/forgot-password">Forgot your password?</Link>
-      </p>
-      <p className="small muted" style={{ margin: 0 }}>
-        New here? <Link href={linkWithNext('/signup', next)}>Create a free account</Link>.
-      </p>
+      <div className="auth-links">
+        <p>
+          <Link href="/forgot-password">Forgot your password?</Link>
+        </p>
+        <p>
+          New here? <Link href={linkWithNext('/signup', next)}>Create a free account</Link>
+        </p>
+      </div>
     </>
   );
 }

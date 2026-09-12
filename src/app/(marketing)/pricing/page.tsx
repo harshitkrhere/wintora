@@ -131,16 +131,22 @@ function PlanPriceBlock({
 }): React.ReactElement {
   if (plan.isFree) {
     return (
-      <p className="plan__price">
-        Free
-        <span className="plan__interval">no card needed</span>
-      </p>
+      <div className="plan__pricing">
+        <p className="plan__price">
+          Free
+          <span className="plan__interval">no card needed</span>
+        </p>
+      </div>
     );
   }
 
   const price = priceFor(plan.slug, state.country, state.interval);
   if (price === undefined) {
-    return <p className="plan__price">—</p>;
+    return (
+      <div className="plan__pricing">
+        <p className="plan__price">—</p>
+      </div>
+    );
   }
 
   const saving = annualSavingPercent(plan.slug, state.country);
@@ -187,7 +193,7 @@ function PlanCard({ plan, state }: { plan: PlanDefinition; state: PageState }): 
   return (
     <article className={classes.join(' ')} id={`plan-${plan.slug}`} aria-labelledby={headingId}>
       <header className="plan__head">
-        {plan.recommended ? <p className="eyebrow plan__eyebrow">Recommended</p> : null}
+        {plan.recommended ? <p className="plan__eyebrow">Recommended</p> : null}
         <h2 id={headingId} className="plan__name">
           {plan.displayName}
         </h2>
@@ -199,15 +205,17 @@ function PlanCard({ plan, state }: { plan: PlanDefinition; state: PageState }): 
       <ul className="plan__features" aria-label={`What ${plan.displayName} includes`}>
         {highlights.slice(0, 6).map(({ key, grant }) => (
           <li key={key} className={FEATURES[key].available ? undefined : 'muted'}>
-            {grant?.limitValue !== undefined && grant.limitValue !== null
-              ? `${grant.limitValue.toLocaleString('en-US')} ${
-                  grant.limitUnit === undefined ? '' : unitLabel(grant.limitValue, grant.limitUnit)
-                }`.trim()
-              : FEATURES[key].benefitText}
-            {/* Said on the pricing page, before money changes hands, not after. */}
-            {!FEATURES[key].available && (
-              <span className="small muted"> — not yet available</span>
-            )}
+            <span>
+              {grant?.limitValue !== undefined && grant.limitValue !== null
+                ? `${grant.limitValue.toLocaleString('en-US')} ${
+                    grant.limitUnit === undefined ? '' : unitLabel(grant.limitValue, grant.limitUnit)
+                  }`.trim()
+                : FEATURES[key].benefitText}
+              {/* Said on the pricing page, before money changes hands, not after. */}
+              {!FEATURES[key].available && (
+                <span className="small muted"> — not yet available</span>
+              )}
+            </span>
           </li>
         ))}
       </ul>
@@ -279,6 +287,33 @@ async function resolveState(
   return { interval, country, countryFromAccount: true, signedIn: true, resumingPlan };
 }
 
+const TERMS: readonly { title: string; text: string }[] = [
+  {
+    title: 'Billing',
+    text: 'Plans bill monthly or yearly, in the currency shown, and renew automatically until you cancel. A yearly plan is one payment for twelve months; your monthly allowances still reset every month. The renewal date and amount are always visible on your subscription page.',
+  },
+  {
+    title: 'Cancelling',
+    text: 'One click, from your subscription page or the payment portal. Your paid features stay active until the end of the period you have already paid for. We do not ask you to contact support to cancel.',
+  },
+  {
+    title: 'Changing plan',
+    text: 'Upgrades, including a move from monthly to yearly, take effect immediately with a prorated charge. Downgrades take effect at the end of your current period, so you keep what you paid for.',
+  },
+  {
+    title: 'If a payment fails',
+    text: 'Your features stay active for a grace period while you update your payment method. We will tell you the amount, the date and exactly when access would change.',
+  },
+  {
+    title: 'Your data',
+    text: 'Downgrading or cancelling never deletes your cases, documents or letters. If a lower plan has a shorter document retention window, you get 30 days notice and a full list of what is affected before anything is removed.',
+  },
+  {
+    title: 'Export and deletion',
+    text: 'Available on every plan, including free and expired accounts. These are rights, not features, so no plan can switch them off.',
+  },
+];
+
 export default async function PricingPage({
   searchParams,
 }: {
@@ -291,6 +326,7 @@ export default async function PricingPage({
   return (
     <div className="shell pricing">
       <section className="pricing__intro">
+        <p className="eyebrow">Pricing</p>
         <h1>Plans and pricing</h1>
         <p className="lede">
           Every limit below is the limit the software actually enforces. There is no
@@ -316,7 +352,7 @@ export default async function PricingPage({
         </div>
 
         {state.signedIn && state.resumingPlan !== null ? (
-          <p className="notice notice--accent" role="status">
+          <p className="notice notice--info pricing__resume" role="status">
             You are signed in. Choose {ALL_PLANS.find((p) => p.slug === state.resumingPlan)?.displayName ?? 'a plan'}{' '}
             below to continue to checkout.
           </p>
@@ -336,7 +372,7 @@ export default async function PricingPage({
               >
                 <span className="glance__name">
                   {plan.displayName}
-                  {plan.recommended ? <span className="pill">Recommended</span> : null}
+                  {plan.recommended ? <span className="badge">Recommended</span> : null}
                 </span>
                 <span className="glance__price">{glancePrice(plan, state)}</span>
               </a>
@@ -354,9 +390,11 @@ export default async function PricingPage({
       </section>
 
       <section>
-        <h2>Everything, side by side</h2>
+        <div className="section-head mb-4">
+          <h2>Everything, side by side</h2>
+        </div>
         <p className="small muted table-hint">Swipe sideways to see every plan.</p>
-        <div className="table-scroll">
+        <div className="table-scroll table--hover">
           <table>
             <caption className="sr-only">
               Feature comparison across the {ALL_PLANS.map((p) => p.displayName).join(', ')} plans
@@ -392,72 +430,27 @@ export default async function PricingPage({
       </section>
 
       <section>
-        <h2>The terms, in plain words</h2>
-        <div className="two-col">
-          <div className="stack">
-            <div>
-              <h3>Billing</h3>
-              <p className="small">
-                Plans bill monthly or yearly, in the currency shown, and renew
-                automatically until you cancel. A yearly plan is one payment for twelve
-                months; your monthly allowances still reset every month. The renewal date
-                and amount are always visible on your subscription page.
-              </p>
+        <div className="section-intro">
+          <h2>The terms, in plain words</h2>
+        </div>
+        <div className="terms-grid">
+          {TERMS.map((term) => (
+            <div key={term.title} className="card">
+              <h3>{term.title}</h3>
+              <p>{term.text}</p>
             </div>
-            <div>
-              <h3>Cancelling</h3>
-              <p className="small">
-                One click, from your subscription page or the payment portal. Your paid
-                features stay active until the end of the period you have already paid
-                for. We do not ask you to contact support to cancel.
-              </p>
-            </div>
-            <div>
-              <h3>Changing plan</h3>
-              <p className="small">
-                Upgrades, including a move from monthly to yearly, take effect immediately
-                with a prorated charge. Downgrades take effect at the end of your current
-                period, so you keep what you paid for.
-              </p>
-            </div>
-          </div>
-          <div className="stack">
-            <div>
-              <h3>If a payment fails</h3>
-              <p className="small">
-                Your features stay active for a grace period while you update your
-                payment method. We will tell you the amount, the date and exactly when
-                access would change.
-              </p>
-            </div>
-            <div>
-              <h3>Your data</h3>
-              <p className="small">
-                Downgrading or cancelling never deletes your cases, documents or
-                letters. If a lower plan has a shorter document retention window, you
-                get 30 days notice and a full list of what is affected before anything
-                is removed.
-              </p>
-            </div>
-            <div>
-              <h3>Export and deletion</h3>
-              <p className="small">
-                Available on every plan, including free and expired accounts. These are
-                rights, not features, so no plan can switch them off.
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      <section>
+      <section className="stack">
         <p className="small muted">
           The full <Link href="/terms">terms of service</Link>,{' '}
           <Link href="/refunds">refund and cancellation policy</Link> and{' '}
           <Link href="/privacy">privacy policy</Link> say the same things at greater
           length.
         </p>
-        <p className="notice notice--accent">
+        <p className="notice notice--info">
           Prices shown are current for new subscriptions. If we change a price, existing
           subscribers stay on the price they signed up at until we contact them
           directly. Applicable taxes are calculated at checkout and shown before you
