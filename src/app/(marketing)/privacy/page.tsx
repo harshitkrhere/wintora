@@ -51,6 +51,13 @@ const SUBPROCESSORS: readonly {
     region: 'Global edge network; functions in the United States',
   },
   {
+    name: 'Vercel (Web Analytics)',
+    purpose: 'Traffic measurement on the public marketing pages',
+    data: 'Page, referrer and country. Cookieless; no identifier is set and no request is made from a signed-in page.',
+    region: 'Global edge network',
+    note: 'Runs only on the pages anyone can read without an account. Never mounted inside the signed-in product, so no case, document or account page is ever reported here.',
+  },
+  {
     name: SELLER_OF_RECORD.processorName,
     purpose: 'Payment processing and recurring billing',
     data: 'Email, card details (entered directly into their form), amount, currency',
@@ -163,8 +170,9 @@ export default function PrivacyPage(): React.ReactElement {
           Health information is never sold, never shared for anyone else&rsquo;s
           advertising, never used to train a model, and never shared with employers,
           insurers, providers or collectors. There are no data brokers and no advertising
-          trackers on this site. If we ever add analytics to the public pages it will be
-          cookieless, record only page, referrer and country, and this page will say so.
+          trackers on this site. The public marketing pages use cookieless traffic
+          measurement, listed in the table above: it records page, referrer and country,
+          nothing else, and it never runs on a page you can only reach signed in.
         </p>
       </section>
 
