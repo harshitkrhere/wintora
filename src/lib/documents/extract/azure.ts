@@ -26,6 +26,7 @@ import {
   lowestConfidence,
   parseDateToIso,
 } from '@/domain/documents/draft';
+import { backfillTotals } from '@/domain/documents/totals';
 import { log } from '@/lib/logging';
 import type { DocumentReader, ReaderInput } from './port';
 
@@ -116,10 +117,22 @@ export function mapAzureInvoice(
     null;
   const currency = currencyCode === 'USD' || currencyCode === 'CAD' ? currencyCode : null;
 
-  const subtotal = moneyField(fields.SubTotal);
-  const total = moneyField(fields.InvoiceTotal);
-  const amountDue = moneyField(fields.AmountDue);
-  const previousBalance = moneyField(fields.PreviousUnpaidBalance);
+  // The invoice model returns line items well and totals unreliably: hospital
+  // statements print "TOTAL CHARGES" and "BALANCE DUE" in layouts it was not
+  // trained on. It also returns the full OCR text, which carries those labels.
+  // Structured fields win; the label scan fills only what they left empty.
+  const { subtotal, total, amountDue, insurancePaid, adjustments, previousBalance } =
+    backfillTotals(
+      {
+        subtotal: moneyField(fields.SubTotal),
+        total: moneyField(fields.InvoiceTotal),
+        amountDue: moneyField(fields.AmountDue),
+        insurancePaid: null,
+        adjustments: null,
+        previousBalance: moneyField(fields.PreviousUnpaidBalance),
+      },
+      result.analyzeResult?.content ?? '',
+    );
 
   const blank = lineItems.filter((l) => l.amountCents === null).length;
   if (blank > 0) notes.push(`${blank} line item${blank === 1 ? '' : 's'} had no readable amount.`);
@@ -142,9 +155,8 @@ export function mapAzureInvoice(
     subtotal,
     total,
     amountDue,
-    // The invoice model has no "insurance paid" concept. Left for the customer.
-    insurancePaid: null,
-    adjustments: null,
+    insurancePaid,
+    adjustments,
     previousBalance,
     statementDate: dateField(fields.InvoiceDate),
     providerName: textField(fields.VendorName),

@@ -25,6 +25,7 @@ import {
   parseDateToIso,
   parseMoneyToCents,
 } from '@/domain/documents/draft';
+import { backfillTotals } from '@/domain/documents/totals';
 import { redact } from '@/domain/redaction/redact';
 import { type AiProvider, getProvider } from '@/lib/ai/provider';
 import { serverEnv } from '@/lib/env';
@@ -199,7 +200,21 @@ export async function structureText(
     notes.push(`${blankAmounts} line item${blankAmounts === 1 ? '' : 's'} had no readable amount.`);
   }
   if (lineItems.length === 0) notes.push('No individual charges were found.');
-  if (!r.total && !r.amountDue && !r.subtotal) notes.push('No total was found.');
+
+  // Deterministic backstop: whatever the model missed, a label scan over the
+  // (redacted) text may still find. The model's fields win where present.
+  const totals = backfillTotals(
+    {
+      subtotal: money(r.subtotal),
+      total: money(r.total),
+      amountDue: money(r.amountDue),
+      insurancePaid: money(r.insurancePaid),
+      adjustments: money(r.adjustments),
+      previousBalance: money(r.previousBalance),
+    },
+    redacted.text,
+  );
+  if (!totals.total && !totals.amountDue && !totals.subtotal) notes.push('No total was found.');
   notes.push('Every figure below was read automatically. Check each one against your document.');
 
   const statementIso = parseDateToIso(r.statementDate);
@@ -209,12 +224,7 @@ export async function structureText(
     engineVersion: STRUCTURE_ENGINE_VERSION,
     currency: r.currency ?? null,
     lineItems,
-    subtotal: money(r.subtotal),
-    total: money(r.total),
-    amountDue: money(r.amountDue),
-    insurancePaid: money(r.insurancePaid),
-    adjustments: money(r.adjustments),
-    previousBalance: money(r.previousBalance),
+    ...totals,
     statementDate: statementIso ? { value: statementIso, confidence: 'LOW' } : null,
     providerName: text(r.providerName),
     accountReference: text(r.accountReference),

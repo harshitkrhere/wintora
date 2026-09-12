@@ -395,7 +395,9 @@ export function BillCheckerTool({
           <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? 'Checking…' : 'Check my bill'}
           </button>
-          <span className="small muted">No account needed.</span>
+          <span className="small muted">
+            {caseId !== null ? 'Saved to your case.' : 'No account needed.'}
+          </span>
         </div>
 
         {error !== null ? (
