@@ -27,6 +27,7 @@
     "paddle:seed": "node scripts/seed-paddle.mjs",
     "ai:models": "node scripts/openrouter-models.mjs",
     "ai:smoke": "node scripts/ai-smoke.mjs",
+    "ocr:smoke": "node scripts/ocr-smoke.mjs",
     "env:sync": "node scripts/sync-env.mjs",
     "tunnel": "node scripts/tunnel-url.mjs"
   },
