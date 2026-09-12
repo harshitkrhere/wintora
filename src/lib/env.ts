@@ -133,7 +133,9 @@ let cachedServer: ServerEnv | null = null;
  * as configured when it is not. Both have happened. Normalise once, here,
  * before any schema sees the values.
  */
-function stripBlanks(source: NodeJS.ProcessEnv): Record<string, string | undefined> {
+function stripBlanks(
+  source: Readonly<Record<string, string | undefined>>,
+): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(source)) {
     out[key] = value === undefined || value.trim() === '' ? undefined : value;
