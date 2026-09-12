@@ -268,10 +268,22 @@ section {
   font-size: 0.9rem;
   color: var(--ink-500);
 }
+/* Explicit columns. A flexible track cannot share a declaration with
+   repeat(auto-fit), and an invalid declaration silently stacks the footer. */
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.4fr repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
   gap: 2rem 1.5rem;
+}
+@media (max-width: 860px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .footer-grid h3 {
   font-size: 0.74rem;
