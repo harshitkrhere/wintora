@@ -38,9 +38,9 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   );
 
   return (
-    <div className="shell stack--lg" style={{ paddingTop: '2.5rem', paddingBottom: '4rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
+    <div className="shell stack--lg page">
+      <div className="page-head">
+        <div className="page-head__text">
           <h1 style={{ marginBottom: '0.35rem' }}>
             {open.length > 0
               ? `${open.length} open case${open.length === 1 ? '' : 's'}`

@@ -242,21 +242,80 @@ section {
   margin-left: auto;
   align-items: center;
 }
+.site-nav__links {
+  display: flex;
+  gap: 1.6rem;
+  align-items: center;
+}
 .site-nav a {
   color: var(--ink-700);
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 500;
 }
-.site-nav a:hover {
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
   color: var(--ink-900);
 }
 .site-nav .btn {
   margin-left: 0.4rem;
 }
+/* The menu button exists for phones. On a wide screen the links are inline
+   and the button is not shown. */
+.site-nav__toggle {
+  display: none;
+}
 @media (max-width: 720px) {
-  .site-nav a:not(.btn) {
+  .site-nav {
+    gap: 0.5rem;
+  }
+  .site-nav .btn {
+    margin-left: 0;
+  }
+  .site-nav__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--ink-900);
+    cursor: pointer;
+  }
+  .site-nav__toggle:hover,
+  .site-nav__toggle[aria-expanded="true"] {
+    background: var(--surface-sunken);
+  }
+  /* The links become a sheet hung from the header. The sticky header is its
+     containing block, so it spans the bar's full width and moves with it. */
+  .site-nav__links {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0.5rem 1rem 0.75rem;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow-md);
+  }
+  .site-nav__links[data-open="true"] {
+    display: flex;
+  }
+  .site-nav__links a {
+    display: block;
+    padding: 0.85rem 0.5rem;
+    font-size: 1.05rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .site-nav__links a:last-child {
+    border-bottom: none;
   }
 }
 
@@ -348,6 +407,9 @@ section {
   align-items: center;
 }
 .app-bar__nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   color: var(--ink-500);
   text-decoration: none;
   font-size: 0.95rem;
@@ -362,6 +424,60 @@ section {
 .app-bar__nav a[aria-current="page"] {
   color: var(--ink-900);
   background: var(--surface-sunken);
+}
+.app-bar__nav svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+/* On a phone the same three destinations move to a bar along the bottom,
+   within reach of a thumb. The top bar keeps the mark and the way out. */
+@media (max-width: 720px) {
+  /* A backdrop-filter makes the header the containing block for fixed
+     descendants, which would pin the bar to the header instead of the
+     viewport. The top bar goes opaque on phones so the bottom bar can move. */
+  .app-bar {
+    backdrop-filter: none;
+    background: var(--paper);
+  }
+  .app-bar__nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    padding: 0.3rem 0.5rem calc(0.3rem + env(safe-area-inset-bottom));
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+  }
+  .app-bar__nav a {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 52px;
+    padding: 0.35rem 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 560;
+    border-radius: var(--radius);
+  }
+  .app-bar__nav a:hover {
+    background: transparent;
+  }
+  .app-bar__nav a[aria-current="page"] {
+    color: var(--accent-700);
+    background: transparent;
+  }
+  .app-bar__nav svg {
+    width: 22px;
+    height: 22px;
+  }
+  /* Room beneath the page so the bar never covers the last action. */
+  .app-main {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
 }
 .app-bar__end {
   margin-left: auto;
@@ -419,6 +535,11 @@ section {
   justify-content: center;
   flex-wrap: wrap;
   margin-top: 1.75rem;
+}
+@media (max-width: 560px) {
+  .hero__actions .btn {
+    width: 100%;
+  }
 }
 .hero__proof {
   margin: 1rem auto 0;
@@ -526,6 +647,13 @@ section {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
+}
+.btn--icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 /* ----------------------------------------------------------- cards */
@@ -920,7 +1048,64 @@ tbody tr:last-child td {
 
 /* A page inside the app shell. Replaces the per-page paddingTop inline style. */
 .page {
-  padding-top: 3rem;
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+/* A page's opening: title and lead on the left, the one action on the right.
+   On a phone the action drops beneath the text and spans the width. */
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.page-head > * {
+  min-width: 0;
+}
+.page-head__text > :last-child {
+  margin-bottom: 0;
+}
+/* A row of actions. Buttons wrap, and on a phone they stack full-width. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+@media (max-width: 560px) {
+  .page-head .btn,
+  .actions .btn {
+    width: 100%;
+  }
+}
+/* What happened, when. The time sits in a fixed column beside the event on a
+   wide screen and above it on a phone. */
+.timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.timeline li {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.88rem;
+}
+.timeline__when {
+  flex: none;
+  min-width: 11rem;
+  color: var(--ink-500);
+}
+@media (max-width: 560px) {
+  .timeline li {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .timeline__when {
+    min-width: 0;
+  }
 }
 .page__header {
   margin-bottom: 2rem;
@@ -1103,10 +1288,56 @@ input[type="file"] {
 }
 .line-item-row {
   display: grid;
-  grid-template-columns: 1fr 120px 40px;
+  grid-template-columns: minmax(0, 1fr) 120px 44px;
   gap: 0.5rem;
   align-items: end;
   margin-bottom: 0.5rem;
+}
+/* On a phone each line becomes two rows: the description across the top,
+   then the amount and the remove button. Every line shows its own labels,
+   because the columns no longer line up under one header. */
+@media (max-width: 560px) {
+  .line-item-row {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+  .line-item-row + .line-item-row {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--line);
+  }
+  .line-item-row > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+/* Read by screen readers everywhere; visible only on a phone. */
+@media (min-width: 561px) {
+  .sr-only-wide {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+/* The submit row: the button and its one-line note. On a phone the button
+   takes the full width and the note drops beneath it. */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.form-actions .btn {
+  flex: none;
+}
+@media (max-width: 560px) {
+  .form-actions .btn {
+    width: 100%;
+  }
 }
 fieldset {
   border: none;
@@ -1168,11 +1399,467 @@ details[open] > summary::before {
   transform: rotate(90deg);
 }
 
+/* ----------------------------------------------------- progress, waiting */
+
+/* Three steps, one current. Said in words as well as shape. */
+.stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.stepper__step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: var(--ink-500);
+}
+.stepper__step + .stepper__step::before {
+  content: "";
+  width: 2rem;
+  height: 1px;
+  background: var(--line-strong);
+  margin-right: 0.25rem;
+}
+.stepper__num {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 640;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-500);
+}
+.stepper__step--current {
+  color: var(--ink-900);
+  font-weight: 600;
+}
+.stepper__step--current .stepper__num {
+  background: var(--accent-600);
+  border-color: var(--accent-600);
+  color: #fff;
+}
+.stepper__step--done .stepper__num {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: var(--accent-700);
+}
+@media (max-width: 560px) {
+  .stepper__step + .stepper__step::before {
+    width: 1rem;
+  }
+  .stepper__step:not(.stepper__step--current) .stepper__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
+/* Something is happening: an indeterminate bar, what it is, what comes next. */
+.wait {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+.wait__note {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.progress {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+.progress__bar {
+  height: 100%;
+  width: 40%;
+  border-radius: var(--radius-pill);
+  background: var(--accent-500);
+  animation: progress-slide 1.4s ease-in-out infinite;
+}
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* The shape of a page that is on its way. */
+.skeleton {
+  display: block;
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--surface-sunken) 0%, var(--line) 50%, var(--surface-sunken) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.skeleton-group {
+  display: grid;
+  gap: 0.6rem;
+}
+.skeleton--title {
+  height: 2.2rem;
+  width: min(16rem, 70vw);
+}
+.skeleton--text {
+  height: 1rem;
+  width: min(28rem, 85vw);
+}
+.skeleton--btn {
+  height: 2.8rem;
+  width: 9rem;
+  border-radius: var(--radius-pill);
+}
+.skeleton--card {
+  height: 5.5rem;
+  border-radius: var(--radius-lg);
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* The result arriving: a short rise, once. */
+.reveal {
+  animation: reveal 360ms ease-out both;
+  /* Scrolled to on arrival; the sticky bar must not cover the headline. */
+  scroll-margin-top: calc(var(--header-h) + 1rem);
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The count of what was found, in the same words the cards use. */
+.summary-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.tile {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.tile__n {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.tile__label {
+  font-size: 0.82rem;
+  color: var(--ink-500);
+}
+.tile--attention {
+  border-color: var(--attention-line);
+  background: var(--attention-bg);
+}
+.tile--attention .tile__n {
+  color: var(--attention-fg);
+}
+.tile--review {
+  border-color: var(--review-line);
+  background: var(--review-bg);
+}
+.tile--review .tile__n {
+  color: var(--review-fg);
+}
+.tile--quiet .tile__n {
+  color: var(--ink-400);
+}
+@media (max-width: 560px) {
+  .summary-tiles {
+    grid-template-columns: 1fr;
+  }
+  .tile {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.7rem 0.9rem;
+  }
+  .tile__n {
+    font-size: 1.3rem;
+  }
+}
+
+/* The case's name on the review step: a field, and a word about saving. */
+.case-name {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+}
+.case-name label {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+.case-name__status {
+  font-size: 0.82rem;
+  color: var(--ink-500);
+  min-width: 4rem;
+}
+
+/* Adding a document to an existing case: folded away, since most uploads
+   are a new bill. */
+.existing summary {
+  cursor: pointer;
+  color: var(--ink-500);
+  font-size: 0.92rem;
+}
+.existing ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* ----------------------------------------------------------- checklist */
+
+/* A heading with a quiet figure beside it. */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.section-head h2 {
+  margin: 0;
+}
+
+/* Steps to take about a bill, ticked off by the customer. The whole row is
+   the label, so the tap target is the row, not the box. */
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.checklist__item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.checklist__item--done {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+}
+.checklist__item--done span {
+  color: var(--ink-500);
+}
+.checklist__label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  font-size: 0.97rem;
+  font-weight: 500;
+  color: var(--ink-900);
+  cursor: pointer;
+}
+/* The global input rules make every input a full-width text field. */
+.checklist__box {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0.05rem 0 0;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  accent-color: var(--accent-600);
+  cursor: pointer;
+}
+.checklist__box:focus {
+  box-shadow: none;
+}
+
+/* ------------------------------------------------ pricing on a phone */
+
+/* Every plan's price on one screen, before the cards. */
+.glance {
+  display: none;
+}
+.table-hint {
+  display: none;
+}
+/* Cards are jumped to from the strip; the bar must not cover their name. */
+.plan {
+  scroll-margin-top: calc(var(--header-h) + 1rem);
+}
+@media (max-width: 720px) {
+  .glance {
+    display: block;
+    margin-top: 1.5rem;
+  }
+  .glance__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .glance__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    color: var(--ink-900);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .glance__list li:last-child .glance__row {
+    border-bottom: none;
+  }
+  .glance__row--recommended {
+    background: var(--surface-sunken);
+  }
+  .glance__name {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+  .glance__price {
+    font-weight: 640;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .table-hint {
+    display: block;
+    margin: -0.25rem 0 0.75rem;
+  }
+  /* The cards themselves, without the space reserved for lining up columns
+     that no longer sit side by side. */
+  .plan {
+    gap: 0.6rem;
+  }
+  .plan__fit,
+  .plan__pricing {
+    min-height: 0;
+  }
+  .plan__features {
+    font-size: 0.9rem;
+    gap: 0.35rem;
+  }
+}
+
+/* ------------------------------------------------------- demonstration */
+
+/* The landing-page example: the bill on the left, what the check says on the
+   right. One column on a narrow screen, bill first. */
+.demo {
+  display: grid;
+  gap: 1.5rem 2.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  align-items: start;
+  padding-block: 2rem 1rem;
+}
+@media (max-width: 860px) {
+  .demo {
+    grid-template-columns: 1fr;
+  }
+}
+.demo__title {
+  font-size: 1.25rem;
+  margin-bottom: 0.9rem;
+}
+.demo__frame {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+.demo__table {
+  font-size: 0.92rem;
+}
+.demo__table th,
+.demo__table td {
+  padding: 0.6rem 0.9rem;
+}
+.demo__table th:last-child,
+.demo__table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.demo__table tfoot td {
+  font-weight: 640;
+  color: var(--ink-900);
+  border-top: 2px solid var(--line-strong);
+  border-bottom: none;
+}
+.demo__note {
+  margin: 0.75rem 0 0;
+}
+
+/* ------------------------------------------------------------- phones */
+
+@media (max-width: 560px) {
+  :root {
+    --header-h: 56px;
+  }
+  .shell {
+    width: min(1120px, 100% - 2rem);
+  }
+  .narrow {
+    width: min(720px, 100% - 2rem);
+  }
+  .card {
+    padding: 1.1rem;
+  }
+  .page {
+    padding-top: 1.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition: none !important;
+    animation: none !important;
     scroll-behavior: auto !important;
   }
 }

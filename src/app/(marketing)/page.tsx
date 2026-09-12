@@ -1,13 +1,23 @@
 /**
  * The landing page.
  *
- * One promise, four steps, one honest paragraph about limits, one action.
- * No fabricated numbers, testimonials, logos or urgency: every claim on this
- * page is something the product can show.
+ * One promise, one demonstration, four steps, one honest paragraph about
+ * limits, one action. No fabricated numbers, testimonials, logos or urgency:
+ * every claim on this page is something the product can show, and the
+ * demonstration is the product showing it. The sample figures below are run
+ * through the real engine when the page is built, so the example can never
+ * say something the checker would not.
+ *
+ * The first action is the free checker, not the sign-up form. A person who
+ * has seen a result of their own has a reason to keep it; a person who has
+ * only read about one does not.
  */
 
 import Link from 'next/link';
 import { CAPABILITY_STATEMENT } from '@/config/disclaimers';
+import { analyzeBill, headline } from '@/domain/analysis/engine';
+import type { BillDocument } from '@/domain/analysis/types';
+import { FindingCard } from '@/components/FindingCard';
 
 function Icon({ name }: { name: 'understand' | 'check' | 'act' | 'control' }): React.ReactElement {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -68,6 +78,35 @@ const PILLARS = [
   },
 ];
 
+/**
+ * Sample figures for the demonstration. Two things are wrong with them on
+ * purpose: one charge appears twice, and the printed total is $150 more than
+ * the lines add up to. Whatever the engine says about that is what the page
+ * shows.
+ */
+const SAMPLE_BILL: BillDocument = {
+  documentId: 'example',
+  currency: 'USD',
+  providerName: 'Example Regional Medical Center',
+  statementDate: '2026-03-14',
+  lineItems: [
+    { index: 0, description: 'Emergency department visit, level 3', amountCents: 125000 },
+    { index: 1, description: 'CT scan, abdomen, with contrast', amountCents: 218000 },
+    { index: 2, description: 'CT scan, abdomen, with contrast', amountCents: 218000 },
+    { index: 3, description: 'Laboratory panel', amountCents: 31000 },
+  ],
+  subtotalCents: 607000,
+  totalCents: 607000,
+  amountDueCents: 607000,
+};
+
+const EXAMPLE = analyzeBill(SAMPLE_BILL);
+const EXAMPLE_FINDINGS = EXAMPLE.findings.filter((f) => f.severity !== 'INFO').slice(0, 2);
+
+function usd(cents: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+}
+
 export default function HomePage(): React.ReactElement {
   return (
     <div className="shell">
@@ -79,16 +118,69 @@ export default function HomePage(): React.ReactElement {
           medical bill holds together, and shows you exactly what it found.
         </p>
         <div className="hero__actions">
-          <Link href="/signup" className="btn btn--primary btn--lg">
-            Get started
+          <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
+            Check a bill now
           </Link>
-          <Link href="/medical-bill-checker" className="btn btn--secondary btn--lg">
-            Try it without an account
+          <Link href="/signup" className="btn btn--secondary btn--lg">
+            Create a free account
           </Link>
         </div>
         <p className="hero__proof">
-          Five checks without an account, and nothing is kept. A free account after that; no card.
+          No account needed for your first five checks, and nothing you type is kept.
+          A free account after that; no card.
         </p>
+      </section>
+
+      {/* The product, doing the thing. Sample figures in, real findings out. */}
+      <section className="demo" aria-labelledby="demo-heading">
+        <div className="demo__bill">
+          <p className="eyebrow">Example · sample figures</p>
+          <h2 id="demo-heading" className="demo__title">
+            A bill as printed
+          </h2>
+          <div className="demo__frame">
+            <table className="demo__table">
+              <caption className="sr-only">Sample bill line items</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Charge</th>
+                  <th scope="col">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SAMPLE_BILL.lineItems.map((li) => (
+                  <tr key={li.index}>
+                    <td>{li.description}</td>
+                    <td>{usd(li.amountCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Subtotal, as printed</td>
+                  <td>{usd(SAMPLE_BILL.subtotalCents ?? 0)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p className="small muted demo__note">
+            Statement dated {SAMPLE_BILL.statementDate}. Four lines, one total, the kind of page
+            that arrives in the post.
+          </p>
+        </div>
+        <div className="demo__result">
+          <p className="eyebrow">What the check finds</p>
+          <h2 className="demo__title">{headline(EXAMPLE)}</h2>
+          <div className="stack">
+            {EXAMPLE_FINDINGS.map((finding, i) => (
+              <FindingCard key={`${finding.code}-${i}`} finding={finding} />
+            ))}
+          </div>
+          <p className="small muted demo__note">
+            These findings are the engine&apos;s real output for the sample figures, produced
+            when this page was built. Your bill gets the same {EXAMPLE.checksRun.length} checks.
+          </p>
+        </div>
       </section>
 
       <section>
@@ -139,8 +231,8 @@ export default function HomePage(): React.ReactElement {
           Wintora never contacts anyone on your behalf.
         </p>
         <div className="hero__actions">
-          <Link href="/signup" className="btn btn--primary btn--lg">
-            Create a free account
+          <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
+            Check your own bill
           </Link>
           <Link href="/pricing" className="btn btn--quiet btn--lg">
             See pricing

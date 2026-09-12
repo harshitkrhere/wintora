@@ -12,8 +12,11 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { requireUser } from '@/lib/http/api';
 import { createAdminClient } from '@/lib/supabase/server';
-import { loadCase } from '@/lib/cases/load';
+import { loadCase, type CaseAnalysis, type CaseEvent } from '@/lib/cases/load';
+import { suggestedActions } from '@/domain/analysis/engine';
+import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from '@/components/FindingCard';
+import { NextSteps, type Step } from '@/components/NextSteps';
 import { CaseStatusButton } from '@/components/CaseStatusButton';
 import { money } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -42,6 +45,36 @@ const TYPE_LABEL: Record<string, string> = {
   BILL_VS_EOB: 'Bill compared with EOB',
 };
 
+/**
+ * The checklist for a case: the engine's suggested actions for the latest
+ * check, each marked done or not by the customer's own timeline entries
+ * (newest first, so the first STEP_* event for a step is the current state).
+ * Returns an empty list when there is nothing to chase.
+ */
+function checklistFor(analysis: CaseAnalysis, events: readonly CaseEvent[]): Step[] {
+  const codes = new Set(analysis.findings.map((f) => f.code));
+  if (codes.has('NO_ISSUES_FOUND')) return [];
+
+  // suggestedActions reads only the findings and the analysis type; the rest
+  // of the result is not stored and is not needed.
+  const shape: AnalysisResult = {
+    engineVersion: analysis.engineVersion,
+    analysisType: analysis.analysisType === 'BILL_VS_EOB' ? 'BILL_VS_EOB' : 'BILL_CONSISTENCY',
+    findings: analysis.findings,
+    checksRun: [],
+    summary: { lineItemCount: 0, totalChargesCents: null, currency: 'USD', attention: 0, review: 0, info: 0 },
+  };
+  const actions = suggestedActions(shape, { savedToCase: true });
+  if (actions.every((a) => a.startsWith('Nothing to chase'))) return [];
+
+  return actions.map((text) => {
+    const last = events.find(
+      (e) => (e.eventType === 'STEP_DONE' || e.eventType === 'STEP_REOPENED') && e.detail === text,
+    );
+    return { text, done: last?.eventType === 'STEP_DONE' };
+  });
+}
+
 export default async function CasePage({
   params,
 }: {
@@ -62,10 +95,12 @@ export default async function CasePage({
 
   const { summary, documents, analyses, events } = detail;
   const completed = analyses.filter((a) => a.status === 'COMPLETED');
+  const latest = completed[0];
+  const steps = latest !== undefined ? checklistFor(latest, events) : null;
   const amount = money(summary.amountCents, summary.currency);
 
   return (
-    <div className="shell stack--lg" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
+    <div className="shell stack--lg page">
       <div>
         <p className="eyebrow">
           <Link href="/cases">Cases</Link> · {summary.status === 'OPEN' ? 'Open' : 'Closed'}
@@ -78,12 +113,24 @@ export default async function CasePage({
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div className="actions">
         <Link href={`/upload?case=${summary.id}`} className="btn btn--primary">
           Upload a document
         </Link>
         <CaseStatusButton caseId={summary.id} status={summary.status} />
       </div>
+
+      {/* --------------------------------------------------- next steps */}
+      {steps !== null ? (
+        steps.length > 0 ? (
+          <NextSteps caseId={summary.id} steps={steps} />
+        ) : (
+          <p className="notice notice--accent">
+            Nothing to chase on this statement. Keep it on the case in case a later bill or an
+            EOB disagrees with it.
+          </p>
+        )
+      ) : null}
 
       {/* ------------------------------------------------------- checks */}
       <section className="stack">
@@ -133,14 +180,14 @@ export default async function CasePage({
             action={{ href: `/upload?case=${summary.id}`, label: 'Upload a document' }}
           />
         ) : (
-          <div className="card" style={{ padding: 0 }}>
-            <table className="table" style={{ width: '100%' }}>
+          <div className="table-scroll">
+            <table>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left' }}>File</th>
-                  <th style={{ textAlign: 'left' }}>Status</th>
-                  <th style={{ textAlign: 'left' }}>Uploaded</th>
-                  <th style={{ textAlign: 'left' }}>Kept until</th>
+                  <th>File</th>
+                  <th>Status</th>
+                  <th>Uploaded</th>
+                  <th>Kept until</th>
                 </tr>
               </thead>
               <tbody>
@@ -180,10 +227,10 @@ export default async function CasePage({
       {/* ----------------------------------------------------- timeline */}
       <section className="stack">
         <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Timeline</h2>
-        <ol className="stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        <ol className="timeline">
           {events.map((e) => (
-            <li key={e.id} className="small" style={{ display: 'flex', gap: '1rem' }}>
-              <span className="muted" style={{ minWidth: '11rem' }}>{when(e.occurredAt)}</span>
+            <li key={e.id}>
+              <span className="timeline__when">{when(e.occurredAt)}</span>
               <span>
                 {e.title}
                 {e.detail ? <span className="muted"> — {e.detail}</span> : null}

@@ -27,9 +27,9 @@ export default async function CasesPage(): Promise<React.ReactElement> {
   const rest = cases.filter((c) => c.status !== 'OPEN');
 
   return (
-    <div className="shell stack--lg" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
+    <div className="shell stack--lg page">
+      <div className="page-head">
+        <div className="page-head__text">
           <p className="eyebrow">Cases</p>
           <h1>Your cases</h1>
           <p className="muted" style={{ margin: 0 }}>

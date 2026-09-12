@@ -11,7 +11,7 @@
  * what the server returns. See docs/ENTITLEMENTS.md section 6.
  */
 
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from './FindingCard';
 import type { ExtractionDraft } from '@/domain/documents/draft';
@@ -43,13 +43,19 @@ interface ApiResponse {
 }
 
 
-function newLine(): DraftLine {
-  return {
-    id: Math.random().toString(36).slice(2),
-    description: '',
-    amount: '',
-    code: '',
-  };
+/**
+ * Line ids are positional, never random. The form is rendered on the server
+ * and hydrated in the browser, and React compares the two: an id from
+ * Math.random() differs on each side, React reports a hydration mismatch on
+ * every load of the tool, and the whole form re-renders in the browser before
+ * it will take a tap. Ids only need to be unique within one form.
+ */
+function lineId(n: number): string {
+  return `l${n}`;
+}
+
+function newLine(id: string): DraftLine {
+  return { id, description: '', amount: '', code: '' };
 }
 
 /** Parse a typed amount to integer cents. Rejects anything ambiguous. */
@@ -68,21 +74,24 @@ function fromCents(cents: number | null | undefined): string {
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
 }
 
-function linesFromDraft(draft: ExtractionDraft): DraftLine[] {
-  const fromDraft = draft.lineItems.map((li) => ({
-    id: Math.random().toString(36).slice(2),
+function initialLines(draft: ExtractionDraft | null): DraftLine[] {
+  const fromDraft = (draft?.lineItems ?? []).map((li, index) => ({
+    id: lineId(index),
     description: li.description,
     amount: fromCents(li.amountCents),
     code: li.code ?? '',
   }));
   // Always leave room to add what the reader missed.
-  return fromDraft.length > 0 ? [...fromDraft, newLine()] : [newLine(), newLine(), newLine()];
+  return fromDraft.length > 0
+    ? [...fromDraft, newLine(lineId(fromDraft.length))]
+    : [newLine(lineId(0)), newLine(lineId(1)), newLine(lineId(2))];
 }
 
 export function BillCheckerTool({
   showEob = false,
   initial = null,
   caseId = null,
+  onResult,
 }: {
   showEob?: boolean;
   /**
@@ -96,11 +105,18 @@ export function BillCheckerTool({
    * against the plan's quota. When null, this is the anonymous public tool.
    */
   caseId?: string | null;
+  /** Told when a result arrives, so a surrounding flow can mark the step done. */
+  onResult?: (result: AnalysisResult) => void;
 }): React.ReactElement {
   const formId = useId();
-  const [lines, setLines] = useState<DraftLine[]>(() =>
-    initial ? linesFromDraft(initial) : [newLine(), newLine(), newLine()],
-  );
+  const [lines, setLines] = useState<DraftLine[]>(() => initialLines(initial));
+  // The next id to hand out. Starts past the initial rows; ids are never reused.
+  const lineSeq = useRef(lines.length);
+  const addLine = useCallback((): void => {
+    const id = lineId(lineSeq.current);
+    lineSeq.current += 1;
+    setLines((prev) => [...prev, newLine(id)]);
+  }, []);
   const [subtotal, setSubtotal] = useState(fromCents(initial?.subtotal?.amountCents));
   const [total, setTotal] = useState(fromCents(initial?.total?.amountCents));
   const [accountReference, setAccountReference] = useState(initial?.accountReference?.value ?? '');
@@ -219,6 +235,7 @@ export function BillCheckerTool({
         const okJson = json as ApiResponse;
         if (okJson.anonymous) setFreeLeft(okJson.anonymous.remaining);
         setResult(okJson);
+        onResult?.(okJson.analysis);
       } catch {
         setError('We could not reach the service. Please check your connection.');
       } finally {
@@ -236,6 +253,7 @@ export function BillCheckerTool({
       showEob,
       eobPatientResponsibility,
       eobPlanPaid,
+      onResult,
     ],
   );
 
@@ -278,8 +296,11 @@ export function BillCheckerTool({
           {lines.map((line, index) => (
             <div className="line-item-row" key={line.id}>
               <div>
-                <label htmlFor={`${formId}-desc-${line.id}`}>
-                  {index === 0 ? 'Description' : <span className="sr-only">Description</span>}
+                <label
+                  htmlFor={`${formId}-desc-${line.id}`}
+                  className={index === 0 ? undefined : 'sr-only-wide'}
+                >
+                  Description
                 </label>
                 <input
                   id={`${formId}-desc-${line.id}`}
@@ -290,8 +311,11 @@ export function BillCheckerTool({
                 />
               </div>
               <div>
-                <label htmlFor={`${formId}-amt-${line.id}`}>
-                  {index === 0 ? 'Amount' : <span className="sr-only">Amount</span>}
+                <label
+                  htmlFor={`${formId}-amt-${line.id}`}
+                  className={index === 0 ? undefined : 'sr-only-wide'}
+                >
+                  Amount
                 </label>
                 <input
                   id={`${formId}-amt-${line.id}`}
@@ -303,7 +327,7 @@ export function BillCheckerTool({
               </div>
               <button
                 type="button"
-                className="btn btn--quiet"
+                className="btn btn--quiet btn--icon"
                 onClick={() => setLines((prev) => prev.filter((l) => l.id !== line.id))}
                 aria-label={`Remove line ${index + 1}`}
                 disabled={lines.length === 1}
@@ -316,7 +340,7 @@ export function BillCheckerTool({
           <button
             type="button"
             className="btn btn--secondary"
-            onClick={() => setLines((prev) => [...prev, newLine()])}
+            onClick={addLine}
           >
             Add another line
           </button>
@@ -442,7 +466,7 @@ export function BillCheckerTool({
           </fieldset>
         ) : null}
 
-        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div className="form-actions">
           <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? 'Checking…' : 'Check my bill'}
           </button>
@@ -468,17 +492,44 @@ export function BillCheckerTool({
 }
 
 function Results({ result }: { result: ApiResponse }): React.ReactElement {
+  const top = useRef<HTMLElement>(null);
+  const { attention, review, lineItemCount } = result.analysis.summary;
+  const checks = result.analysis.checksRun.length;
+
+  // Bring the result into view. On a phone it renders beneath a long form and
+  // would otherwise arrive off-screen, which reads as nothing having happened.
+  // 'auto' defers to the page's scroll-behavior, which reduced-motion turns off.
+  useEffect(() => {
+    top.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+  }, []);
+
   return (
-    <section aria-live="polite" className="stack--lg">
+    <section ref={top} aria-live="polite" className="stack--lg reveal">
       <div>
         <p className="eyebrow">What we found</p>
         <h2 style={{ marginBottom: '0.35rem' }}>{result.headline}</h2>
         <p className="small muted">
-          {result.analysis.summary.lineItemCount} line item
-          {result.analysis.summary.lineItemCount === 1 ? '' : 's'} checked against{' '}
-          {result.analysis.checksRun.length} rules.
+          {lineItemCount} line item{lineItemCount === 1 ? '' : 's'} checked against {checks} rules.
         </p>
       </div>
+
+      {/* The count of what was found, in the same three words the cards use.
+          Zeros are shown, not hidden: "nothing worth a closer look" is the
+          result most people are hoping for, and it deserves to be said. */}
+      <ul className="summary-tiles" aria-label="Summary">
+        <li className="tile">
+          <span className="tile__n">{checks}</span>
+          <span className="tile__label">checks run</span>
+        </li>
+        <li className={`tile ${attention > 0 ? 'tile--attention' : 'tile--quiet'}`}>
+          <span className="tile__n">{attention}</span>
+          <span className="tile__label">worth a closer look</span>
+        </li>
+        <li className={`tile ${review > 0 ? 'tile--review' : 'tile--quiet'}`}>
+          <span className="tile__n">{review}</span>
+          <span className="tile__label">worth confirming</span>
+        </li>
+      </ul>
 
       <div className="stack">
         {result.analysis.findings.map((finding, index) => (

@@ -103,6 +103,7 @@ export const POST = handler('/api/analyses', async (request: NextRequest, contex
             : analyzeBill(bill);
 
         await persistAnalysis(admin, user.id, body.caseId, result);
+        await recordConfirmedFigures(admin, user.id, body.caseId, bill);
         return result;
       },
     );
@@ -136,6 +137,33 @@ export const POST = handler('/api/analyses', async (request: NextRequest, contex
     throw error;
   }
 });
+
+/**
+ * The figures the customer confirmed, onto the case, so the list of cases can
+ * say what each bill is for and how much it asks. Only what was given is
+ * written; a field left blank on the form never blanks one already on the
+ * case. Best effort: a failure here must not undo an analysis already paid
+ * for, so nothing is thrown.
+ */
+async function recordConfirmedFigures(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  caseId: string,
+  bill: BillDocument,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  const amount = bill.amountDueCents ?? bill.totalCents;
+  if (amount !== undefined) {
+    patch.amount_cents = amount;
+    patch.currency = bill.currency;
+  }
+  if (bill.statementDate !== undefined) patch.statement_date = bill.statementDate;
+  if (bill.providerName !== undefined && bill.providerName.trim().length > 0) {
+    patch.provider_name = bill.providerName.trim().slice(0, 200);
+  }
+  if (Object.keys(patch).length === 0) return;
+  await admin.from('cases').update(patch).eq('id', caseId).eq('user_id', userId);
+}
 
 async function persistAnalysis(
   admin: ReturnType<typeof createAdminClient>,

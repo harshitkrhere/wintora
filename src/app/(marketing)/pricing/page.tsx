@@ -38,6 +38,19 @@ import { optionalUser } from '@/lib/http/api';
 import { billingCountry } from '@/lib/payments';
 import { createAdminClient } from '@/lib/supabase/server';
 
+/** Units in the catalog are plural. "1 cases" reads like a bug, so one is singular. */
+function unitLabel(count: number, unit: string): string {
+  return count === 1 && unit.endsWith('s') ? unit.slice(0, -1) : unit;
+}
+
+/** The one line a plan gets in the at-a-glance strip. */
+function glancePrice(plan: PlanDefinition, state: Pick<PageState, 'country' | 'interval'>): string {
+  if (plan.isFree) return 'Free';
+  const price = priceFor(plan.slug, state.country, state.interval);
+  if (price === undefined) return '—';
+  return `${formatPrice(price.amountCents, price.currency)} / ${price.interval}`;
+}
+
 export const metadata: Metadata = {
   title: 'Plans and pricing',
   description:
@@ -92,7 +105,7 @@ function cell(plan: PlanDefinition, key: FeatureKey): React.ReactElement {
       <>
         {grant.limitValue.toLocaleString('en-US')}
         {grant.limitUnit !== undefined ? (
-          <span className="muted small"> {grant.limitUnit}</span>
+          <span className="muted small"> {unitLabel(grant.limitValue, grant.limitUnit)}</span>
         ) : null}
       </>
     );
@@ -187,7 +200,9 @@ function PlanCard({ plan, state }: { plan: PlanDefinition; state: PageState }): 
         {highlights.slice(0, 6).map(({ key, grant }) => (
           <li key={key} className={FEATURES[key].available ? undefined : 'muted'}>
             {grant?.limitValue !== undefined && grant.limitValue !== null
-              ? `${grant.limitValue.toLocaleString('en-US')} ${grant.limitUnit ?? ''}`.trim()
+              ? `${grant.limitValue.toLocaleString('en-US')} ${
+                  grant.limitUnit === undefined ? '' : unitLabel(grant.limitValue, grant.limitUnit)
+                }`.trim()
               : FEATURES[key].benefitText}
             {/* Said on the pricing page, before money changes hands, not after. */}
             {!FEATURES[key].available && (
@@ -308,6 +323,28 @@ export default async function PricingPage({
         ) : null}
       </section>
 
+      {/* On a phone the four cards stack to several screens. This strip shows
+          every price at once, first, and jumps to the card. It is hidden where
+          the grid already shows the cards side by side. */}
+      <nav className="glance" aria-label="Plans at a glance">
+        <ol className="glance__list">
+          {ALL_PLANS.map((plan) => (
+            <li key={plan.slug}>
+              <a
+                href={`#plan-${plan.slug}`}
+                className={`glance__row${plan.recommended ? ' glance__row--recommended' : ''}`}
+              >
+                <span className="glance__name">
+                  {plan.displayName}
+                  {plan.recommended ? <span className="pill">Recommended</span> : null}
+                </span>
+                <span className="glance__price">{glancePrice(plan, state)}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+
       <section>
         <div className="plan-grid">
           {ALL_PLANS.map((plan) => (
@@ -318,6 +355,7 @@ export default async function PricingPage({
 
       <section>
         <h2>Everything, side by side</h2>
+        <p className="small muted table-hint">Swipe sideways to see every plan.</p>
         <div className="table-scroll">
           <table>
             <caption className="sr-only">

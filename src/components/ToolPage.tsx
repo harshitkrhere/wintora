@@ -43,7 +43,7 @@ export interface ToolPageProps {
 
 export function ToolPage(props: ToolPageProps): React.ReactElement {
   return (
-    <div className="shell" style={{ paddingTop: '3rem' }}>
+    <div className="shell page">
       <article>
         <header style={{ marginBottom: '2.5rem' }}>
           <h1>{props.h1}</h1>
