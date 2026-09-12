@@ -159,7 +159,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   CASE_TRACKING: {
     key: 'CASE_TRACKING',
-    available: false,
+    available: true,
     name: 'Case tracking',
     description: 'Organise a bill into a case with documents and status.',
     benefitText: 'Keep each bill organised as a case',
@@ -169,7 +169,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MULTIPLE_CASES: {
     key: 'MULTIPLE_CASES',
-    available: false,
+    available: true,
     name: 'Multiple cases',
     description: 'Run more than one case at a time.',
     benefitText: 'Work on several bills at once',
@@ -179,7 +179,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   CASE_TIMELINE: {
     key: 'CASE_TIMELINE',
-    available: false,
+    available: true,
     name: 'Case timeline',
     description: 'A dated record of what happened and when.',
     benefitText: 'A complete timeline of your case',
@@ -272,7 +272,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
 
   MAX_ACTIVE_CASES: {
     key: 'MAX_ACTIVE_CASES',
-    available: false,
+    available: true,
     name: 'Active cases',
     description: 'How many cases may be open at once.',
     benefitText: 'Active cases',

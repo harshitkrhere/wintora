@@ -61,6 +61,16 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           </div>
 
           <div className="card">
+            <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Your cases</h2>
+            <p className="small">
+              Every bill you upload becomes a case: its documents, every check you ran,
+              and a timeline of what happened.
+            </p>
+            <Link href="/cases" className="btn btn--secondary">
+              Open your cases
+            </Link>
+          </div>
+          <div className="card">
             <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Your subscription</h2>
             <p className="small">
               Plan, usage, renewal date and invoices, all from live data.
@@ -97,10 +107,10 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           looks like a bug. */}
       <section>
         <p className="notice">
-          You can upload and check bills. The case workspace (timeline, reminders,
-          several bills at once) and the letter workspace are not built yet. Your
-          uploads and results are kept on your account; the settings page lists
-          exactly which plan features are available today.
+          You can upload bills, check them, and keep each one as a case with its
+          documents, results and timeline. Reminders, deadline tracking and the
+          letter workspace are not built yet. The settings page lists exactly
+          which plan features are available today.
         </p>
       </section>
 

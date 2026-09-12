@@ -39,21 +39,27 @@ describe('feature availability', () => {
       [
         'ACCOUNT_DELETION',
         'BASIC_BILL_ANALYSIS',
+        'CASE_TIMELINE',
+        'CASE_TRACKING',
         'DATA_EXPORT',
         'DOCUMENT_UPLOAD',
         'EOB_COMPARISON',
+        'MAX_ACTIVE_CASES',
         'MAX_FILE_SIZE_MB',
         'MONTHLY_ANALYSES',
         'MONTHLY_DOCUMENTS',
+        'MULTIPLE_CASES',
         'RETENTION_DAYS',
         'STORAGE_LIMIT_MB',
       ].sort(),
     );
   });
 
-  it('case and letter workspaces are not claimed while unbuilt', () => {
-    expect(FEATURES.CASE_TRACKING.available).toBe(false);
+  it('letters, reminders and household are not claimed while unbuilt', () => {
     expect(FEATURES.LETTER_GENERATION.available).toBe(false);
+    expect(FEATURES.REMINDERS.available).toBe(false);
+    expect(FEATURES.DEADLINE_TRACKING.available).toBe(false);
+    expect(FEATURES.HOUSEHOLD_CASES.available).toBe(false);
     expect(FEATURES.ADVANCED_EXPORT.available).toBe(false);
   });
 
@@ -75,10 +81,10 @@ describe('feature availability', () => {
     );
     const lines = benefitList(set);
 
-    const cases = lines.find((l) => l.key === 'CASE_TRACKING');
+    const letters = lines.find((l) => l.key === 'LETTER_GENERATION');
     const upload = lines.find((l) => l.key === 'DOCUMENT_UPLOAD');
 
-    expect(cases?.available).toBe(false);
+    expect(letters?.available).toBe(false);
     expect(upload?.available).toBe(true);
     // A paid plan today has more promised than delivered. That is a fact the
     // pages must be able to state, so both kinds must be present in the list.
