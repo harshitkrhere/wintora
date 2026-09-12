@@ -3674,3 +3674,43 @@ details[open] > summary::before {
 .mb-4 {
   margin-bottom: var(--sp-4);
 }
+
+/* ==================================================== 13. route progress */
+
+/* The bar that says a click landed. Idle is instant and animation-free, so
+   the next navigation always starts from a clean, invisible sliver rather
+   than un-fading from wherever the last one left off. */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 1000;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--primary-500), var(--primary-700));
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--primary-600) 55%, transparent);
+  pointer-events: none;
+}
+.route-progress--idle {
+  opacity: 0;
+  transform: scaleX(0);
+  transition: none;
+}
+.route-progress--loading {
+  opacity: 1;
+  /* Creeps toward, and deliberately never reaches, three quarters of the bar
+     while the real navigation is still in flight — movement is the message,
+     not a false promise of exactly how much is left. */
+  transform: scaleX(0.7);
+  transition:
+    transform 4s cubic-bezier(0.1, 0.6, 0.2, 1),
+    opacity 150ms ease;
+}
+.route-progress--done {
+  opacity: 1;
+  transform: scaleX(1);
+  transition:
+    transform 200ms ease-out,
+    opacity 200ms ease-in 150ms;
+}
