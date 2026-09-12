@@ -39,8 +39,8 @@ const PILLARS: readonly { icon: IconName; title: string; text: string }[] = [
   },
   {
     icon: 'user',
-    title: 'Feel in control',
-    text: 'One case per bill. Your documents, results and timeline in one place, private to you, exportable or deletable at any time.',
+    title: 'Keep the record',
+    text: 'One case per bill. Keep your documents, results and timeline together, then export or delete them whenever you need to.',
   },
 ];
 
@@ -109,11 +109,9 @@ export default function HomePage(): React.ReactElement {
             A bill as printed
           </h2>
           <div className="demo__frame">
-            <div className="demo__frame-head" aria-hidden>
-              <span />
-              <span />
-              <span />
-              <b>Statement · {SAMPLE_BILL.providerName}</b>
+            <div className="demo__frame-head">
+              <span className="demo__frame-label">Sample statement</span>
+              <b>{SAMPLE_BILL.providerName}</b>
             </div>
             <table className="demo__table">
               <caption className="sr-only">Sample bill line items</caption>
@@ -204,7 +202,7 @@ export default function HomePage(): React.ReactElement {
 
       <section>
         <div className="cta-band">
-          <h2>Real people. Real answers. A clearer path forward.</h2>
+          <h2>Get a clear answer before you call or pay.</h2>
           <p className="lede">
             Private by design. Every letter is a draft you review and send yourself.
             Wintora never contacts anyone on your behalf.

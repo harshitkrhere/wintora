@@ -137,7 +137,7 @@ export default function MethodologyPage(): React.ReactElement {
           Every finding shows the numbers behind it. If what you see on the page does
           not match what the finding says, the finding is wrong and you should ignore
           it. Please{' '}
-          <Link href="/corrections">tell us</Link> when that happens.
+          <Link href="/contact">tell us</Link> when that happens.
         </p>
       </section>
 
@@ -173,8 +173,8 @@ export default function MethodologyPage(): React.ReactElement {
         </p>
         <p className="small">
           <Link href="/privacy">Read the privacy notice</Link> ·{' '}
-          <Link href="/data-retention">How long documents are kept</Link> ·{' '}
-          <Link href="/security">Security</Link>
+          <Link href="/privacy#retention">How long documents are kept</Link> ·{' '}
+          <Link href="/privacy#security">Security</Link>
         </p>
       </section>
 

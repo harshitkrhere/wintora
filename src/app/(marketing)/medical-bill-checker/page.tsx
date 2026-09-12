@@ -118,9 +118,8 @@ export default function MedicalBillCheckerPage(): React.ReactElement {
       sources={[]}
       relatedLinks={[
         { href: '/bill-vs-eob', label: 'Compare a bill against an EOB' },
-        { href: '/itemized-bill-request', label: 'Request an itemised statement' },
-        { href: '/payment-plan-request', label: 'Ask about a payment plan' },
         { href: '/methodology', label: 'How the analysis works, and what it cannot do' },
+        { href: '/pricing', label: 'See plans and account options' },
       ]}
       disclaimer={DISCLAIMERS.ANALYSIS_RESULT}
       lastVerified="2026-09-08"

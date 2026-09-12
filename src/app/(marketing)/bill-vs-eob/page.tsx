@@ -113,9 +113,8 @@ export default function BillVsEobPage(): React.ReactElement {
       sources={[]}
       relatedLinks={[
         { href: '/medical-bill-checker', label: 'Check a single bill' },
-        { href: '/itemized-bill-request', label: 'Request an itemised statement' },
-        { href: '/insurance-appeal-template', label: 'If a claim was denied' },
         { href: '/methodology', label: 'How the comparison works' },
+        { href: '/pricing', label: 'See plans and account options' },
       ]}
       disclaimer={DISCLAIMERS.EOB_COMPARISON}
       lastVerified="2026-09-08"
