@@ -123,6 +123,25 @@ let cachedPublic: PublicEnv | null = null;
 let cachedServer: ServerEnv | null = null;
 
 /**
+ * Treat a blank variable as an absent one.
+ *
+ * `.env.example` ships every key as `NAME=` and `env:sync` preserves that
+ * shape, so a blank value is the normal state of anything not yet configured.
+ * To zod, though, '' is a present string: `z.string().url().optional()` fails
+ * validation on it and takes every route down with "Invalid url", and
+ * `z.string().optional()` accepts it, so `KEY !== undefined` reports a secret
+ * as configured when it is not. Both have happened. Normalise once, here,
+ * before any schema sees the values.
+ */
+function stripBlanks(source: NodeJS.ProcessEnv): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(source)) {
+    out[key] = value === undefined || value.trim() === '' ? undefined : value;
+  }
+  return out;
+}
+
+/**
  * The canonical origin, refusing to guess in production.
  *
  * `NEXT_PUBLIC_APP_URL` keeps a localhost default because local development
@@ -184,14 +203,16 @@ export function publicEnv(): PublicEnv {
   if (cachedPublic === null) {
     // Next.js inlines NEXT_PUBLIC_ values at build time, so they must be read
     // as full property accesses rather than through a destructured object.
-    cachedPublic = publicSchema.parse({
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN,
-      NEXT_PUBLIC_ANALYTICS_DOMAIN: process.env.NEXT_PUBLIC_ANALYTICS_DOMAIN,
-      NEXT_PUBLIC_ANALYTICS_SCRIPT_URL: process.env.NEXT_PUBLIC_ANALYTICS_SCRIPT_URL,
-    });
+    cachedPublic = publicSchema.parse(
+      stripBlanks({
+        NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN,
+        NEXT_PUBLIC_ANALYTICS_DOMAIN: process.env.NEXT_PUBLIC_ANALYTICS_DOMAIN,
+        NEXT_PUBLIC_ANALYTICS_SCRIPT_URL: process.env.NEXT_PUBLIC_ANALYTICS_SCRIPT_URL,
+      }),
+    );
   }
   return cachedPublic;
 }
@@ -203,7 +224,7 @@ export function serverEnv(): ServerEnv {
     );
   }
   if (cachedServer === null) {
-    cachedServer = serverSchema.parse(process.env);
+    cachedServer = serverSchema.parse(stripBlanks(process.env));
   }
   return cachedServer;
 }
