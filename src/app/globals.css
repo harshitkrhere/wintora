@@ -11,6 +11,12 @@
  * One typeface, Inter. One accent for anything clickable. White space does
  * the work that decoration would otherwise do badly.
  *
+ * Two themes, one set of tokens. The light values sit on :root; the dark
+ * values apply when the device asks for dark and nobody has chosen light, or
+ * when someone has chosen dark (data-theme on <html>, set before first paint
+ * by public/theme.js). Components never mention a theme: they use tokens, and
+ * the two dark blocks below must stay identical.
+ *
  * Every class here is a contract with the pages. Renaming one is a refactor,
  * not a restyle.
  */
@@ -39,6 +45,9 @@
   --accent-600: #12a693;
   --accent-500: #14bba6;
   --accent-100: var(--mint);
+  /* Text on an accent-coloured surface. White on teal in the light theme;
+     near-black on the brighter dark-theme teal, where white would not read. */
+  --on-accent: #ffffff;
 
   /* --- emphasis: Azure, sparingly --- */
   --azure-700: #1d4fd8;
@@ -68,6 +77,83 @@
 
   --measure: 64ch;
   --header-h: 64px;
+}
+
+/* The device asks for dark, and nobody has chosen light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  color-scheme: dark;
+
+  --ink-900: #edf2f9;
+  --ink-700: #c9d3e0;
+  --ink-500: #93a1b5;
+  --ink-400: #718197;
+  --ink-300: #44526a;
+
+  --paper: #0c1420;
+  --surface: #131d2b;
+  --surface-sunken: #182435;
+  --sky: #14263d;
+  --mint: #0f302c;
+  --line: #24314a;
+  --line-strong: #33445f;
+
+  --accent-700: #3dd6c0;
+  --accent-600: #2cc7b1;
+  --accent-500: #1fb9a4;
+  --on-accent: #06211d;
+
+  --azure-700: #8fb1ff;
+  --azure-600: #6d97f4;
+
+  --attention-fg: #f2c57c;
+  --attention-bg: #2a2114;
+  --attention-line: #4d3c1e;
+  --review-fg: #a7c0ff;
+  --review-line: #2b466c;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  --shadow-md: 0 8px 30px -12px rgb(0 0 0 / 60%);
+  --shadow-lg: 0 24px 60px -24px rgb(0 0 0 / 70%);
+  }
+}
+
+/* Someone has chosen dark, whatever the device says. Identical to the block
+   above; CSS has no way to share a declaration between the two selectors. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink-900: #edf2f9;
+  --ink-700: #c9d3e0;
+  --ink-500: #93a1b5;
+  --ink-400: #718197;
+  --ink-300: #44526a;
+
+  --paper: #0c1420;
+  --surface: #131d2b;
+  --surface-sunken: #182435;
+  --sky: #14263d;
+  --mint: #0f302c;
+  --line: #24314a;
+  --line-strong: #33445f;
+
+  --accent-700: #3dd6c0;
+  --accent-600: #2cc7b1;
+  --accent-500: #1fb9a4;
+  --on-accent: #06211d;
+
+  --azure-700: #8fb1ff;
+  --azure-600: #6d97f4;
+
+  --attention-fg: #f2c57c;
+  --attention-bg: #2a2114;
+  --attention-line: #4d3c1e;
+  --review-fg: #a7c0ff;
+  --review-line: #2b466c;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  --shadow-md: 0 8px 30px -12px rgb(0 0 0 / 60%);
+  --shadow-lg: 0 24px 60px -24px rgb(0 0 0 / 70%);
 }
 
 *,
@@ -613,12 +699,12 @@ section {
 }
 .btn--primary {
   background: var(--accent-600);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: 0 1px 0 rgb(0 0 0 / 4%), 0 8px 20px -10px rgb(20 187 166 / 60%);
 }
 .btn--primary:hover {
   background: var(--accent-700);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn--secondary {
   background: var(--surface);
@@ -1444,7 +1530,7 @@ details[open] > summary::before {
 .stepper__step--current .stepper__num {
   background: var(--accent-600);
   border-color: var(--accent-600);
-  color: #fff;
+  color: var(--on-accent);
 }
 .stepper__step--done .stepper__num {
   background: var(--mint);
@@ -1832,6 +1918,81 @@ details[open] > summary::before {
 }
 .demo__note {
   margin: 0.75rem 0 0;
+}
+
+/* ------------------------------------------------------------ appearance */
+
+/* The icon button in the header bars: flips light and dark. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.theme-toggle:hover {
+  color: var(--ink-900);
+  background: var(--surface-sunken);
+}
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* The three-way control in the footer, in the shape of the interval switch. */
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+.theme-switch__label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-400);
+  font-weight: 600;
+}
+.theme-switch__options {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+}
+.theme-switch__option {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+.theme-switch__option:hover {
+  color: var(--ink-900);
+}
+.theme-switch__option[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink-900);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
 }
 
 /* ------------------------------------------------------------- phones */

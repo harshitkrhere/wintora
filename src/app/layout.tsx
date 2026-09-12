@@ -33,14 +33,27 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#ffffff',
+  // One per theme, matching --paper. src/lib/theme.ts rewrites these when a
+  // person chooses a theme explicitly.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0c1420' },
+  ],
   width: 'device-width',
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
-    <html lang="en" className={inter.variable}>
+    // suppressHydrationWarning: public/theme.js sets data-theme on <html>
+    // before React hydrates, and React would otherwise report the attribute
+    // it did not render. Nothing else about the element differs.
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/* A same-origin file, not an inline script, so the strict CSP on the
+            static pages allows it. It applies the saved theme before paint. */}
+        <script src="/theme.js" />
+      </head>
       <body>
         <a className="skip-link" href="#main">
           Skip to content

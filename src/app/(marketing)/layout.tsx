@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { GLOBAL_DISCLAIMER } from '@/config/disclaimers';
 import { OPERATOR } from '@/config/disclosures';
 import { SiteNav } from '@/components/SiteNav';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { LeafMark } from '@/components/Logo';
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }): React.ReactElement {
@@ -67,6 +68,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 ) : null}
               </ul>
             </div>
+          </div>
+
+          <div className="footer-bottom">
+            <ThemeToggle variant="segmented" />
           </div>
 
           <p className="notice">{GLOBAL_DISCLAIMER}</p>

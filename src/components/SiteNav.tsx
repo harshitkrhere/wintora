@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { AuthNav } from './AuthNav';
+import { ThemeToggle } from './ThemeToggle';
 
 const LINKS = [
   { href: '/medical-bill-checker', label: 'Check a bill' },
@@ -56,6 +57,7 @@ export function SiteNav(): React.ReactElement {
         ))}
       </div>
       <AuthNav />
+      <ThemeToggle variant="icon" />
       <button
         type="button"
         className="site-nav__toggle"

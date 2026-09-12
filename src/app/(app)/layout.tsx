@@ -11,6 +11,7 @@ import { requireUser } from '@/lib/http/api';
 import { isSafeMode } from '@/lib/env';
 import { LeafMark } from '@/components/Logo';
 import { SignOutButton } from '@/components/SignOutButton';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { AppNav } from '@/components/AppNav';
 import { SafeModeBanner } from '@/components/SafeModeBanner';
 
@@ -33,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <AppNav />
           <div className="app-bar__end">
+            <ThemeToggle variant="icon" />
             <SignOutButton />
           </div>
         </div>
