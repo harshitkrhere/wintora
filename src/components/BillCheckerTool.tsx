@@ -22,12 +22,21 @@ interface DraftLine {
   code: string;
 }
 
+/**
+ * The two analysis endpoints share everything except their footer. The
+ * anonymous tool reports that nothing was stored; the case-bound route reports
+ * what the run cost against the plan. Both are optional here so a response
+ * shape from one cannot crash a page built for the other, which is exactly
+ * what happened the first time a saved analysis rendered.
+ */
 interface ApiResponse {
   analysis: AnalysisResult;
   headline: string;
   nextSteps: string[];
   disclaimer: string;
-  storage: { stored: boolean; note: string };
+  storage?: { stored: boolean; note: string };
+  quota?: { remaining: number | null; limit: number | null; resetAt: string | null };
+  replayed?: boolean;
 }
 
 const SEVERITY_LABEL: Record<Severity, string> = {
@@ -443,7 +452,21 @@ function Results({ result }: { result: ApiResponse }): React.ReactElement {
       ) : null}
 
       <p className="notice">{result.disclaimer}</p>
-      <p className="notice notice--accent">{result.storage.note}</p>
+      {result.storage !== undefined ? (
+        <p className="notice notice--accent">{result.storage.note}</p>
+      ) : (
+        <p className="notice notice--accent">
+          {result.replayed === true
+            ? 'This result was already saved to your case; nothing was counted twice.'
+            : 'Saved to your case.'}
+          {result.quota?.limit !== null && result.quota?.limit !== undefined ? (
+            <>
+              {' '}
+              {result.quota.remaining ?? 0} of {result.quota.limit} analyses left this period.
+            </>
+          ) : null}
+        </p>
+      )}
     </section>
   );
 }
