@@ -11,7 +11,7 @@
  * what the server returns. See docs/ENTITLEMENTS.md section 6.
  */
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from './FindingCard';
 import type { ExtractionDraft } from '@/domain/documents/draft';
@@ -43,19 +43,13 @@ interface ApiResponse {
 }
 
 
-/**
- * Line ids are positional, never random. The form is rendered on the server
- * and hydrated in the browser, and React compares the two: an id from
- * Math.random() differs on each side, React reports a hydration mismatch on
- * every load of the tool, and the whole form re-renders in the browser before
- * it will take a tap. Ids only need to be unique within one form.
- */
-function lineId(n: number): string {
-  return `l${n}`;
-}
-
-function newLine(id: string): DraftLine {
-  return { id, description: '', amount: '', code: '' };
+function newLine(): DraftLine {
+  return {
+    id: Math.random().toString(36).slice(2),
+    description: '',
+    amount: '',
+    code: '',
+  };
 }
 
 /** Parse a typed amount to integer cents. Rejects anything ambiguous. */
@@ -74,17 +68,15 @@ function fromCents(cents: number | null | undefined): string {
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
 }
 
-function initialLines(draft: ExtractionDraft | null): DraftLine[] {
-  const fromDraft = (draft?.lineItems ?? []).map((li, index) => ({
-    id: lineId(index),
+function linesFromDraft(draft: ExtractionDraft): DraftLine[] {
+  const fromDraft = draft.lineItems.map((li) => ({
+    id: Math.random().toString(36).slice(2),
     description: li.description,
     amount: fromCents(li.amountCents),
     code: li.code ?? '',
   }));
   // Always leave room to add what the reader missed.
-  return fromDraft.length > 0
-    ? [...fromDraft, newLine(lineId(fromDraft.length))]
-    : [newLine(lineId(0)), newLine(lineId(1)), newLine(lineId(2))];
+  return fromDraft.length > 0 ? [...fromDraft, newLine()] : [newLine(), newLine(), newLine()];
 }
 
 export function BillCheckerTool({
@@ -106,14 +98,9 @@ export function BillCheckerTool({
   caseId?: string | null;
 }): React.ReactElement {
   const formId = useId();
-  const [lines, setLines] = useState<DraftLine[]>(() => initialLines(initial));
-  // The next id to hand out. Starts past the initial rows; ids are never reused.
-  const lineSeq = useRef(lines.length);
-  const addLine = useCallback((): void => {
-    const id = lineId(lineSeq.current);
-    lineSeq.current += 1;
-    setLines((prev) => [...prev, newLine(id)]);
-  }, []);
+  const [lines, setLines] = useState<DraftLine[]>(() =>
+    initial ? linesFromDraft(initial) : [newLine(), newLine(), newLine()],
+  );
   const [subtotal, setSubtotal] = useState(fromCents(initial?.subtotal?.amountCents));
   const [total, setTotal] = useState(fromCents(initial?.total?.amountCents));
   const [accountReference, setAccountReference] = useState(initial?.accountReference?.value ?? '');
@@ -291,11 +278,8 @@ export function BillCheckerTool({
           {lines.map((line, index) => (
             <div className="line-item-row" key={line.id}>
               <div>
-                <label
-                  htmlFor={`${formId}-desc-${line.id}`}
-                  className={index === 0 ? undefined : 'sr-only-wide'}
-                >
-                  Description
+                <label htmlFor={`${formId}-desc-${line.id}`}>
+                  {index === 0 ? 'Description' : <span className="sr-only">Description</span>}
                 </label>
                 <input
                   id={`${formId}-desc-${line.id}`}
@@ -306,11 +290,8 @@ export function BillCheckerTool({
                 />
               </div>
               <div>
-                <label
-                  htmlFor={`${formId}-amt-${line.id}`}
-                  className={index === 0 ? undefined : 'sr-only-wide'}
-                >
-                  Amount
+                <label htmlFor={`${formId}-amt-${line.id}`}>
+                  {index === 0 ? 'Amount' : <span className="sr-only">Amount</span>}
                 </label>
                 <input
                   id={`${formId}-amt-${line.id}`}
@@ -322,7 +303,7 @@ export function BillCheckerTool({
               </div>
               <button
                 type="button"
-                className="btn btn--quiet btn--icon"
+                className="btn btn--quiet"
                 onClick={() => setLines((prev) => prev.filter((l) => l.id !== line.id))}
                 aria-label={`Remove line ${index + 1}`}
                 disabled={lines.length === 1}
@@ -335,7 +316,7 @@ export function BillCheckerTool({
           <button
             type="button"
             className="btn btn--secondary"
-            onClick={addLine}
+            onClick={() => setLines((prev) => [...prev, newLine()])}
           >
             Add another line
           </button>
@@ -461,7 +442,7 @@ export function BillCheckerTool({
           </fieldset>
         ) : null}
 
-        <div className="form-actions">
+        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? 'Checking…' : 'Check my bill'}
           </button>

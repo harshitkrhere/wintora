@@ -65,7 +65,7 @@ export default async function CasePage({
   const amount = money(summary.amountCents, summary.currency);
 
   return (
-    <div className="shell stack--lg page">
+    <div className="shell stack--lg" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
       <div>
         <p className="eyebrow">
           <Link href="/cases">Cases</Link> · {summary.status === 'OPEN' ? 'Open' : 'Closed'}
@@ -78,7 +78,7 @@ export default async function CasePage({
         </p>
       </div>
 
-      <div className="actions">
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
         <Link href={`/upload?case=${summary.id}`} className="btn btn--primary">
           Upload a document
         </Link>
@@ -133,14 +133,14 @@ export default async function CasePage({
             action={{ href: `/upload?case=${summary.id}`, label: 'Upload a document' }}
           />
         ) : (
-          <div className="table-scroll">
-            <table>
+          <div className="card" style={{ padding: 0 }}>
+            <table className="table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th>File</th>
-                  <th>Status</th>
-                  <th>Uploaded</th>
-                  <th>Kept until</th>
+                  <th style={{ textAlign: 'left' }}>File</th>
+                  <th style={{ textAlign: 'left' }}>Status</th>
+                  <th style={{ textAlign: 'left' }}>Uploaded</th>
+                  <th style={{ textAlign: 'left' }}>Kept until</th>
                 </tr>
               </thead>
               <tbody>
@@ -180,10 +180,10 @@ export default async function CasePage({
       {/* ----------------------------------------------------- timeline */}
       <section className="stack">
         <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Timeline</h2>
-        <ol className="timeline">
+        <ol className="stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {events.map((e) => (
-            <li key={e.id}>
-              <span className="timeline__when">{when(e.occurredAt)}</span>
+            <li key={e.id} className="small" style={{ display: 'flex', gap: '1rem' }}>
+              <span className="muted" style={{ minWidth: '11rem' }}>{when(e.occurredAt)}</span>
               <span>
                 {e.title}
                 {e.detail ? <span className="muted"> — {e.detail}</span> : null}

@@ -34,7 +34,7 @@ export default async function UploadPage({
     typeof params.case === 'string' && /^[0-9a-f-]{36}$/i.test(params.case) ? params.case : null;
 
   return (
-    <div className="shell stack--lg page">
+    <div className="shell stack--lg" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
       <div>
         <p className="eyebrow">Upload</p>
         <h1>Check a bill from your documents</h1>

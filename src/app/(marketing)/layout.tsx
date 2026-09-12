@@ -8,7 +8,7 @@
 import Link from 'next/link';
 import { GLOBAL_DISCLAIMER } from '@/config/disclaimers';
 import { OPERATOR } from '@/config/disclosures';
-import { SiteNav } from '@/components/SiteNav';
+import { AuthNav } from '@/components/AuthNav';
 import { LeafMark } from '@/components/Logo';
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }): React.ReactElement {
@@ -20,7 +20,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <LeafMark />
             <span>Wintora</span>
           </Link>
-          <SiteNav />
+          <nav className="site-nav" aria-label="Main">
+            <Link href="/medical-bill-checker">Check a bill</Link>
+            <Link href="/methodology">How it works</Link>
+            <Link href="/pricing">Pricing</Link>
+            <AuthNav />
+          </nav>
         </div>
       </header>
 
