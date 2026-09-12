@@ -38,7 +38,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       <SafeModeBanner active={isSafeMode()} />
-      <main id="main">{children}</main>
+      <main id="main" className="app-main">
+        {children}
+      </main>
     </>
   );
 }

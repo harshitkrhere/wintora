@@ -308,7 +308,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
 
       <BillCheckerTool initial={step.draft} caseId={step.caseId} />
 
-      <p className="small muted" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="actions">
         <a href={`/cases/${step.caseId}`} className="btn btn--secondary">
           View this case
         </a>
@@ -319,7 +319,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
         >
           Upload another document to this case
         </button>
-      </p>
+      </div>
     </div>
   );
 }

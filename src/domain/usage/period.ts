@@ -13,6 +13,7 @@
  */
 
 import { POLICY } from '@/config/policy';
+import { grantsPlanEntitlements } from '@/domain/billing/states';
 import type { QuotaWindow, SubscriptionSnapshot } from '@/domain/entitlements/types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -84,15 +85,19 @@ export function rollingWindow(anchor: Date, now: Date, days: number): QuotaWindo
  *      whole period lengths, then cut the same way. A delayed webhook must
  *      never cost a customer an allowance, and must never silently extend one
  *      either.
- *   3. No provider period at all (free, or pre-checkout): rolling window.
+ *   3. No provider period at all (free, or pre-checkout), or a period left
+ *      behind by a subscription that no longer grants entitlements (expired,
+ *      refunded, revoked, paused): the free plan's rolling window. An ended
+ *      subscription's dates are history, not the window in force.
  */
 export function quotaWindow(
   subscription: SubscriptionSnapshot,
   now: Date = new Date(),
 ): QuotaWindow {
   const { currentPeriodStart: start, currentPeriodEnd: end } = subscription;
+  const periodApplies = grantsPlanEntitlements(subscription.status);
 
-  if (start !== null && end !== null && end.getTime() > start.getTime()) {
+  if (periodApplies && start !== null && end !== null && end.getTime() > start.getTime()) {
     if (now.getTime() >= start.getTime() && now.getTime() < end.getTime()) {
       return monthlyWindowWithin({ start, end }, now);
     }

@@ -129,6 +129,18 @@ describe('quotaWindow on an annual subscription', () => {
     expect((w.end.getTime() - w.start.getTime()) / DAY_MS).toBeLessThan(31);
   });
 
+  it('ignores the period left behind by an ended subscription', () => {
+    // An EXPIRED row keeps its last period as history. The account is on the
+    // free plan, so it gets the free plan's rolling window, not a "resets on"
+    // date taken from a subscription that no longer exists.
+    const ended: SubscriptionSnapshot = { ...annual, status: 'EXPIRED' };
+    const w = quotaWindow(ended, new Date('2026-09-12T00:00:00Z'));
+    expect(w.start.getTime()).not.toBe(new Date('2026-03-10T00:00:00Z').getTime());
+    expect((w.end.getTime() - w.start.getTime()) / DAY_MS).toBe(30);
+    // Anchored to account creation, like any free account.
+    expect((w.start.getTime() - ended.accountCreatedAt.getTime()) % (30 * DAY_MS)).toBe(0);
+  });
+
   it('leaves monthly subscriptions exactly as before', () => {
     const monthly = snapshot('2026-03-10T00:00:00Z', '2026-04-10T00:00:00Z');
     const w = quotaWindow(monthly, new Date('2026-03-20T00:00:00Z'));

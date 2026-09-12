@@ -19,7 +19,12 @@ import {
   type PlanSlug,
 } from '@/config/plans';
 import { POLICY } from '@/config/policy';
-import { STATUS_DESCRIPTIONS, type SubscriptionStatus } from '@/domain/billing/states';
+import {
+  STATUS_DESCRIPTIONS,
+  grantsPlanEntitlements,
+  isLive,
+  type SubscriptionStatus,
+} from '@/domain/billing/states';
 import { benefitList, computeEntitlements, effectivePlan, freeSnapshot } from '@/domain/entitlements/compute';
 import { quotaWindow } from '@/domain/usage/period';
 import { createEntitlementStore, loadPlanMatrix } from '@/lib/supabase/stores';
@@ -95,7 +100,7 @@ export async function buildSubscriptionSummary(
     .limit(1)
     .maybeSingle();
 
-  const live = row as unknown as
+  const latest = row as unknown as
     | {
         status: SubscriptionStatus;
         currency: string;
@@ -104,6 +109,13 @@ export async function buildSubscriptionSummary(
         cancel_at_period_end: boolean;
       }
     | null;
+
+  // Only a LIVE subscription has a price, a period and a renewal date to show.
+  // The latest row can be a terminal one (EXPIRED, REFUNDED, REVOKED): it is
+  // kept as history, and its old amount and dates must not be presented as if
+  // they still applied to an account that is now on the free plan.
+  const live = latest !== null && isLive(latest.status) ? latest : null;
+  const periodApplies = live !== null && grantsPlanEntitlements(live.status);
 
   const currency = (live?.currency as CurrencyCode | undefined) ?? null;
 
@@ -159,12 +171,13 @@ export async function buildSubscriptionSummary(
       live !== null && currency !== null ? formatPrice(live.amount_cents, currency) : null,
     currency,
     billingInterval: live?.billing_interval ?? 'month',
-    currentPeriodStart: snapshot.currentPeriodStart?.toISOString() ?? null,
-    currentPeriodEnd: snapshot.currentPeriodEnd?.toISOString() ?? null,
-    nextBillingDate: cancelAtPeriodEnd
-      ? null
-      : (snapshot.currentPeriodEnd?.toISOString() ?? null),
-    autoRenews: !cancelAtPeriodEnd && isPaidPlan(plan),
+    currentPeriodStart: periodApplies ? (snapshot.currentPeriodStart?.toISOString() ?? null) : null,
+    currentPeriodEnd: periodApplies ? (snapshot.currentPeriodEnd?.toISOString() ?? null) : null,
+    nextBillingDate:
+      periodApplies && !cancelAtPeriodEnd
+        ? (snapshot.currentPeriodEnd?.toISOString() ?? null)
+        : null,
+    autoRenews: periodApplies && !cancelAtPeriodEnd && isPaidPlan(plan),
     cancelAtPeriodEnd,
     gracePeriodEnd: snapshot.gracePeriodEnd?.toISOString() ?? null,
     pendingPlan: snapshot.pendingPlanSlug,
