@@ -23,7 +23,7 @@ export default function GlobalError({
           placeItems: 'center',
           fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
           color: '#2b3f5c',
-          background: '#fff',
+          background: '#f6f8fc',
           padding: '2rem',
         }}
       >
@@ -44,7 +44,7 @@ export default function GlobalError({
               padding: '0.75rem 1.4rem',
               borderRadius: 999,
               border: 'none',
-              background: '#12a693',
+              background: '#2563eb',
               color: '#fff',
               cursor: 'pointer',
             }}

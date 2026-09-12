@@ -35,6 +35,9 @@ interface ManageResponse {
 
 const GENERIC = 'We could not make that change. Please try again.';
 
+/** The colour of the provider's form: the product's primary blue, so the two feel like one flow. */
+const BRAND_BLUE = '#2563eb';
+
 export function ManageSubscription({
   status,
   cancelAtPeriodEnd,
@@ -100,7 +103,7 @@ export function ManageSubscription({
         name: 'Wintora',
         description: 'Update the card for your subscription',
         prefill: email !== null ? { email } : undefined,
-        theme: { color: '#12a693' },
+        theme: { color: BRAND_BLUE },
         modal: { ondismiss: () => setState({ kind: 'idle' }) },
         handler: () => {
           setState({
@@ -178,7 +181,7 @@ export function ManageSubscription({
       </div>
 
       {state.kind === 'confirming' ? (
-        <div className="notice manage__confirm" role="group" aria-labelledby="cancel-confirm-title">
+        <div className="manage__confirm" role="group" aria-labelledby="cancel-confirm-title">
           <p id="cancel-confirm-title" className="manage__confirm-title">
             End your subscription on {periodEndLabel}?
           </p>
@@ -189,28 +192,28 @@ export function ManageSubscription({
             ends.
           </p>
           <div className="card__actions">
-            <button type="button" className="btn btn--primary" onClick={() => void run('cancel')}>
-              Yes, end it on {periodEndLabel}
-            </button>
-            <button type="button" className="btn btn--secondary" onClick={() => setState({ kind: 'idle' })}>
+            <button type="button" className="btn btn--primary" onClick={() => setState({ kind: 'idle' })}>
               Keep my subscription
+            </button>
+            <button type="button" className="btn btn--danger" onClick={() => void run('cancel')}>
+              Yes, end it on {periodEndLabel}
             </button>
           </div>
         </div>
       ) : null}
 
       {state.kind === 'working' ? (
-        <p className="small muted" role="status">
+        <p className="caption" role="status">
           Making the change with the payment provider…
         </p>
       ) : null}
       {state.kind === 'card-open' ? (
-        <p className="small muted" role="status">
+        <p className="caption" role="status">
           The secure card form is open. Card details go to Razorpay, not to Wintora.
         </p>
       ) : null}
       {state.kind === 'done' ? (
-        <p className="notice notice--accent" role="status">
+        <p className="notice notice--success" role="status">
           {state.message}
         </p>
       ) : null}

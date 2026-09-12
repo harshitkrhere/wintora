@@ -35,8 +35,8 @@ export function ResetPasswordForm(): React.ReactElement {
   );
 
   return (
-    <form onSubmit={submit} className="stack">
-      <div className="field" style={{ margin: 0 }}>
+    <form onSubmit={submit} className="stack auth-form">
+      <div className="field">
         <label htmlFor="reset-password">New password</label>
         <input
           id="reset-password"
@@ -47,11 +47,16 @@ export function ResetPasswordForm(): React.ReactElement {
           minLength={MIN_PASSWORD_LENGTH}
           required
         />
+        <p className="field__hint">At least {MIN_PASSWORD_LENGTH} characters. A sentence you will remember works well.</p>
       </div>
-      <button type="submit" className="btn btn--primary" disabled={busy}>
+      <button type="submit" className="btn btn--primary btn--lg" disabled={busy} aria-busy={busy}>
         {busy ? 'Saving…' : 'Save new password'}
       </button>
-      {message ? <p className="notice notice--error" style={{ margin: 0 }}>{message}</p> : null}
+      {message ? (
+        <p className="notice notice--error" role="alert">
+          {message}
+        </p>
+      ) : null}
     </form>
   );
 }

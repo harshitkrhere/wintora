@@ -19,6 +19,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { RazorpayCheckout } from '@/components/RazorpayCheckout';
+import { Icon } from '@/components/Icons';
 import { CHECKOUT_DISCLOSURES, CHECKOUT_DISCLOSURE_ORDER } from '@/config/disclosures';
 import { PLANS, formatPrice, isPlanSlug, type BillingInterval, type CurrencyCode } from '@/config/plans';
 import { POLICY } from '@/config/policy';
@@ -62,16 +63,7 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
   if (pending === null || pending.provider_subscription_id === null || !fresh) {
     return (
       <div className="narrow page">
-        <p className="eyebrow">Checkout</p>
-        <h1>No checkout in progress</h1>
-        <p className="lede">
-          {pending !== null && !fresh
-            ? 'That checkout has expired. Nothing was charged.'
-            : 'Choose a plan first, and the payment form will open here.'}
-        </p>
-        <Link href="/pricing" className="btn btn--primary">
-          See plans
-        </Link>
+        <EmptyCheckout expired={pending !== null && !fresh} />
       </div>
     );
   }
@@ -83,14 +75,44 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
   const description = `${planName} plan, ${price} every ${pending.billing_interval}`;
 
   return (
-    <div className="narrow page">
-      <p className="eyebrow">Checkout</p>
-      <h1 className="page__title">Complete your subscription</h1>
-      <p className="lede">
-        {planName}: <strong>{price}</strong> every {pending.billing_interval}, in{' '}
-        {currency}. The secure payment form opens on this page. Your card details go
-        straight to Razorpay and never touch Wintora.
-      </p>
+    <div className="narrow page stack--md">
+      <div className="page-head__text">
+        <p className="eyebrow">Checkout</p>
+        <h1>Complete your subscription</h1>
+        <p className="lede">
+          The secure payment form opens on this page. Your card details go straight to
+          Razorpay and never touch Wintora.
+        </p>
+      </div>
+
+      {/* What is about to be charged, stated once, plainly, before the form. */}
+      <div className="card">
+        <div className="card__header">
+          <div>
+            <h2 className="card__title">Order summary</h2>
+            <p className="caption m-0">Billed in {currency}, renewing every {pending.billing_interval} until you cancel.</p>
+          </div>
+          <span className="icon-tile" aria-hidden>
+            <Icon name="card" />
+          </span>
+        </div>
+        <dl className="dl">
+          <div className="dl__row">
+            <dt>Plan</dt>
+            <dd>{planName}</dd>
+          </div>
+          <div className="dl__row">
+            <dt>Amount</dt>
+            <dd>
+              {price} / {pending.billing_interval}
+            </dd>
+          </div>
+          <div className="dl__row">
+            <dt>Currency</dt>
+            <dd>{currency}</dd>
+          </div>
+        </dl>
+      </div>
 
       <RazorpayCheckout
         keyId={razorpayKeyId()}
@@ -118,6 +140,29 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
         Changed your mind? <Link href="/pricing">Go back to plans</Link>. Nothing is
         charged until you complete the form above.
       </p>
+    </div>
+  );
+}
+
+function EmptyCheckout({ expired }: { expired: boolean }): React.ReactElement {
+  return (
+    <div className="empty">
+      <div className="empty__mark" aria-hidden>
+        <span>
+          <Icon name="card" className="empty__icon" />
+        </span>
+      </div>
+      <h1 className="empty__title">No checkout in progress</h1>
+      <p className="empty__body">
+        {expired
+          ? 'That checkout has expired. Nothing was charged.'
+          : 'Choose a plan first, and the payment form will open here.'}
+      </p>
+      <div className="empty__actions">
+        <Link href="/pricing" className="btn btn--primary">
+          See plans
+        </Link>
+      </div>
     </div>
   );
 }

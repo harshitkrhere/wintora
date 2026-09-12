@@ -18,7 +18,7 @@ export default async function ResetPasswordPage(): Promise<React.ReactElement> {
   return (
     <>
       <h1>Choose a new password</h1>
-      <p className="lede">At least 12 characters. A sentence you will remember works well.</p>
+      <p className="lede">You are signed in through your recovery link. Pick a new password to keep.</p>
       <ResetPasswordForm />
     </>
   );

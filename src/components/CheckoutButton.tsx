@@ -136,12 +136,12 @@ export function CheckoutButton({
       </button>
 
       {state.kind === 'failed' ? (
-        <p role="alert" className="small plan__cta-note">
+        <p role="alert" className="field__error plan__cta-note">
           {state.message}
         </p>
       ) : null}
       {state.kind === 'changed' ? (
-        <p role="status" className="small plan__cta-note">
+        <p role="status" className="notice notice--success plan__cta-note">
           {state.message}
         </p>
       ) : null}

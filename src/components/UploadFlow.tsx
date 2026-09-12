@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExtractionDraft } from '@/domain/documents/draft';
 import { BillCheckerTool } from './BillCheckerTool';
+import { Icon } from './Icons';
 
 interface CaseSummary {
   id: string;
@@ -85,6 +86,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
   const [cases, setCases] = useState<CaseSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasResult, setHasResult] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // Existing cases, for the person who wants to add a second document to one.
@@ -213,6 +215,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
   }, []);
 
   const current: 1 | 2 | 3 = step.kind === 'review' ? (hasResult ? 3 : 2) : 1;
+  const pickedCase = step.kind === 'choose-file' && step.caseId !== null ? cases?.find((c) => c.id === step.caseId) : undefined;
 
   return (
     <div className="stack--lg">
@@ -221,22 +224,53 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
       {step.kind === 'choose-file' ? (
         <div className="stack">
           <div className="card stack">
-            <h2 className="card__title">Upload the bill</h2>
-            <p className="muted card__lead">
-              A PDF from a patient portal works best. A clear photo of a paper bill also works.
-              Nothing is analysed until you have checked the figures.
-            </p>
-            <input
-              ref={fileInput}
-              type="file"
-              accept={ACCEPT}
-              aria-label="Choose a bill to upload"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
+            <div>
+              <h2 className="card__title">Upload the bill</h2>
+              <p className="muted card__lead">
+                A PDF from a patient portal works best. A clear photo of a paper bill also works.
+                Nothing is analysed until you have checked the figures.
+              </p>
+            </div>
+            {/* The whole box is the file input: tap it, or drop a file on it.
+                A dropped file follows exactly the same path as a chosen one. */}
+            <div
+              className="dropzone"
+              data-drag={dragging ? 'true' : 'false'}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!dragging) setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                const file = e.dataTransfer.files?.[0];
                 if (file) void upload(step.caseId, file);
               }}
-            />
-            {error && <p className="notice notice--error">{error}</p>}
+            >
+              <div className="dropzone__icon" aria-hidden>
+                <Icon name="upload" />
+              </div>
+              <p className="dropzone__title">
+                <span>Choose a file</span> or drag it here
+              </p>
+              <p className="dropzone__hint">PDF, JPG, PNG, HEIC or TIFF</p>
+              <input
+                ref={fileInput}
+                type="file"
+                accept={ACCEPT}
+                aria-label="Choose a bill to upload"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void upload(step.caseId, file);
+                }}
+              />
+            </div>
+            {error && (
+              <p className="notice notice--error" role="alert">
+                {error}
+              </p>
+            )}
           </div>
 
           {step.caseId === null && cases !== null && cases.length > 0 ? (
@@ -247,7 +281,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
                   <li key={c.id}>
                     <button
                       type="button"
-                      className="btn btn--secondary"
+                      className="btn btn--secondary btn--sm"
                       onClick={() => setStep({ kind: 'choose-file', caseId: c.id })}
                     >
                       {c.title}
@@ -258,9 +292,10 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
             </details>
           ) : null}
           {step.caseId !== null && initialCaseId === null ? (
-            <p className="small muted">
-              This document will be added to the case you picked.{' '}
-              <button type="button" className="btn btn--quiet" onClick={() => setStep({ kind: 'choose-file', caseId: null })}>
+            <p className="notice notice--info">
+              This document will be added to{' '}
+              <strong>{pickedCase?.title ?? 'the case you picked'}</strong>.{' '}
+              <button type="button" className="btn btn--link" onClick={() => setStep({ kind: 'choose-file', caseId: null })}>
                 Start a new case instead
               </button>
             </p>
@@ -280,16 +315,22 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
       ) : null}
 
       {step.kind === 'rejected' ? (
-        <div className="stack">
-          <p className="notice notice--error">{step.message}</p>
-          <div className="actions">
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={() => setStep({ kind: 'choose-file', caseId: step.caseId })}
-            >
-              Try another file
-            </button>
+        <div className="card status-card" role="alert">
+          <div className="icon-tile icon-tile--warning" aria-hidden>
+            <Icon name="alert" />
+          </div>
+          <div className="status-card__body">
+            <h2 className="card__title">That file was not accepted</h2>
+            <p className="small muted">{step.message}</p>
+            <div className="card__actions">
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => setStep({ kind: 'choose-file', caseId: step.caseId })}
+              >
+                Try another file
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -298,22 +339,28 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
         <div className="stack--lg">
           <div className="card stack">
             <CaseName caseId={step.caseId} initial={step.caseTitle} />
-            <h2 className="card__title">Check these figures</h2>
-            <p className="muted card__lead">
-              {step.draft.lineItems.length > 0
-                ? `We read ${step.draft.lineItems.length} line item${step.draft.lineItems.length === 1 ? '' : 's'} from “${step.document.filename ?? 'your document'}”. `
-                : `We could not read line items from “${step.document.filename ?? 'your document'}”. `}
-              Compare every value against the document. Correct anything that is wrong, add
-              anything that is missing, then run the check.
-            </p>
+            <div>
+              <h2 className="card__title">Check these figures</h2>
+              <p className="muted card__lead">
+                {step.draft.lineItems.length > 0
+                  ? `We read ${step.draft.lineItems.length} line item${step.draft.lineItems.length === 1 ? '' : 's'} from “${step.document.filename ?? 'your document'}”. `
+                  : `We could not read line items from “${step.document.filename ?? 'your document'}”. `}
+                Compare every value against the document. Correct anything that is wrong, add
+                anything that is missing, then run the check.
+              </p>
+            </div>
             {step.draft.notes.length > 0 && (
-              <ul className="small muted" style={{ margin: 0, paddingLeft: '1.2rem' }}>
+              <ul className="x-list">
                 {step.draft.notes.map((n, i) => (
                   <li key={i}>{n}</li>
                 ))}
               </ul>
             )}
-            {error && <p className="notice notice--error">{error}</p>}
+            {error && (
+              <p className="notice notice--warning" role="alert">
+                {error}
+              </p>
+            )}
           </div>
 
           <BillCheckerTool initial={step.draft} caseId={step.caseId} onResult={() => setHasResult(true)} />
@@ -321,6 +368,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
           <div className="actions">
             <a href={`/cases/${step.caseId}`} className="btn btn--secondary">
               View this case
+              <Icon name="arrow-right" />
             </a>
             <button
               type="button"

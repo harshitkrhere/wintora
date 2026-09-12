@@ -20,6 +20,7 @@ import { NextSteps, type Step } from '@/components/NextSteps';
 import { CaseStatusButton } from '@/components/CaseStatusButton';
 import { money } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
+import { Icon } from '@/components/Icons';
 
 export const metadata: Metadata = { title: 'Case', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,14 @@ const SCAN_LABEL: Record<string, string> = {
   INFECTED: 'Refused',
   FAILED: 'Could not be checked',
   SKIPPED: 'Not checked',
+};
+
+const SCAN_TONE: Record<string, string> = {
+  CLEAN: 'badge--success',
+  PENDING: 'badge--neutral',
+  INFECTED: 'badge--error',
+  FAILED: 'badge--warning',
+  SKIPPED: 'badge--neutral',
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -98,26 +107,53 @@ export default async function CasePage({
   const latest = completed[0];
   const steps = latest !== undefined ? checklistFor(latest, events) : null;
   const amount = money(summary.amountCents, summary.currency);
+  const isOpen = summary.status === 'OPEN';
 
   return (
     <div className="shell stack--lg page">
-      <div>
-        <p className="eyebrow">
-          <Link href="/cases">Cases</Link> · {summary.status === 'OPEN' ? 'Open' : 'Closed'}
-        </p>
-        <h1 style={{ marginBottom: '0.25rem' }}>{summary.title}</h1>
-        <p className="muted" style={{ margin: 0 }}>
-          {[summary.providerName, amount, summary.statementDate ? `Statement ${summary.statementDate}` : null]
-            .filter(Boolean)
-            .join(' · ') || 'Add details by uploading the bill.'}
-        </p>
-      </div>
-
-      <div className="actions">
-        <Link href={`/upload?case=${summary.id}`} className="btn btn--primary">
-          Upload a document
-        </Link>
-        <CaseStatusButton caseId={summary.id} status={summary.status} />
+      <div className="page-head">
+        <div className="page-head__text">
+          <p className="eyebrow">
+            <Link href="/cases">Cases</Link> · Case
+          </p>
+          <h1 className="page__title">
+            {summary.title}
+            <span className={`badge ${isOpen ? 'badge--success' : 'badge--neutral'} badge--dot`}>
+              {isOpen ? 'Open' : 'Closed'}
+            </span>
+          </h1>
+          {summary.providerName || amount || summary.statementDate ? (
+            <p className="meta">
+              {summary.providerName ? (
+                <span className="meta__item">
+                  <Icon name="document" />
+                  {summary.providerName}
+                </span>
+              ) : null}
+              {amount ? (
+                <span className="meta__item">
+                  <Icon name="receipt" />
+                  {amount}
+                </span>
+              ) : null}
+              {summary.statementDate ? (
+                <span className="meta__item">
+                  <Icon name="calendar" />
+                  Statement {summary.statementDate}
+                </span>
+              ) : null}
+            </p>
+          ) : (
+            <p className="muted m-0">Add details by uploading the bill.</p>
+          )}
+        </div>
+        <div className="page-head__actions">
+          <Link href={`/upload?case=${summary.id}`} className="btn btn--primary">
+            <Icon name="upload" />
+            Upload a document
+          </Link>
+          <CaseStatusButton caseId={summary.id} status={summary.status} />
+        </div>
       </div>
 
       {/* --------------------------------------------------- next steps */}
@@ -125,7 +161,7 @@ export default async function CasePage({
         steps.length > 0 ? (
           <NextSteps caseId={summary.id} steps={steps} />
         ) : (
-          <p className="notice notice--accent">
+          <p className="notice notice--success">
             Nothing to chase on this statement. Keep it on the case in case a later bill or an
             EOB disagrees with it.
           </p>
@@ -134,9 +170,10 @@ export default async function CasePage({
 
       {/* ------------------------------------------------------- checks */}
       <section className="stack">
-        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>
-          Checks ({completed.length})
-        </h2>
+        <div className="section-head">
+          <h2>Checks</h2>
+          <span className="section-head__count">{completed.length}</span>
+        </div>
         {completed.length === 0 ? (
           <EmptyState
             compact
@@ -150,16 +187,20 @@ export default async function CasePage({
           />
         ) : (
           completed.map((a, i) => (
-            <details key={a.id} className="card" open={i === 0}>
-              <summary style={{ cursor: 'pointer' }}>
-                <strong>{TYPE_LABEL[a.analysisType] ?? a.analysisType}</strong>
-                <span className="muted small"> · {when(a.completedAt ?? a.createdAt)} · {a.findings.length} finding{a.findings.length === 1 ? '' : 's'}</span>
+            <details key={a.id} className="card accordion" open={i === 0}>
+              <summary>
+                <span className="accordion__title">
+                  <span>{TYPE_LABEL[a.analysisType] ?? a.analysisType}</span>
+                  <span className="accordion__sub">
+                    {when(a.completedAt ?? a.createdAt)} · {a.findings.length} finding{a.findings.length === 1 ? '' : 's'}
+                  </span>
+                </span>
               </summary>
-              <div className="stack" style={{ marginTop: '1rem' }}>
+              <div className="accordion__body stack">
                 {a.findings.map((f, j) => (
                   <FindingCard key={j} finding={f} />
                 ))}
-                <p className="small muted" style={{ margin: 0 }}>
+                <p className="caption m-0">
                   Engine {a.engineVersion}. These checks compare what is printed. They cannot
                   tell you whether a charge was appropriate or what your insurer will decide.
                 </p>
@@ -171,7 +212,10 @@ export default async function CasePage({
 
       {/* ---------------------------------------------------- documents */}
       <section className="stack">
-        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Documents ({documents.length})</h2>
+        <div className="section-head">
+          <h2>Documents</h2>
+          <span className="section-head__count">{documents.length}</span>
+        </div>
         {documents.length === 0 ? (
           <EmptyState
             compact
@@ -180,36 +224,42 @@ export default async function CasePage({
             action={{ href: `/upload?case=${summary.id}`, label: 'Upload a document' }}
           />
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll table--responsive">
             <table>
               <thead>
                 <tr>
-                  <th>File</th>
-                  <th>Status</th>
-                  <th>Uploaded</th>
-                  <th>Kept until</th>
+                  <th scope="col">File</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Uploaded</th>
+                  <th scope="col">Kept until</th>
                 </tr>
               </thead>
               <tbody>
                 {documents.map((d) => (
                   <tr key={d.id}>
-                    <td>
-                      {d.filename ?? 'Document'}
-                      <span className="muted small" style={{ display: 'block' }}>
-                        {d.mimeType.replace('application/', '').replace('image/', '').toUpperCase()} · {bytes(d.byteSize)}
-                        {d.pageCount !== null ? ` · ${d.pageCount} page${d.pageCount === 1 ? '' : 's'}` : ''}
+                    <td data-label="File">
+                      <span>
+                        <strong>{d.filename ?? 'Document'}</strong>
+                        <span className="cell-sub">
+                          {d.mimeType.replace('application/', '').replace('image/', '').toUpperCase()} · {bytes(d.byteSize)}
+                          {d.pageCount !== null ? ` · ${d.pageCount} page${d.pageCount === 1 ? '' : 's'}` : ''}
+                        </span>
                       </span>
                     </td>
-                    <td>
-                      {SCAN_LABEL[d.scanStatus] ?? d.scanStatus}
-                      {d.scanStatus === 'CLEAN' ? (
-                        <span className="muted small" style={{ display: 'block' }}>
-                          {d.extractionStatus === 'COMPLETED' ? 'Figures read' : d.extractionStatus === 'FAILED' ? 'Could not be read' : 'Not read yet'}
+                    <td data-label="Status">
+                      <span>
+                        <span className={`badge ${SCAN_TONE[d.scanStatus] ?? 'badge--neutral'}`}>
+                          {SCAN_LABEL[d.scanStatus] ?? d.scanStatus}
                         </span>
-                      ) : null}
+                        {d.scanStatus === 'CLEAN' ? (
+                          <span className="cell-sub">
+                            {d.extractionStatus === 'COMPLETED' ? 'Figures read' : d.extractionStatus === 'FAILED' ? 'Could not be read' : 'Not read yet'}
+                          </span>
+                        ) : null}
+                      </span>
                     </td>
-                    <td className="small">{when(d.createdAt)}</td>
-                    <td className="small muted">
+                    <td data-label="Uploaded" className="small">{when(d.createdAt)}</td>
+                    <td data-label="Kept until" className="small muted">
                       {d.retentionUntil ? new Date(d.retentionUntil).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—'}
                     </td>
                   </tr>
@@ -218,7 +268,7 @@ export default async function CasePage({
             </table>
           </div>
         )}
-        <p className="small muted" style={{ margin: 0 }}>
+        <p className="caption m-0">
           Documents are deleted automatically on the date shown, set by your plan. Nothing is
           deleted because a plan changes; you are told first.
         </p>
@@ -226,20 +276,24 @@ export default async function CasePage({
 
       {/* ----------------------------------------------------- timeline */}
       <section className="stack">
-        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Timeline</h2>
-        <ol className="timeline">
-          {events.map((e) => (
-            <li key={e.id}>
-              <span className="timeline__when">{when(e.occurredAt)}</span>
-              <span>
-                {e.title}
-                {e.detail ? <span className="muted"> — {e.detail}</span> : null}
-                {e.origin === 'USER' ? <span className="muted"> · you</span> : null}
-              </span>
-            </li>
-          ))}
-        </ol>
-        <p className="small muted" style={{ margin: 0 }}>
+        <div className="section-head">
+          <h2>Timeline</h2>
+        </div>
+        <div className="card">
+          <ol className="timeline">
+            {events.map((e) => (
+              <li key={e.id}>
+                <span className="timeline__when">{when(e.occurredAt)}</span>
+                <span>
+                  <span className="timeline__event">{e.title}</span>
+                  {e.detail ? <span className="muted"> — {e.detail}</span> : null}
+                  {e.origin === 'USER' ? <span className="muted"> · you</span> : null}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <p className="caption m-0">
           Only things that actually happened appear here. No reminders or deadlines are
           invented.
         </p>

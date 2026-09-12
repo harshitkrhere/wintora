@@ -10,6 +10,7 @@
 
 import { useCallback, useState } from 'react';
 import { clearSessionHint } from '@/lib/auth/session-hint';
+import { Icon } from './Icons';
 
 export function SignOutButton(): React.ReactElement {
   const [busy, setBusy] = useState(false);
@@ -32,7 +33,14 @@ export function SignOutButton(): React.ReactElement {
   }, []);
 
   return (
-    <button type="button" className="btn btn--quiet" onClick={signOut} disabled={busy}>
+    <button
+      type="button"
+      className="btn btn--quiet btn--sm"
+      onClick={signOut}
+      disabled={busy}
+      aria-busy={busy}
+    >
+      {busy ? null : <Icon name="logout" />}
       {busy ? 'Signing out…' : 'Sign out'}
     </button>
   );

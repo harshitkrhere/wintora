@@ -43,38 +43,36 @@ export interface ToolPageProps {
 
 export function ToolPage(props: ToolPageProps): React.ReactElement {
   return (
-    <div className="shell page">
+    <div className="shell page tool-page">
       <article>
-        <header style={{ marginBottom: '2.5rem' }}>
+        <header className="tool-page__intro">
+          <p className="eyebrow">Free tool</p>
           <h1>{props.h1}</h1>
           {/* Block 2: the direct answer, first, in plain prose. */}
           <p className="lede">{props.directAnswer}</p>
         </header>
 
         {/* Block 3: the tool, inline, before any signup ask. */}
-        <section aria-label="Tool">{props.tool}</section>
+        <section aria-label="Tool" className="tool-page__tool">
+          {props.tool}
+        </section>
 
         <section>
           <h2>Who this applies to</h2>
           <div className="two-col">
-            <div>
-              <h3 className="small eyebrow">This is for you if</h3>
-              <ul className="plan__features">
+            <div className="card">
+              <h3>This is for you if</h3>
+              <ul className="check-list">
                 {props.appliesTo.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
             </div>
-            <div>
-              <h3 className="small eyebrow">This will not help with</h3>
-              <ul
-                className="stack"
-                style={{ listStyle: 'none', padding: 0, gap: '0.4rem' }}
-              >
+            <div className="card card--soft">
+              <h3>This will not help with</h3>
+              <ul className="x-list">
                 {props.doesNotApplyTo.map((item) => (
-                  <li key={item} className="small muted">
-                    — {item}
-                  </li>
+                  <li key={item}>{item}</li>
                 ))}
               </ul>
             </div>
@@ -83,7 +81,7 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
 
         <section>
           <h2>What to gather first</h2>
-          <ul className="plan__features">
+          <ul className="check-list">
             {props.whatToGather.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -92,10 +90,13 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
 
         <section>
           <h2>Steps</h2>
-          <ol className="stack">
+          <ol className="steps">
             {props.steps.map((step) => (
               <li key={step.title}>
-                <strong>{step.title}.</strong> {step.detail}
+                <div>
+                  <strong>{step.title}</strong>
+                  <span className="muted">{step.detail}</span>
+                </div>
               </li>
             ))}
           </ol>
@@ -103,13 +104,11 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
 
         <section>
           <h2>Common problems</h2>
-          <div className="stack">
+          <div className="two-col">
             {props.commonProblems.map((item) => (
               <div key={item.problem} className="card">
-                <h3 style={{ marginTop: 0, fontSize: '1rem' }}>{item.problem}</h3>
-                <p className="small" style={{ marginBottom: 0 }}>
-                  {item.explanation}
-                </p>
+                <h3>{item.problem}</h3>
+                <p className="small muted card__last">{item.explanation}</p>
               </div>
             ))}
           </div>
@@ -117,15 +116,13 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
 
         <section>
           <h2>Questions people ask</h2>
-          <div className="stack">
+          <div className="stack--sm">
             {props.faq.map((item) => (
-              <details key={item.question} className="card">
-                <summary style={{ fontWeight: 560, cursor: 'pointer' }}>
-                  {item.question}
-                </summary>
-                <p className="small" style={{ margin: '0.75rem 0 0' }}>
-                  {item.answer}
-                </p>
+              <details key={item.question} className="card accordion">
+                <summary>{item.question}</summary>
+                <div className="accordion__body">
+                  <p className="small">{item.answer}</p>
+                </div>
               </details>
             ))}
           </div>
@@ -136,7 +133,7 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
         {props.sources.length > 0 ? (
           <section>
             <h2>Where this information comes from</h2>
-            <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: '0.6rem' }}>
+            <ul className="link-list">
               {props.sources.map((source) => (
                 <li key={source.url} className="small">
                   <a href={source.url} rel="noopener nofollow">
@@ -159,7 +156,7 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
 
         <section>
           <h2>Related</h2>
-          <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: '0.4rem' }}>
+          <ul className="link-list">
             {props.relatedLinks.map((link) => (
               <li key={link.href}>
                 <Link href={link.href}>{link.label}</Link>
@@ -168,9 +165,9 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
           </ul>
         </section>
 
-        <footer className="stack">
+        <footer className="stack tool-page__footer">
           <p className="notice">{props.disclaimer}</p>
-          <p className="small muted">
+          <p className="caption">
             Last verified: <time dateTime={props.lastVerified}>{props.lastVerified}</time>
           </p>
         </footer>

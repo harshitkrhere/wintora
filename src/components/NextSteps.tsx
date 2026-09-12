@@ -25,6 +25,7 @@ export function NextSteps({ caseId, steps }: { caseId: string; steps: readonly S
   const [error, setError] = useState<string | null>(null);
 
   const doneCount = items.filter((s) => s.done).length;
+  const allDone = doneCount === items.length;
 
   const toggle = async (step: Step): Promise<void> => {
     const next = !step.done;
@@ -50,13 +51,11 @@ export function NextSteps({ caseId, steps }: { caseId: string; steps: readonly S
   };
 
   return (
-    <section className="stack" aria-labelledby="next-steps-heading">
+    <section className="card stack" aria-labelledby="next-steps-heading">
       <div className="section-head">
-        <h2 id="next-steps-heading" className="h-small">
-          What to do next
-        </h2>
-        <span className="small muted" aria-live="polite">
-          {doneCount === items.length ? 'All done' : `${doneCount} of ${items.length} done`}
+        <h2 id="next-steps-heading">What to do next</h2>
+        <span className={`badge ${allDone ? 'badge--success' : 'badge--neutral'}`} aria-live="polite">
+          {allDone ? 'All done' : `${doneCount} of ${items.length} done`}
         </span>
       </div>
       <ul className="checklist">
@@ -80,7 +79,7 @@ export function NextSteps({ caseId, steps }: { caseId: string; steps: readonly S
           {error}
         </p>
       ) : null}
-      <p className="small muted card__last">
+      <p className="caption card__last">
         Ticking a step records it on the timeline, so the case remembers what you have done.
         Nothing is sent to anyone.
       </p>

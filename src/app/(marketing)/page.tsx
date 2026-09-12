@@ -15,64 +15,30 @@
 
 import Link from 'next/link';
 import { CAPABILITY_STATEMENT } from '@/config/disclaimers';
+import { POLICY } from '@/config/policy';
 import { analyzeBill, headline } from '@/domain/analysis/engine';
 import type { BillDocument } from '@/domain/analysis/types';
 import { FindingCard } from '@/components/FindingCard';
+import { Icon, type IconName } from '@/components/Icons';
 
-function Icon({ name }: { name: 'understand' | 'check' | 'act' | 'control' }): React.ReactElement {
-  const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  switch (name) {
-    case 'understand':
-      return (
-        <svg {...common} aria-hidden>
-          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-          <path d="M14 3v5h5" />
-          <circle cx="11.5" cy="14.5" r="2.5" />
-          <path d="m13.5 16.5 2 2" />
-        </svg>
-      );
-    case 'check':
-      return (
-        <svg {...common} aria-hidden>
-          <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" />
-          <path d="m9 12 2 2 4-4" />
-        </svg>
-      );
-    case 'act':
-      return (
-        <svg {...common} aria-hidden>
-          <path d="M5 12h14" />
-          <path d="m13 6 6 6-6 6" />
-        </svg>
-      );
-    case 'control':
-      return (
-        <svg {...common} aria-hidden>
-          <circle cx="12" cy="8" r="3.5" />
-          <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" />
-        </svg>
-      );
-  }
-}
-
-const PILLARS = [
+const PILLARS: readonly { icon: IconName; title: string; text: string }[] = [
   {
-    icon: 'understand' as const,
+    icon: 'document',
     title: 'Understand',
     text: 'Upload a bill or a photo of one. We read the figures and lay them out plainly, and you confirm every number before anything else happens.',
   },
   {
-    icon: 'check' as const,
+    icon: 'shield',
     title: 'Check',
     text: 'A deterministic engine checks whether the line items add up, whether totals reconcile, and whether anything is repeated or dated wrong.',
   },
   {
-    icon: 'act' as const,
+    icon: 'arrow-right',
     title: 'Take action',
     text: 'Every finding shows the numbers behind it, so you can ask the billing office a specific question rather than a vague one.',
   },
   {
-    icon: 'control' as const,
+    icon: 'user',
     title: 'Feel in control',
     text: 'One case per bill. Your documents, results and timeline in one place, private to you, exportable or deletable at any time.',
   },
@@ -111,7 +77,9 @@ export default function HomePage(): React.ReactElement {
   return (
     <div className="shell">
       <section className="hero">
-        <div className="hero__rule" />
+        <div className="hero__badge">
+          <span className="badge">Free bill checker · no account needed</span>
+        </div>
         <h1>Understand your medical bills before you pay.</h1>
         <p className="lede">
           Review. Compare. Take action. Wintora checks whether the arithmetic on a
@@ -120,15 +88,17 @@ export default function HomePage(): React.ReactElement {
         <div className="hero__actions">
           <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
             Check a bill now
+            <Icon name="arrow-right" />
           </Link>
           <Link href="/signup" className="btn btn--secondary btn--lg">
             Create a free account
           </Link>
         </div>
-        <p className="hero__proof">
-          No account needed for your first five checks, and nothing you type is kept.
-          A free account after that; no card.
-        </p>
+        <ul className="hero__proof" aria-label="What to expect">
+          <li>{POLICY.anonymousTool.freeChecks} free checks, no account</li>
+          <li>Nothing you type is kept</li>
+          <li>Free plan after that, no card</li>
+        </ul>
       </section>
 
       {/* The product, doing the thing. Sample figures in, real findings out. */}
@@ -139,6 +109,12 @@ export default function HomePage(): React.ReactElement {
             A bill as printed
           </h2>
           <div className="demo__frame">
+            <div className="demo__frame-head" aria-hidden>
+              <span />
+              <span />
+              <span />
+              <b>Statement · {SAMPLE_BILL.providerName}</b>
+            </div>
             <table className="demo__table">
               <caption className="sr-only">Sample bill line items</caption>
               <thead>
@@ -184,6 +160,10 @@ export default function HomePage(): React.ReactElement {
       </section>
 
       <section>
+        <div className="section-intro">
+          <p className="eyebrow">How it works</p>
+          <h2>Four steps, and you stay in charge of every one.</h2>
+        </div>
         <div className="pillars">
           {PILLARS.map((p) => (
             <div className="pillar" key={p.title}>
@@ -197,46 +177,46 @@ export default function HomePage(): React.ReactElement {
         </div>
       </section>
 
-      <section style={{ paddingTop: '4rem' }}>
-        <div className="two-col" style={{ alignItems: 'start' }}>
-          <div>
+      <section>
+        <div className="two-col">
+          <div className="card">
             <p className="eyebrow">What it does</p>
-            <ul className="plan__features">
+            <ul className="check-list">
               {CAPABILITY_STATEMENT.does.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
           </div>
-          <div>
-            <p className="eyebrow" style={{ color: 'var(--ink-400)' }}>What it does not</p>
-            <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: '0.45rem' }}>
+          <div className="card card--soft">
+            <p className="eyebrow eyebrow--quiet">What it does not</p>
+            <ul className="x-list">
               {CAPABILITY_STATEMENT.doesNot.map((item) => (
-                <li key={item} className="small muted">
-                  — {item}
-                </li>
+                <li key={item}>{item}</li>
               ))}
             </ul>
           </div>
         </div>
-        <p className="muted small" style={{ marginTop: '1.5rem' }}>
+        <p className="muted small mt-5">
           Both lists matter equally. Knowing where a tool stops is what makes the rest of
           it worth trusting.
         </p>
       </section>
 
-      <section style={{ paddingTop: '3rem', textAlign: 'center' }}>
-        <h2>Real people. Real answers. A clearer path forward.</h2>
-        <p className="lede" style={{ marginInline: 'auto' }}>
-          Private by design. Every letter is a draft you review and send yourself.
-          Wintora never contacts anyone on your behalf.
-        </p>
-        <div className="hero__actions">
-          <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
-            Check your own bill
-          </Link>
-          <Link href="/pricing" className="btn btn--quiet btn--lg">
-            See pricing
-          </Link>
+      <section>
+        <div className="cta-band">
+          <h2>Real people. Real answers. A clearer path forward.</h2>
+          <p className="lede">
+            Private by design. Every letter is a draft you review and send yourself.
+            Wintora never contacts anyone on your behalf.
+          </p>
+          <div className="hero__actions">
+            <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
+              Check your own bill
+            </Link>
+            <Link href="/pricing" className="btn btn--quiet btn--lg">
+              See pricing
+            </Link>
+          </div>
         </div>
       </section>
     </div>

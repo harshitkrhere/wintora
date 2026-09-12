@@ -15,16 +15,17 @@ import Link from 'next/link';
 import { POLICY } from '@/config/policy';
 import { DeleteAction, ExportAction } from '@/components/PrivacyActions';
 import { SignOutOthersButton } from '@/components/SignOutOthersButton';
+import { Icon } from '@/components/Icons';
 
 export const metadata: Metadata = { title: 'Your data', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 export default function PrivacySettingsPage(): React.ReactElement {
   return (
-    <div className="narrow stack--lg" style={{ paddingTop: '2.5rem', paddingBottom: '4rem' }}>
-      <div>
+    <div className="medium stack--lg page">
+      <div className="page-head__text">
         <p className="eyebrow">
-          <Link href="/settings/subscription">Settings</Link> · Your data
+          Settings · <Link href="/settings/subscription">Subscription</Link>
         </p>
         <h1>Your data</h1>
         <p className="lede">
@@ -33,41 +34,58 @@ export default function PrivacySettingsPage(): React.ReactElement {
         </p>
       </div>
 
-      <section className="stack">
-        <h2 style={{ fontSize: '1.15rem', margin: 0 }}>Download a copy</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          A complete export of your account: cases, uploaded documents, every analysis
-          and its findings, and your billing history. Requests are fulfilled within 30
-          days and sent to your account email. Right now that is done by a person
-          rather than automatically, which is why it is not instant.
-        </p>
-        <ExportAction />
+      <section className="card status-card">
+        <span className="icon-tile" aria-hidden>
+          <Icon name="document" />
+        </span>
+        <div className="status-card__body stack">
+          <div>
+            <h2 className="card__title">Download a copy</h2>
+            <p className="muted card__last">
+              A complete export of your account: cases, uploaded documents, every analysis
+              and its findings, and your billing history. Requests are fulfilled within 30
+              days and sent to your account email. Right now that is done by a person
+              rather than automatically, which is why it is not instant.
+            </p>
+          </div>
+          <ExportAction />
+        </div>
       </section>
 
-      <hr />
-
-      <section className="stack">
-        <h2 style={{ fontSize: '1.15rem', margin: 0 }}>Signed-in devices</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          If you have signed in somewhere you no longer trust, this ends every other
-          session at once. This device stays signed in. We do not keep a list of your
-          devices or their locations, on purpose.
-        </p>
-        <SignOutOthersButton />
+      <section className="card status-card">
+        <span className="icon-tile" aria-hidden>
+          <Icon name="lock" />
+        </span>
+        <div className="status-card__body stack">
+          <div>
+            <h2 className="card__title">Signed-in devices</h2>
+            <p className="muted card__last">
+              If you have signed in somewhere you no longer trust, this ends every other
+              session at once. This device stays signed in. We do not keep a list of your
+              devices or their locations, on purpose.
+            </p>
+          </div>
+          <SignOutOthersButton />
+        </div>
       </section>
 
-      <hr />
-
-      <section className="stack">
-        <h2 style={{ fontSize: '1.15rem', margin: 0 }}>Delete your account</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          Scheduling deletion starts a {POLICY.deletion.coolingOffDays}-day cooling-off
-          period during which you can change your mind. After that, your account, cases,
-          documents and analyses are removed. A record that an account was deleted on
-          that date is kept, along with any billing records the law requires, separated
-          from your content.
-        </p>
-        <DeleteAction />
+      <section className="card card--danger status-card">
+        <span className="icon-tile icon-tile--error" aria-hidden>
+          <Icon name="trash" />
+        </span>
+        <div className="status-card__body stack">
+          <div>
+            <h2 className="card__title">Delete your account</h2>
+            <p className="muted card__last">
+              Scheduling deletion starts a {POLICY.deletion.coolingOffDays}-day cooling-off
+              period during which you can change your mind. After that, your account, cases,
+              documents and analyses are removed. A record that an account was deleted on
+              that date is kept, along with any billing records the law requires, separated
+              from your content.
+            </p>
+          </div>
+          <DeleteAction />
+        </div>
       </section>
     </div>
   );

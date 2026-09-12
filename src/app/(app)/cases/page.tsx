@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { listCases } from '@/lib/cases/load';
 import { CaseCard } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
+import { Icon } from '@/components/Icons';
 
 export const metadata: Metadata = { title: 'Your cases', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -32,11 +33,12 @@ export default async function CasesPage(): Promise<React.ReactElement> {
         <div className="page-head__text">
           <p className="eyebrow">Cases</p>
           <h1>Your cases</h1>
-          <p className="muted" style={{ margin: 0 }}>
+          <p className="lede">
             One case per bill. Everything you upload and every check you run stays on it.
           </p>
         </div>
         <Link href="/upload" className="btn btn--primary">
+          <Icon name="upload" />
           Upload a bill
         </Link>
       </div>
@@ -51,15 +53,28 @@ export default async function CasesPage(): Promise<React.ReactElement> {
       ) : (
         <>
           <section className="stack">
-            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Open ({open.length})</h2>
-            {open.length === 0 ? <p className="muted small">Nothing open.</p> : null}
+            <div className="section-head">
+              <h2>Open</h2>
+              <span className="section-head__count">{open.length}</span>
+            </div>
+            {open.length === 0 ? (
+              <EmptyState
+                compact
+                title="Nothing open"
+                body="Every case is closed. Reopen one from its page, or upload a new bill."
+                action={{ href: '/upload', label: 'Upload a bill' }}
+              />
+            ) : null}
             {open.map((c) => (
               <CaseCard key={c.id} summary={c} />
             ))}
           </section>
           {rest.length > 0 ? (
             <section className="stack">
-              <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Closed ({rest.length})</h2>
+              <div className="section-head">
+                <h2>Closed</h2>
+                <span className="section-head__count">{rest.length}</span>
+              </div>
               {rest.map((c) => (
                 <CaseCard key={c.id} summary={c} />
               ))}

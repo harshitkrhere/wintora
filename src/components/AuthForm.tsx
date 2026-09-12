@@ -13,6 +13,7 @@
 
 import { useCallback, useState } from 'react';
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password';
+import { Icon } from './Icons';
 
 type Mode = 'signin' | 'signup';
 
@@ -141,51 +142,42 @@ export function AuthForm({
   if (done) {
     const inbox = inboxUrlFor(email);
     return (
-      <div className="card" role="status">
-        <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Check your email</h2>
-        <p className="small" style={{ marginBottom: inbox ? '1rem' : 0 }}>
-          {message}
-        </p>
+      <div className="auth-done" role="status">
+        <div className="icon-tile icon-tile--lg icon-tile--success" aria-hidden>
+          <Icon name="mail" />
+        </div>
+        <h2 className="card__title">Check your email</h2>
+        <p className="small muted">{message}</p>
         {inbox ? (
-          <a href={inbox.url} className="btn btn--secondary" target="_blank" rel="noopener">
-            Open {inbox.name}
-          </a>
+          <div className="auth-actions">
+            <a href={inbox.url} className="btn btn--secondary" target="_blank" rel="noopener">
+              Open {inbox.name}
+              <Icon name="external" />
+            </a>
+          </div>
         ) : null}
       </div>
     );
   }
 
   return (
-    <form onSubmit={(e) => submit(e)} className="card">
+    <form onSubmit={(e) => submit(e)} className="auth-form">
       {/* Google first: for most people it is one tap and no password to
           forget. The email form stays fully usable underneath, because
           requiring a Google account to read your own medical bills would be a
           poor trade. */}
       <button
         type="button"
-        className="btn btn--secondary"
+        className="btn btn--secondary btn--block btn--lg"
         onClick={startGoogle}
         disabled={busy}
-        style={{ width: '100%', gap: '0.6rem' }}
       >
         <GoogleMark />
         {isSignUp ? 'Sign up with Google' : 'Continue with Google'}
       </button>
 
-      <div
-        aria-hidden="true"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          margin: '1.25rem 0',
-          color: 'var(--ink-400)',
-          fontSize: '0.82rem',
-        }}
-      >
-        <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+      <div className="divider" aria-hidden="true">
         or use an email address
-        <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
       </div>
 
       <div className="field">
@@ -196,6 +188,7 @@ export function AuthForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
+          placeholder="you@example.com"
           required
           maxLength={320}
         />
@@ -214,7 +207,7 @@ export function AuthForm({
           maxLength={400}
         />
         {isSignUp ? (
-          <p className="small muted" style={{ marginTop: '0.35rem', marginBottom: 0 }}>
+          <p className="field__hint">
             At least {MIN_PASSWORD_LENGTH} characters. Length matters far more than
             mixing in symbols, so a few unrelated words works well.
           </p>
@@ -232,33 +225,36 @@ export function AuthForm({
             <option value="US">United States</option>
             <option value="CA">Canada</option>
           </select>
-          <p className="small muted" style={{ marginTop: '0.35rem', marginBottom: 0 }}>
+          <p className="field__hint">
             Guidance differs by country, so we ask once. Nothing else is required.
           </p>
         </div>
       ) : null}
 
       {message !== null ? (
-        <p role="alert" className="notice" style={{ marginBottom: '1rem' }}>
+        <p role="alert" className="notice notice--error auth-form__error">
           {message}
         </p>
       ) : null}
 
-      <button type="submit" className="btn btn--primary" disabled={busy}>
-        {busy ? 'Working…' : isSignUp ? 'Create account' : 'Sign in'}
-      </button>
-
-      {!isSignUp ? (
-        <button
-          type="button"
-          className="btn btn--quiet"
-          onClick={(e) => submit(e, true)}
-          disabled={busy || email.length === 0}
-          style={{ marginLeft: '0.5rem' }}
-        >
-          Email me a link instead
+      <div className="auth-actions">
+        <button type="submit" className="btn btn--primary btn--lg" disabled={busy} aria-busy={busy}>
+          {busy ? 'Working…' : isSignUp ? 'Create account' : 'Sign in'}
         </button>
-      ) : null}
+
+        {!isSignUp ? (
+          <div className="auth-form__alt">
+            <button
+              type="button"
+              className="btn btn--quiet"
+              onClick={(e) => submit(e, true)}
+              disabled={busy || email.length === 0}
+            >
+              Email me a sign-in link instead
+            </button>
+          </div>
+        ) : null}
+      </div>
     </form>
   );
 }
@@ -269,7 +265,7 @@ export function AuthForm({
  */
 function GoogleMark(): React.ReactElement {
   return (
-    <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
       <path
         fill="#4285F4"
         d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"
