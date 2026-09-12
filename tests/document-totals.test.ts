@@ -133,3 +133,70 @@ describe('Azure backfill from OCR content', () => {
     expect(d.notes.join(' ')).not.toMatch(/No total was found/);
   });
 });
+
+/**
+ * The exact OCR text Azure produced from the first real production upload:
+ * a photographed hospital statement, label and amount on separate lines,
+ * footnote asterisks, sign after the dollar, and the left edge clipped so
+ * "Insurance" became "surance". This is what the scan has to survive.
+ */
+const REAL_OCR_LAYOUT = `
+Summary of Charges
+ROOM & BOARD - SEMI-PRIVATE T*
+$72,624.00
+PHARMACY - GENERAL CLASSIFICA*
+$11,152.32
+OTHER DIAGNOSTIC SERVICES - G*
+$14,822.78
+Pre-discount Charges*
+$292,643.73
+Hospital Discount to Patient*
+$-171,196.61
+surance Payments Received
+$0.00
+atient Payments Received
+$0.00
+ctual Discounted Charges Pending with Insurance*
+$121,447.12
+The Medical Center provides discounts for services covered by most insurance plans, and
+`;
+
+describe('the real photographed-statement layout', () => {
+  it('reads every total with label and amount on separate lines', () => {
+    const t = findTotalsInText(REAL_OCR_LAYOUT);
+    expect(t.total?.amountCents).toBe(29264373);
+    expect(t.adjustments?.amountCents).toBe(-17119661);
+    expect(t.insurancePaid?.amountCents).toBe(0);
+    expect(t.amountDue?.amountCents).toBe(12144712);
+  });
+
+  it('does not read a line-item code as money', () => {
+    // "0110" must never become $11.00 for a heading above it.
+    const t = findTotalsInText('Summary of Charges\n0110 ROOM & BOARD 500.00\nTotal\n0250 PHARMACY 12.00');
+    expect(t.total).toBeNull();
+  });
+
+  it('does not let a blank line carry a heading onto a list amount', () => {
+    const t = findTotalsInText('Total\n\n$500.00');
+    expect(t.total).toBeNull();
+  });
+
+  it('keeps patient payments out of insurance paid', () => {
+    const t = findTotalsInText('Insurance Payments Received\n$840.00\nPatient Payments Received\n$25.00');
+    expect(t.insurancePaid?.amountCents).toBe(84000);
+  });
+
+  it('matches a label whose leading word was clipped off the photo', () => {
+    const t = findTotalsInText('surance Payments Received\n$840.00');
+    expect(t.insurancePaid?.amountCents).toBe(84000);
+  });
+});
+
+describe('parseMoneyToCents with sign after the currency mark', () => {
+  it('reads $-171,196.61 and -$12.00 alike', async () => {
+    const { parseMoneyToCents } = await import('@/domain/documents/draft');
+    expect(parseMoneyToCents('$-171,196.61')).toBe(-17119661);
+    expect(parseMoneyToCents('-$12.00')).toBe(-1200);
+    expect(parseMoneyToCents('$ -5.00')).toBe(-500);
+  });
+});

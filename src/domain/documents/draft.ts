@@ -80,11 +80,17 @@ export function parseMoneyToCents(raw: string | null | undefined): number | null
     negative = true;
     s = s.slice(1, -1).trim();
   }
-  if (s.startsWith('-')) {
-    negative = !negative;
-    s = s.slice(1).trim();
+  // The sign and the currency mark come in either order on real bills:
+  // "-$12.00" and "$-171,196.61" both occur. Strip them in a loop so neither
+  // order leaves a stray character for the numeric check to reject.
+  for (let pass = 0; pass < 2; pass += 1) {
+    if (s.startsWith('-')) {
+      negative = !negative;
+      s = s.slice(1).trim();
+    }
+    s = s.replace(/^(US|CA|C)?\$/i, '').trim();
   }
-  s = s.replace(/^(US|CA|C)?\$/i, '').replace(/\s*(USD|CAD)$/i, '').trim();
+  s = s.replace(/\s*(USD|CAD)$/i, '').trim();
 
   // "1 234,56" / "1.234,56": comma-decimal with an explicit thousands group,
   // as some Canadian bills print. The thousands group is REQUIRED: a bare
