@@ -33,25 +33,19 @@ export default async function SignInPage({
   const initialError = errorKey !== null ? (ERRORS[errorKey] ?? null) : null;
 
   return (
-    <div className="narrow" style={{ paddingTop: '3rem' }}>
-      <p className="eyebrow">Sign in</p>
-      <h1 style={{ marginBottom: '0.35rem' }}>Welcome back</h1>
-      <p className="lede">
-        Sign in to reach your cases, documents and letters.
-      </p>
+    <>
+      <h1>Welcome back</h1>
+      <p className="lede">Your cases, documents and results.</p>
 
       <AuthForm mode="signin" next={next} initialError={initialError} />
 
-      <p className="small" style={{ marginTop: '1.25rem' }}>
-        New here? <Link href={linkWithNext('/signup', next)}>Create an account</Link>. The
-        free plan includes one case, real analysis and a request letter, with no card.
+      <p className="small muted" style={{ marginTop: '1.25rem', marginBottom: '0.35rem' }}>
+        <Link href="/forgot-password">Forgot your password?</Link>
       </p>
-
-      <p className="notice" style={{ marginTop: '1.5rem' }}>
-        Your documents are private to your account. We never use them to train models,
-        and you can export or delete everything at any time, on any plan.
+      <p className="small muted" style={{ margin: 0 }}>
+        New here? <Link href={linkWithNext('/signup', next)}>Create a free account</Link>.
       </p>
-    </div>
+    </>
   );
 }
 
