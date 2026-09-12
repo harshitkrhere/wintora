@@ -59,4 +59,12 @@ await square(512, 0.08, { r: 0, g: 0, b: 0, alpha: 0 }, 'src/app/icon.png');
 // white field with a little more breathing room reads best.
 await square(180, 0.14, { r: 255, g: 255, b: 255, alpha: 1 }, 'src/app/apple-icon.png');
 
-console.log('\nDone. Commit src/app/icon.png and src/app/apple-icon.png.');
+// Web app manifest icons, for install-to-home-screen. Android shows these on
+// the OS splash while the app actually launches: a real splash, no delay.
+await square(512, 0.08, { r: 0, g: 0, b: 0, alpha: 0 }, 'public/brand/icon-512.png');
+await square(192, 0.08, { r: 0, g: 0, b: 0, alpha: 0 }, 'public/brand/icon-192.png');
+// "Maskable": the OS may crop to a circle or squircle, so the mark sits in the
+// central safe zone on a solid field.
+await square(512, 0.2, { r: 255, g: 255, b: 255, alpha: 1 }, 'public/brand/icon-maskable-512.png');
+
+console.log('\nDone. Commit src/app/icon.png, src/app/apple-icon.png and public/brand/icon-*.png.');

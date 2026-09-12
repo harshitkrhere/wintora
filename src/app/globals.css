@@ -593,6 +593,61 @@ a.card:hover {
   font-weight: 640;
 }
 
+/* ------------------------------------------------------- empty states */
+
+.empty {
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+.empty--compact {
+  padding: 1.75rem 1.25rem;
+  text-align: left;
+}
+.empty__mark {
+  opacity: 0.35;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+}
+.empty__title {
+  font-size: 1.2rem;
+  margin: 0 0 0.35rem;
+}
+.empty--compact .empty__title {
+  font-size: 1.05rem;
+}
+.empty__body {
+  color: var(--ink-500);
+  margin: 0 auto;
+  max-width: 44ch;
+}
+.empty--compact .empty__body {
+  margin: 0;
+}
+.empty__steps {
+  display: inline-grid;
+  gap: 0.35rem;
+  margin: 1.25rem auto 0;
+  padding: 0 0 0 1.25rem;
+  text-align: left;
+  color: var(--ink-700);
+  font-size: 0.95rem;
+}
+.empty__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.empty--compact .empty__actions {
+  justify-content: flex-start;
+  margin-top: 1rem;
+}
+
 /* ---------------------------------------------------------- findings */
 
 .finding {

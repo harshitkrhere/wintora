@@ -13,6 +13,7 @@ import { listCases } from '@/lib/cases/load';
 import { createAdminClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/http/api';
 import { CaseCard } from '@/components/CaseCard';
+import { EmptyState } from '@/components/EmptyState';
 
 export const metadata: Metadata = { title: 'Dashboard', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -66,12 +67,17 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           ) : null}
         </section>
       ) : (
-        <section className="card" style={{ background: 'var(--surface-sunken)', border: 'none' }}>
-          <p style={{ margin: 0 }}>
-            No cases yet. Your first upload creates one. Prefer to type the figures in?{' '}
-            <Link href="/medical-bill-checker">Use the bill checker</Link> — it works without saving anything.
-          </p>
-        </section>
+        <EmptyState
+          title="Nothing here yet, and that is fine"
+          body="Wintora checks the arithmetic on a medical bill. Upload one and this is what happens:"
+          steps={[
+            'We read the figures from the PDF or photo.',
+            'You confirm every number. Nothing runs on a guess.',
+            'The check shows what adds up and what does not, with the numbers behind it.',
+          ]}
+          action={{ href: '/upload', label: 'Upload your first bill' }}
+          secondary={{ href: '/medical-bill-checker', label: 'Or type the figures in' }}
+        />
       )}
 
       <section>

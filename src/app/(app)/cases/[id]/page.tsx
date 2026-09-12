@@ -16,6 +16,7 @@ import { loadCase } from '@/lib/cases/load';
 import { FindingCard } from '@/components/FindingCard';
 import { CaseStatusButton } from '@/components/CaseStatusButton';
 import { money } from '@/components/CaseCard';
+import { EmptyState } from '@/components/EmptyState';
 
 export const metadata: Metadata = { title: 'Case', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -90,9 +91,16 @@ export default async function CasePage({
           Checks ({completed.length})
         </h2>
         {completed.length === 0 ? (
-          <p className="muted small">
-            No checks yet. Upload a document, confirm the figures, and run one.
-          </p>
+          <EmptyState
+            compact
+            title="No checks yet"
+            body={
+              documents.length === 0
+                ? 'Upload the bill, confirm the figures it reads, and the check runs from there.'
+                : 'A document is here. Open it from the upload page, confirm the figures, and run the check.'
+            }
+            action={{ href: `/upload?case=${summary.id}`, label: documents.length === 0 ? 'Upload the bill' : 'Check a document' }}
+          />
         ) : (
           completed.map((a, i) => (
             <details key={a.id} className="card" open={i === 0}>
@@ -118,7 +126,12 @@ export default async function CasePage({
       <section className="stack">
         <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Documents ({documents.length})</h2>
         {documents.length === 0 ? (
-          <p className="muted small">Nothing uploaded yet.</p>
+          <EmptyState
+            compact
+            title="Nothing uploaded yet"
+            body="A PDF from a patient portal reads best. A clear photo of a paper bill also works."
+            action={{ href: `/upload?case=${summary.id}`, label: 'Upload a document' }}
+          />
         ) : (
           <div className="card" style={{ padding: 0 }}>
             <table className="table" style={{ width: '100%' }}>

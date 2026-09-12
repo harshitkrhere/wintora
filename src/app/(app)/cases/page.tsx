@@ -9,6 +9,7 @@ import { requireUser } from '@/lib/http/api';
 import { createAdminClient } from '@/lib/supabase/server';
 import { listCases } from '@/lib/cases/load';
 import { CaseCard } from '@/components/CaseCard';
+import { EmptyState } from '@/components/EmptyState';
 
 export const metadata: Metadata = { title: 'Your cases', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -41,13 +42,12 @@ export default async function CasesPage(): Promise<React.ReactElement> {
       </div>
 
       {cases.length === 0 ? (
-        <div className="card">
-          <p style={{ marginTop: 0 }}>No cases yet.</p>
-          <p className="muted small" style={{ marginBottom: 0 }}>
-            Upload a bill and a case is created for it. You can also{' '}
-            <Link href="/medical-bill-checker">type the figures in</Link> without one.
-          </p>
-        </div>
+        <EmptyState
+          title="No cases yet"
+          body="A case is one bill: its documents, every check you run on it, and a record of what happened. Your first upload creates one."
+          action={{ href: '/upload', label: 'Upload a bill' }}
+          secondary={{ href: '/medical-bill-checker', label: 'Type the figures in instead' }}
+        />
       ) : (
         <>
           <section className="stack">

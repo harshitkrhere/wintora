@@ -8,7 +8,7 @@
  */
 
 import { appUrl } from '@/lib/env';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { OfflineBanner } from '@/components/StatusBanners';
 import './globals.css';
@@ -30,6 +30,12 @@ export const metadata: Metadata = {
   openGraph: { type: 'website', siteName: 'Wintora' },
   // No fabricated ratings, awards or endorsements anywhere on this site.
   robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#ffffff',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.ReactElement {
