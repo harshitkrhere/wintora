@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { BillCheckerTool } from '@/components/BillCheckerTool';
 import { ToolPage } from '@/components/ToolPage';
 import { DISCLAIMERS } from '@/config/disclaimers';
@@ -16,6 +17,13 @@ export default function MedicalBillCheckerPage(): React.ReactElement {
       h1="Check a medical bill"
       directAnswer="Enter the line items and totals printed on your statement, and this tool checks whether they add up, whether any charge is repeated, and whether the dates make sense."
       tool={<BillCheckerTool />}
+      beforeTool={
+        <>
+          Best with the <em>itemized</em> bill, which lists every charge; US providers usually send a
+          summary unless you ask.{' '}
+          <Link href="#itemized-bill">How to get the itemized one</Link>
+        </>
+      }
       appliesTo={[
         'You have a bill or statement from a hospital, clinic, dentist or other provider',
         'The total does not look right, or you cannot tell how it was calculated',
@@ -84,6 +92,12 @@ export default function MedicalBillCheckerPage(): React.ReactElement {
         },
       ]}
       faq={[
+        {
+          id: 'itemized-bill',
+          question: 'I only have a summary statement, not an itemized bill.',
+          answer:
+            'Call the billing office number printed on the statement and ask for an itemized bill for the account. Most providers send one on request, by mail or through the patient portal, and it is usually free. The checker works best with the itemized version: that is where duplicated lines, quantities and the arithmetic actually show. A summary statement gives the checker only the totals.',
+        },
         {
           question: 'Do I need an account?',
           answer:

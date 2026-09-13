@@ -24,6 +24,8 @@ export interface SourceRef {
 export interface FaqItem {
   readonly question: string;
   readonly answer: string;
+  /** An anchor, so a sentence elsewhere on the site can point at this answer. */
+  readonly id?: string;
 }
 
 export interface ToolPageProps {
@@ -41,6 +43,8 @@ export interface ToolPageProps {
   readonly disclaimer: string;
   readonly lastVerified: string;
   readonly tool: React.ReactNode;
+  /** One line above the tool: a preparation note, not a checklist. */
+  readonly beforeTool?: React.ReactNode;
 }
 
 export function ToolPage(props: ToolPageProps): React.ReactElement {
@@ -90,6 +94,7 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
               numbers behind every finding.
             </span>
           </div>
+          {props.beforeTool !== undefined ? <p className="small muted m-0">{props.beforeTool}</p> : null}
           {props.tool}
         </section>
 
@@ -151,7 +156,7 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
           </div>
           <div className="stack--sm">
             {props.faq.map((item) => (
-              <details key={item.question} className="card accordion">
+              <details key={item.question} id={item.id} className="card accordion">
                 <summary>{item.question}</summary>
                 <div className="accordion__body">
                   <p className="small">{item.answer}</p>

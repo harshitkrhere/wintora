@@ -92,6 +92,10 @@ export default function HomePage(): React.ReactElement {
             </li>
             <li>Free plan after that, no card</li>
           </ul>
+          <p className="hero__note">
+            Works best with the itemized bill. Most US providers send a summary unless you ask;{' '}
+            <Link href="/medical-bill-checker#itemized-bill">here is how to get the itemized one</Link>.
+          </p>
         </div>
 
         {/* The product, doing the thing. Sample figures in, real findings out. */}

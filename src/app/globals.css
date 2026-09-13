@@ -4263,3 +4263,12 @@ pre.letter-text {
 .landing > article > .hero {
   padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
 }
+
+/* One preparation sentence under the hero's proof list. Same register as
+   the list, a touch more room above, and it wraps rather than crowds. */
+.hero__note {
+  margin: var(--sp-4) 0 0;
+  max-width: 48ch;
+  font-size: 0.875rem;
+  color: var(--ink-500);
+}
