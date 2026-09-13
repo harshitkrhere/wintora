@@ -36,7 +36,11 @@ export type IconName =
   | 'sparkle'
   | 'clock'
   | 'external'
-  | 'plus';
+  | 'plus'
+  | 'documents'
+  | 'camera'
+  | 'more'
+  | 'chevron-left';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   home: (
@@ -197,6 +201,27 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M5 12h14" />
     </>
   ),
+  documents: (
+    <>
+      <path d="M8 4h6l4 4v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+      <path d="M14 4v4h4" />
+      <path d="M4 8v12a1 1 0 0 0 1 1h10" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  more: (
+    <>
+      <circle cx="6" cy="12" r="1.2" />
+      <circle cx="12" cy="12" r="1.2" />
+      <circle cx="18" cy="12" r="1.2" />
+    </>
+  ),
+  'chevron-left': <path d="m15 6-6 6 6 6" />,
 };
 
 export function Icon({

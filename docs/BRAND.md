@@ -141,3 +141,6 @@ letters. Once real traffic exists, measure phone, desktop and tablet
 separately across landing sessions, tool starts, uploads, completed analyses,
 account creation, checkout and retention, and let that data set priorities.
 Device analytics must never carry health information.
+
+How the signed-in app behaves on a phone — one screen, one decision, one
+primary action — is set out in `docs/MOBILE.md`.

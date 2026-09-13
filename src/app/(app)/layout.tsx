@@ -1,9 +1,11 @@
 /**
  * Signed-in shell. Reads the session, so everything under it is dynamic.
  *
- * On a wide screen: a sidebar with the mark, four destinations, the account
- * and the way out. Appearance is chosen in Settings, not in the chrome. On a phone: a slim top bar with the mark and the way out,
- * and the same four destinations along the bottom, in reach of a thumb. The
+ * On a wide screen: a sidebar with the mark, the Review action, four
+ * destinations, the account and the way out. Appearance is chosen in
+ * Settings, not in the chrome. On a phone: a slim top bar with the mark
+ * alone, and the same four destinations along the bottom with Review raised
+ * in the middle, in reach of a thumb; the way out is under Account. The
  * marketing navigation does not appear here: a person inside the product is
  * not being sold to.
  *
@@ -82,9 +84,6 @@ async function AppShell({ children }: { children: React.ReactNode }): Promise<Re
               <LeafMark title="" />
               <span>Wintora</span>
             </Link>
-            <div className="app-topbar__end">
-              <SignOutButton />
-            </div>
           </div>
         </header>
         <SafeModeBanner active={isSafeMode()} />

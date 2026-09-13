@@ -22,14 +22,10 @@ import { clientIp, enforceRateLimit } from '@/lib/http/ratelimit';
 import { createAdminClient } from '@/lib/supabase/server';
 import { createUploadTarget, documentPath } from '@/lib/documents/storage';
 import { DOCUMENT_COLUMNS, MB, type DocumentRow, publicDocument, storedBytesFor } from '@/lib/documents/service';
+import { DOCUMENT_TYPES } from '@/domain/documents/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const DOCUMENT_TYPES = [
-  'BILL', 'ITEMIZED_BILL', 'EOB', 'STATEMENT', 'DENIAL_LETTER',
-  'CORRESPONDENCE', 'INSURANCE_CARD', 'RECEIPT', 'OTHER',
-] as const;
 
 const beginSchema = z.object({
   caseId: z.string().uuid(),

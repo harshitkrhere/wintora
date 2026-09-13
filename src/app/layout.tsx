@@ -51,6 +51,10 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
+  // Android Chrome then shrinks the layout viewport when the keyboard
+  // opens, so the tab bar and the action bar sit above it rather than
+  // behind it. iOS Safari ignores this; see .action-bar in globals.css.
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.ReactElement {

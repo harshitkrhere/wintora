@@ -36,6 +36,9 @@
  *   9. Navigation: marketing header, footer, app shell, auth shell
  *  10. Marketing pages: hero, demo, pillars, pricing, tool and legal pages
  *  11. Appearance controls, phones, reduced motion
+ *  12. Compositions, utilities
+ *  13. Route progress
+ *  14. The signed-in app on a phone: sheet, action bar, rows, amount, next step, intake
  */
 
 /* =========================================================== 1. tokens */
@@ -187,8 +190,12 @@
   --measure: 62ch;
   --header-h: 64px;
   --sidebar-w: 240px;
-  --tabbar-h: 62px;
+  --tabbar-h: 64px;
+  --actionbar-h: 64px;
   --shell-max: 1120px;
+  --page-pad: clamp(16px, 4vw, 32px); /* the gutter on every app screen */
+  --touch: 44px; /* the smallest thing a thumb is asked to hit */
+  --scrim: rgb(11 45 91 / 40%); /* the page behind a sheet */
 
   /* --- icons drawn in CSS, coloured by currentColor through a mask --- */
   --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7'/%3E%3C/svg%3E");
@@ -255,6 +262,7 @@
     --shadow-xs: none;
     --shadow-sm: none;
     --shadow-float: 0 8px 24px -12px rgb(0 0 0 / 60%), 0 1px 2px rgb(0 0 0 / 40%);
+    --scrim: rgb(0 0 0 / 60%);
     --shadow-md: var(--shadow-float);
     --shadow-lg: var(--shadow-float);
 
@@ -316,6 +324,7 @@
   --shadow-xs: none;
   --shadow-sm: none;
   --shadow-float: 0 8px 24px -12px rgb(0 0 0 / 60%), 0 1px 2px rgb(0 0 0 / 40%);
+  --scrim: rgb(0 0 0 / 60%);
   --shadow-md: var(--shadow-float);
   --shadow-lg: var(--shadow-float);
 
@@ -1605,65 +1614,6 @@ tbody tr:last-child th {
 .no {
   color: var(--ink-300);
 }
-/* On a phone a wide table becomes a stack of cards, each cell labelled by
-   its column. The label comes from data-label on the cell. */
-@media (max-width: 640px) {
-  .table-scroll.table--responsive {
-    overflow: visible;
-    border: none;
-    background: transparent;
-    box-shadow: none;
-  }
-  .table--responsive table {
-    min-width: 0;
-  }
-  .table--responsive table,
-  .table--responsive tbody,
-  .table--responsive tr,
-  .table--responsive td {
-    display: block;
-  }
-  .table--responsive thead {
-    display: none;
-  }
-  .table--responsive tr {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    padding: 0.5rem 1rem;
-    box-shadow: var(--shadow-xs);
-  }
-  .table--responsive tr + tr {
-    margin-top: 0.75rem;
-  }
-  .table--responsive td {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 0.6rem 0;
-    border-bottom: 1px solid var(--line);
-    text-align: right;
-  }
-  .table--responsive td:last-child {
-    border-bottom: none;
-  }
-  .table--responsive td::before {
-    content: attr(data-label);
-    flex: none;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--ink-500);
-    font-weight: 600;
-    text-align: left;
-    padding-top: 0.15rem;
-  }
-  .table--responsive .cell-sub {
-    text-align: right;
-  }
-}
-
 /* Long-form policy pages: readable measure, generous section spacing, and
    tables that scroll rather than break the page on a phone. On a wide
    screen the contents list sits beside the text and stays put while the
@@ -1916,18 +1866,30 @@ details[open] > summary::before {
 .stepper__step--done .stepper__num {
   color: var(--brand-600);
 }
-@media (max-width: 560px) {
+/* On a phone only the current step keeps its words; the others are a
+   number on a line. From 40rem every step is said in full. */
+.stepper__step:not(.stepper__step--current) {
+  flex: 0 0 3rem;
+}
+.stepper__step:not(.stepper__step--current) .stepper__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+@media (min-width: 40rem) {
   .stepper__step:not(.stepper__step--current) {
-    flex: 0 0 3rem;
-    padding: 0.6rem 0 0;
+    flex: 1;
   }
   .stepper__step:not(.stepper__step--current) .stepper__label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
   }
 }
 
@@ -2761,19 +2723,49 @@ details[open] > summary::before {
   }
 }
 
-/* --- the signed-in shell: a sidebar on a wide screen, a tab bar on a phone --- */
+/* --- the signed-in shell: a tab bar on a phone, a sidebar from 64rem ---
+   The app's breakpoints are content breakpoints, not devices: 40rem is
+   where one column has room for two, 64rem is where a sidebar fits beside
+   the page. Everything in the app is written for the phone first and
+   widened from there. --- */
 .app-shell {
   min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  /* What bottom-anchored things keep clear of: the tab bar and the home
+     indicator. Only the indicator while a field has the keyboard up (the
+     tab bar hides, so the keyboard's own bar is not fighting ours), and
+     nothing once the sidebar takes over. */
+  --bar-offset: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+}
+.app-shell:has(main :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select):focus) {
+  --bar-offset: env(safe-area-inset-bottom);
+}
+.app-shell:has(main :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select):focus) .tabbar {
+  display: none;
 }
 .app-main {
   min-width: 0;
-  /* Room beneath the page so the tab bar never covers the last action. */
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 1rem);
+  /* Room beneath the page so nothing fixed covers the last action. */
+  padding-bottom: calc(var(--bar-offset) + 1rem);
+}
+/* One gutter for every app page, fluid between 16px and 32px; the content
+   width on a wide screen is what it was. */
+.app-main .shell,
+.app-main .medium,
+.app-main .narrow {
+  width: auto;
+  margin-inline: auto;
+  padding-inline: var(--page-pad);
 }
 .app-main .shell {
-  width: min(1080px, 100% - 3rem);
+  max-width: calc(1080px + 2 * var(--page-pad));
+}
+.app-main .medium {
+  max-width: calc(880px + 2 * var(--page-pad));
+}
+.app-main .narrow {
+  max-width: calc(720px + 2 * var(--page-pad));
 }
 .sidebar {
   display: none;
@@ -2784,45 +2776,49 @@ details[open] > summary::before {
   z-index: 30;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
+  padding-top: env(safe-area-inset-top);
 }
 .app-topbar__inner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
   min-height: var(--header-h);
 }
-.app-topbar__end {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
+/* Five destinations along the bottom, in reach of a thumb. The middle one
+   is not a page but the app's one creating action, Review, lifted out of
+   the bar as a disc. */
 .tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  padding: 0 0.25rem env(safe-area-inset-bottom);
   background: var(--surface);
   border-top: 1px solid var(--line);
 }
-.tabbar a {
+.tabbar a,
+.tabbar__review {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.2rem;
-  min-height: 52px;
-  padding: 0.25rem 0.25rem;
+  min-height: var(--tabbar-h);
+  padding: 0.25rem;
+  border: 0;
   border-radius: var(--radius);
+  background: transparent;
   color: var(--ink-500);
   text-decoration: none;
+  font: inherit;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .tabbar__icon {
@@ -2843,9 +2839,35 @@ details[open] > summary::before {
 .tabbar a[aria-current="page"] .tabbar__icon {
   background: var(--surface-2);
 }
-@media (min-width: 1024px) {
+.tabbar__disc {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-top: -18px;
+  border-radius: 50%;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  box-shadow: var(--shadow-float);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.tabbar__disc svg {
+  width: 26px;
+  height: 26px;
+}
+.tabbar__review:active .tabbar__disc {
+  transform: scale(0.96);
+}
+.tabbar__review:focus-visible {
+  outline: none;
+}
+.tabbar__review:focus-visible .tabbar__disc {
+  box-shadow: var(--ring);
+}
+@media (min-width: 64rem) {
   .app-shell {
     grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    --bar-offset: 0px;
   }
   .app-main {
     padding-bottom: 0;
@@ -2869,6 +2891,12 @@ details[open] > summary::before {
 }
 .sidebar__brand {
   padding: 0.35rem 0.6rem;
+}
+/* The same creating action as the disc on a phone: one primary button
+   above the destinations, the way a mail app puts Compose. */
+.sidebar__review {
+  width: 100%;
+  margin-bottom: var(--sp-2);
 }
 .sidebar__nav {
   display: grid;
@@ -3690,36 +3718,38 @@ details[open] > summary::before {
 
 /* ============================================ 12. compositions, utilities */
 
-/* A case in a list: icon, name and facts, state, chevron. The card is the link. */
-.card.case-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-}
-/* Cases as rows in one list, not as separate cards. */
+/* A case in a list. The whole card is the link, and it reads top to
+   bottom the way a person asks: what is this, how much, where does it
+   stand, what do I do. The list is a container; given 32rem the amount
+   moves to the right and the card reads as a row. */
 .case-list {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  overflow: hidden;
-}
-.case-list > .case-card {
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-}
-.case-list > .case-card:first-child {
-  border-top: 0;
-}
-.case-list > .case-card:hover {
-  background: var(--surface-2);
-}
-.case-card__body {
+  container-type: inline-size;
   display: grid;
-  gap: 0.12rem;
+  gap: var(--sp-3);
+}
+.card.case-card {
+  display: grid;
+  gap: 0.6rem;
+  padding: var(--sp-4) var(--sp-5);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.case-card:hover {
+  border-color: var(--line-strong);
+}
+.case-card__head {
+  display: grid;
+  gap: 0.1rem;
   min-width: 0;
-  flex: 1;
+}
+.case-card__provider {
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--ink-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .case-card__title {
   font-weight: 600;
@@ -3729,24 +3759,58 @@ details[open] > summary::before {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.case-card__meta {
-  font-size: 0.875rem;
+.case-card__kind {
+  font-size: var(--text-small);
   color: var(--ink-500);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.case-card__counts {
-  font-size: 0.8125rem;
-  color: var(--ink-400);
+.case-card__amount {
+  font-size: var(--text-2);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
 }
-.case-card__end {
+.case-card__amount small {
+  display: block;
+  font-size: var(--text-label);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-500);
+  margin-top: 0.15rem;
+}
+.case-card__state {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.case-card__next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
-  flex: none;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.case-card__next-text {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.case-card__next-label {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--ink-500);
+}
+.case-card__next-step {
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--ink-900);
 }
 .case-card__chevron {
+  flex: none;
   width: 18px;
   height: 18px;
   color: var(--ink-300);
@@ -3758,21 +3822,29 @@ details[open] > summary::before {
   transform: translateX(2px);
   color: var(--ink-500);
 }
-@media (max-width: 560px) {
-  .case-card {
-    flex-wrap: wrap;
-    gap: 0.75rem 0.85rem;
+@container (min-width: 32rem) {
+  .card.case-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head amount"
+      "state amount"
+      "next next";
+    column-gap: var(--sp-6);
+    align-items: center;
   }
-  .case-card > .icon-tile {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+  .case-card__head {
+    grid-area: head;
   }
-  .case-card__end {
-    width: 100%;
-    justify-content: space-between;
-    padding-top: 0.6rem;
-    border-top: 1px solid var(--line);
+  .case-card__amount {
+    grid-area: amount;
+    text-align: right;
+    align-self: start;
+  }
+  .case-card__state {
+    grid-area: state;
+  }
+  .case-card__next {
+    grid-area: next;
   }
 }
 
@@ -3976,7 +4048,7 @@ pre.letter-text {
 }
 .dates__row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   gap: 0.75rem 1rem;
   align-items: center;
   padding: 0.75rem 1rem;
@@ -4010,21 +4082,24 @@ pre.letter-text {
   font-size: 0.8125rem;
   color: var(--ink-500);
 }
+/* On a phone the actions sit under the label; from 40rem they take a
+   third column. */
 .dates__actions {
+  grid-column: 2;
   display: flex;
   gap: 0.35rem;
   align-items: center;
+  justify-content: flex-end;
 }
 .dates__row input[type="checkbox"] {
   width: auto;
 }
-@media (max-width: 40rem) {
+@media (min-width: 40rem) {
   .dates__row {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
   }
   .dates__actions {
-    grid-column: 2;
-    justify-content: flex-end;
+    grid-column: auto;
   }
 }
 
@@ -4082,18 +4157,23 @@ pre.letter-text {
   display: grid;
   gap: 0.5rem;
 }
+/* One line of a document: the description across the top and the figures
+   beneath on a phone; one row of five from 40rem. */
 .compare-line {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
   align-items: end;
 }
-@media (max-width: 40rem) {
+.compare-line > :first-child {
+  grid-column: 1 / -1;
+}
+@media (min-width: 40rem) {
   .compare-line {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   }
   .compare-line > :first-child {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 }
 
@@ -4325,4 +4405,722 @@ pre.letter-text {
   max-width: 48ch;
   font-size: 0.875rem;
   color: var(--ink-500);
+}
+
+/* ================== 14. the signed-in app on a phone: sheet, action bar, rows */
+
+/* The principle, from docs/MOBILE.md: don't shrink desktop, simplify the
+   task. One screen, one decision, one primary action. Everything in this
+   section is written for a phone held in one hand and widened from there
+   at 40rem and 64rem. Nothing here is used by the marketing pages. */
+
+/* --- touch: inside the app nothing a thumb hits is smaller than 44px --- */
+.app-shell .btn {
+  min-height: var(--touch);
+}
+.app-shell .btn--sm {
+  min-height: 36px;
+}
+.app-shell .btn--icon {
+  width: var(--touch);
+  height: var(--touch);
+  padding: 0;
+}
+.app-shell .checklist__label {
+  min-height: var(--touch);
+  align-items: center;
+}
+.app-shell .checklist__box {
+  width: 24px;
+  height: 24px;
+}
+/* The evidence under a finding opens from a row a thumb can hit. */
+.app-shell .finding details > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--touch);
+  cursor: pointer;
+}
+.app-shell .finding details > summary::-webkit-details-marker {
+  display: none;
+}
+.app-shell .finding details > summary::before {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  mask: var(--icon-chevron) center / contain no-repeat;
+  -webkit-mask: var(--icon-chevron) center / contain no-repeat;
+  transition: transform var(--dur-fast) var(--ease);
+}
+.app-shell .finding details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.finding__why {
+  margin: 0 0 0.2rem;
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--ink-500);
+}
+.finding__action {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+}
+.finding__action p {
+  margin: 0;
+}
+
+/* --- the sheet: a native dialog that rises from the bottom of a phone and
+   sits in the middle of a wide screen. One at a time; never stacked. --- */
+.sheet {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.sheet:not([open]) {
+  display: none;
+}
+.sheet[open] {
+  display: grid;
+  align-items: end;
+  justify-items: stretch;
+}
+.sheet::backdrop {
+  background: var(--scrim);
+}
+.sheet__panel {
+  display: flex;
+  flex-direction: column;
+  max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top) - 16px));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-float);
+  animation: sheet-up var(--dur) var(--ease);
+}
+.sheet__handle {
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--page-pad);
+}
+.sheet__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-3);
+  outline: none;
+}
+.sheet__desc {
+  margin: -0.25rem 0 0.5rem;
+  padding-inline: var(--page-pad) var(--sp-3);
+  color: var(--ink-500);
+  font-size: var(--text-small);
+}
+.sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 var(--page-pad) var(--sp-4);
+}
+.sheet__foot {
+  padding: var(--sp-3) var(--page-pad) 0;
+  border-top: 1px solid var(--line);
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (min-width: 64rem) {
+  .sheet[open] {
+    align-items: center;
+    justify-items: center;
+  }
+  .sheet__panel {
+    width: min(28rem, 100% - 2rem);
+    max-height: 80vh;
+    padding-bottom: 0;
+    border-radius: var(--radius-lg);
+    animation-name: sheet-in;
+  }
+  .sheet__handle {
+    display: none;
+  }
+  .sheet__head {
+    padding-top: var(--sp-4);
+  }
+  .sheet__foot {
+    padding-bottom: var(--sp-4);
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+/* The page behind a sheet does not scroll. */
+html:has(dialog.sheet[open]) {
+  overflow: hidden;
+}
+
+/* --- the action bar: the one primary action, kept under the thumb while
+   the page scrolls, resting in flow at the end of it. --- */
+.action-bar {
+  position: sticky;
+  bottom: var(--bar-offset, 0px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  min-height: var(--actionbar-h);
+  margin-inline: calc(var(--page-pad) * -1);
+  padding: 10px var(--page-pad);
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.action-bar__secondary {
+  margin-right: auto;
+}
+.action-bar .btn--primary {
+  flex: 1;
+}
+@media (min-width: 64rem) {
+  .action-bar {
+    position: static;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .action-bar .btn--primary {
+    flex: none;
+  }
+}
+
+/* --- segmented control: two to four panels, one shown --- */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.segmented [role="tab"] {
+  min-height: var(--touch);
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-500);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.segmented [role="tab"][aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink-900);
+  box-shadow: 0 1px 2px rgb(11 45 91 / 8%);
+}
+.segmented [role="tab"]:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* --- rows: a list of places to go, each a full-width target --- */
+.row-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.row-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 56px;
+  padding: 0.6rem var(--sp-4);
+  border: 0;
+  background: var(--surface);
+  color: var(--ink-900);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.row-list > .row-link + .row-link {
+  border-top: 1px solid var(--line);
+}
+.row-link:hover {
+  background: var(--surface-2);
+}
+.row-link__icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--ink-500);
+}
+.row-link__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+.row-link__sub {
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--ink-500);
+}
+.row-link__count {
+  flex: none;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--ink-500);
+  background: var(--surface-2);
+  padding: 0.1rem 0.6rem;
+  border-radius: var(--radius-pill);
+}
+.row-link__chevron {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--ink-300);
+}
+
+/* --- the amount: the number a bill is about, large --- */
+.amount {
+  display: grid;
+  gap: 0.15rem;
+}
+.amount__value {
+  font-size: var(--text-1);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.amount--sm .amount__value {
+  font-size: var(--text-2);
+}
+.amount__label {
+  font-size: var(--text-small);
+  color: var(--ink-500);
+}
+.amount__rows {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: var(--sp-2);
+  font-size: var(--text-small);
+  color: var(--ink-700);
+}
+.amount__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.amount__row strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-900);
+}
+.amount-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+}
+
+/* --- the next step: the one dark card on a screen --- */
+.next-step {
+  display: grid;
+  gap: 0.35rem;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--radius-lg);
+  background: var(--navy);
+  color: var(--on-navy);
+}
+.next-step__eyebrow {
+  margin: 0;
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0.72;
+}
+.next-step__case {
+  margin: 0;
+  font-size: var(--text-small);
+  opacity: 0.85;
+}
+.next-step__label {
+  margin: 0;
+  font-size: var(--text-3);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.next-step__hint {
+  margin: 0;
+  font-size: var(--text-small);
+  opacity: 0.85;
+}
+.next-step__action {
+  margin-top: var(--sp-3);
+}
+.next-step .btn--primary {
+  background: var(--on-navy);
+  color: var(--navy);
+  border-color: transparent;
+}
+.next-step .btn--primary:hover {
+  background: #eef2f7;
+  color: var(--navy);
+}
+.next-step--quiet {
+  background: var(--surface);
+  color: var(--ink-900);
+  border: 1px solid var(--line);
+}
+.next-step--quiet .next-step__eyebrow,
+.next-step--quiet .next-step__hint,
+.next-step--quiet .next-step__case {
+  opacity: 1;
+  color: var(--ink-500);
+}
+
+/* --- intake: two big ways in, then the kind of document --- */
+.intake {
+  display: grid;
+  gap: var(--sp-2);
+}
+.intake__choice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 56px;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink-900);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+.intake__choice:hover {
+  border-color: var(--ink-900);
+}
+.intake__choice svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--ink-500);
+}
+.intake__choice span small {
+  display: block;
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--ink-500);
+}
+/* The camera is offered where there is one to hold: coarse pointers. */
+.intake__choice--camera {
+  display: none;
+}
+@media (hover: none) and (pointer: coarse) {
+  .intake__choice--camera {
+    display: flex;
+  }
+}
+
+/* --- progress that says what has actually happened --- */
+.progress-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.progress-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: var(--text-ui);
+  color: var(--ink-400);
+}
+.progress-list li[data-state="done"] {
+  color: var(--ink-700);
+}
+.progress-list li[data-state="current"] {
+  color: var(--ink-900);
+  font-weight: 600;
+}
+.progress-list__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+}
+.progress-list li[data-state="done"] .progress-list__mark {
+  border-color: var(--brand-600);
+  background: var(--brand-600);
+}
+.progress-list li[data-state="done"] .progress-list__mark::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  mask: var(--icon-check) center / contain no-repeat;
+  -webkit-mask: var(--icon-check) center / contain no-repeat;
+}
+.progress-list li[data-state="current"] .progress-list__mark {
+  border-color: var(--ink-900);
+}
+.progress-list li[data-state="current"] .progress-list__mark::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-900);
+  animation: progress-breathe 1.6s ease-in-out infinite;
+}
+@keyframes progress-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* --- documents and letters as cards, never as an eight-column table --- */
+.doc-list {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--sp-2);
+}
+.doc-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.doc-card:hover {
+  border-color: var(--line-strong);
+}
+.doc-card--static {
+  cursor: default;
+}
+.doc-card__icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--ink-500);
+}
+.doc-card__body {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.doc-card__name {
+  font-weight: 600;
+  color: var(--ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-card__meta {
+  font-size: var(--text-small);
+  color: var(--ink-500);
+}
+.doc-card__end {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.doc-card__end .badge {
+  white-space: nowrap;
+}
+/* A ledger of facts inside a sheet. */
+.fact-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+.fact-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-small);
+}
+.fact-list > div:last-child {
+  border-bottom: 0;
+}
+.fact-list dt {
+  color: var(--ink-500);
+}
+.fact-list dd {
+  margin: 0;
+  text-align: right;
+  color: var(--ink-900);
+  font-weight: 600;
+}
+
+/* --- a screen inside a case: the way back, then the page --- */
+.backlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: var(--touch);
+  margin-left: -0.35rem;
+  padding: 0 0.35rem;
+  color: var(--ink-500);
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-decoration: none;
+}
+.backlink svg {
+  width: 18px;
+  height: 18px;
+}
+.backlink:hover {
+  color: var(--ink-900);
+}
+
+/* --- the case overview: one column, and a side column given 56rem --- */
+.case-overview {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--sp-6);
+}
+.case-overview__main,
+.case-overview__side {
+  display: grid;
+  gap: var(--sp-6);
+  align-content: start;
+  min-width: 0;
+}
+@container (min-width: 56rem) {
+  .case-overview {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    align-items: start;
+  }
+  .case-overview__side {
+    position: sticky;
+    top: var(--sp-6);
+  }
+}
+.latest-check__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+}
+.latest-check__head h2 {
+  margin: 0;
+  font-size: var(--text-4);
+}
+.latest-check__when {
+  font-size: var(--text-small);
+  color: var(--ink-500);
+}
+
+/* --- the way out, under Account, on a phone; the sidebar has its own --- */
+.subnav__end {
+  margin-left: auto;
+  align-self: center;
+}
+@media (min-width: 64rem) {
+  .subnav__end {
+    display: none;
+  }
+}
+
+/* --- the phone's More button beside the action bar --- */
+.action-bar__more {
+  flex: none;
+}
+
+/* --- quiet motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .sheet__panel {
+    animation: sheet-fade var(--dur-fast) linear;
+  }
+  .progress-list li[data-state="current"] .progress-list__mark::before {
+    animation: none;
+  }
+  .app-shell .finding details > summary::before,
+  .tabbar__disc {
+    transition: none;
+  }
+}
+@keyframes sheet-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
