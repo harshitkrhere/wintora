@@ -45,7 +45,7 @@ export const viewport: Viewport = {
   // person chooses a theme explicitly.
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f4f8fa' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
+    { media: '(prefers-color-scheme: dark)', color: '#0c0d10' },
   ],
   width: 'device-width',
   initialScale: 1,
