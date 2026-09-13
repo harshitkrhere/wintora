@@ -2723,6 +2723,41 @@ details[open] > summary::before {
   color: var(--ink-500);
 }
 
+/* --- the app opening: the mark alone on the canvas until the shell is ready --- */
+.splash {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+}
+.splash .brand__mark {
+  /* In, then a slow breath while the session is looked up. Both are on the
+     opacity of one element; the breath starts as the fade ends. The global
+     reduced-motion rule removes both and leaves the mark at rest. */
+  animation:
+    splash-in 240ms ease-out both,
+    splash-breathe 2.4s ease-in-out 240ms infinite;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes splash-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* --- the signed-in shell: a sidebar on a wide screen, a tab bar on a phone --- */
 .app-shell {
   min-height: 100dvh;
