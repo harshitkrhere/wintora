@@ -9,10 +9,16 @@
 
 import { appUrl } from '@/lib/env';
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Manrope } from 'next/font/google';
 import { OfflineBanner } from '@/components/StatusBanners';
 import './globals.css';
 
+/** Manrope for the product; Inter SemiBold for the wordmark only. */
+const manrope = Manrope({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-manrope',
+});
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
@@ -21,12 +27,13 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl()),
+  applicationName: 'Wintora',
   title: {
     default: 'Wintora — Understand your medical bills before you pay',
     template: '%s — Wintora',
   },
   description:
-    'Upload a bill, confirm the figures, and see whether the arithmetic holds. Private by design; nothing is claimed that cannot be shown.',
+    'Upload a bill or type in the figures. Wintora checks the arithmetic and shows the numbers behind every finding, so you know what to ask before you pay.',
   openGraph: { type: 'website', siteName: 'Wintora' },
   // No fabricated ratings, awards or endorsements anywhere on this site.
   robots: { index: true, follow: true },
@@ -36,7 +43,7 @@ export const viewport: Viewport = {
   // One per theme, matching --bg. src/lib/theme.ts rewrites these when a
   // person chooses a theme explicitly.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f6f8fc' },
+    { media: '(prefers-color-scheme: light)', color: '#f4f8fa' },
     { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
   ],
   width: 'device-width',
@@ -48,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
     // suppressHydrationWarning: public/theme.js sets data-theme on <html>
     // before React hydrates, and React would otherwise report the attribute
     // it did not render. Nothing else about the element differs.
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`${manrope.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         {/* A same-origin file, not an inline script, so the strict CSP on the
             static pages allows it. It applies the saved theme before paint. */}

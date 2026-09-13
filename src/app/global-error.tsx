@@ -23,7 +23,7 @@ export default function GlobalError({
           placeItems: 'center',
           fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
           color: '#2b3f5c',
-          background: '#f6f8fc',
+          background: '#f4f8fa',
           padding: '2rem',
         }}
       >

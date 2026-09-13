@@ -19,7 +19,7 @@ export const THEME_KEY = 'wintora:theme';
 export const THEME_EVENT = 'wintora:theme';
 
 /** What the browser chrome is painted; matches --bg in each theme. */
-export const THEME_COLOR: Record<Theme, string> = { light: '#f6f8fc', dark: '#0b1220' };
+export const THEME_COLOR: Record<Theme, string> = { light: '#f4f8fa', dark: '#0b1220' };
 
 export function readChoice(): ThemeChoice {
   try {
