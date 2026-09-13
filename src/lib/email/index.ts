@@ -18,6 +18,8 @@ export interface OutboundEmail {
   readonly to: string;
   readonly subject: string;
   readonly text: string;
+  /** The same message laid out for an inbox. The text is always sent as well. */
+  readonly html?: string;
 }
 
 export interface SendReceipt {
@@ -74,6 +76,7 @@ class HostingerSender implements EmailSender {
           to: [message.to],
           subject: message.subject,
           text: message.text,
+          ...(message.html !== undefined ? { html: message.html } : {}),
           ...(name !== null ? { displayName: name } : {}),
         }),
         signal: AbortSignal.timeout(15_000),
@@ -115,6 +118,7 @@ class ResendSender implements EmailSender {
         to: [message.to],
         subject: message.subject,
         text: message.text,
+        ...(message.html !== undefined ? { html: message.html } : {}),
       }),
       signal: AbortSignal.timeout(15_000),
     });

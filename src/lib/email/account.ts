@@ -28,7 +28,7 @@ const SUPPRESS_DAYS = 90;
 const MAX_ATTEMPTS = 3;
 
 export const EMAIL_LOG_COLUMNS =
-  'id, user_id, kind, idempotency_key, subject, body, provider, provider_message_id, status, ' +
+  'id, user_id, kind, idempotency_key, subject, body, html, provider, provider_message_id, status, ' +
   'error_class, attempts, events, created_at, sent_at, last_event_at';
 
 export interface EmailLogRow {
@@ -38,6 +38,7 @@ export interface EmailLogRow {
   readonly idempotency_key: string;
   readonly subject: string;
   readonly body: string;
+  readonly html: string | null;
   readonly provider: string;
   readonly provider_message_id: string | null;
   readonly status: string;
@@ -78,6 +79,7 @@ export async function notifyAccount(
       idempotency_key: input.key,
       subject: input.message.subject,
       body: input.message.text,
+      html: input.message.html,
       provider: sender?.name ?? 'none',
       status: suppressed ? 'SUPPRESSED' : 'QUEUED',
       ...(suppressed ? { error_class: 'ADDRESS_SUPPRESSED', last_event_at: new Date().toISOString() } : {}),
@@ -119,7 +121,7 @@ export async function deliverLogged(admin: SupabaseClient, row: EmailLogRow): Pr
   }
 
   try {
-    const receipt = await sender.send({ to, subject: row.subject, text: row.body });
+    const receipt = await sender.send({ to, subject: row.subject, text: row.body, html: row.html ?? undefined });
     await admin
       .from('email_log')
       .update({

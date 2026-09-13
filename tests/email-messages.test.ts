@@ -42,6 +42,23 @@ describe('every email', () => {
     }
   });
 
+  // Text and HTML are rendered from the same parts, so the HTML carries the
+  // same link and the same date, the button is a real link, and nothing in
+  // it tracks the reader: no images, no scripts, no rewritten links.
+  it('renders an HTML version that says the same thing and tracks nothing', () => {
+    for (const m of ALL) {
+      expect(m.html).toContain('<!DOCTYPE html>');
+      const link = /https:\/\/www\.wintora\.online\/[a-z/]+/.exec(m.text)![0];
+      expect(m.html).toContain(`href="${link}"`);
+      expect(m.html).not.toMatch(/<img|<script|utm_|track/i);
+      expect(m.html).toContain('Wintora');
+    }
+    const failed = paymentFailedEmail({ appUrl, graceEnds: d('2026-09-20') });
+    expect(failed.html).toContain('<strong');
+    expect(failed.html).toContain('September 20, 2026');
+    expect(failed.text).not.toContain('**');
+  });
+
   // The shape rule: nothing from a case, ever. These words would only appear
   // if a message started carrying case content.
   it('names nothing from a case', () => {

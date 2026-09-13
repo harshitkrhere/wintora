@@ -15,6 +15,8 @@
  * Pure module: no I/O.
  */
 
+import { renderEmail, type EmailMessage } from '@/domain/email/layout';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface DueItem {
@@ -65,40 +67,30 @@ function timeOf(item: DueItem): number {
  * the amount, not the reminder's own title, which the customer wrote and may
  * have put anything in. The link opens the case, where all of that is.
  */
-export function reminderEmail(input: { appUrl: string; caseId: string }): {
-  subject: string;
-  text: string;
-} {
+export function reminderEmail(input: { appUrl: string; caseId: string }): EmailMessage {
   const url = `${input.appUrl.replace(/\/+$/, '')}/cases/${input.caseId}`;
-  return {
+  return renderEmail({
     subject: 'A reminder you set is due',
-    text: [
-      'You asked Wintora to remind you about one of your cases today.',
-      '',
-      `Open the case to see what you wrote: ${url}`,
-      '',
-      'This message was sent because you set a reminder. Wintora has not contacted anyone else.',
-      'To stop reminders, mark them done or delete them on the case page.',
-    ].join('\n'),
-  };
+    heading: 'A reminder you set is due',
+    paragraphs: ['You asked Wintora to remind you about one of your cases today. Open the case to see what you wrote.'],
+    cta: { label: 'Open the case', url },
+    note: 'This message was sent because you set a reminder. Wintora has not contacted anyone else. To stop reminders, mark them done or delete them on the case page.',
+  });
 }
 
 /** The same rule for the retention notice, so both messages read alike. */
-export function retentionNoticeEmail(input: { appUrl: string; caseId: string | null; removesOn: Date }): {
-  subject: string;
-  text: string;
-} {
+export function retentionNoticeEmail(input: { appUrl: string; caseId: string | null; removesOn: Date }): EmailMessage {
   const base = input.appUrl.replace(/\/+$/, '');
   const url = input.caseId !== null ? `${base}/cases/${input.caseId}` : `${base}/cases`;
   const date = input.removesOn.toLocaleDateString('en-US', { dateStyle: 'long', timeZone: 'UTC' });
-  return {
+  return renderEmail({
     subject: 'A document on your account is due to be removed',
-    text: [
-      `One of the documents you uploaded reaches the end of its retention period on ${date} and will be removed then, as your plan sets out.`,
-      '',
-      `If you want to keep a copy, download it before that date: ${url}`,
-      '',
-      'Your case, its checks and its letters are not affected; only the uploaded file is removed.',
-    ].join('\n'),
-  };
+    heading: 'A document is due to be removed',
+    paragraphs: [
+      `One of the documents you uploaded reaches the end of its retention period on **${date}** and will be removed then, as your plan sets out.`,
+      'If you want to keep a copy, download it before that date.',
+    ],
+    cta: { label: 'Open the case', url },
+    note: 'Your case, its checks and its letters are not affected; only the uploaded file is removed.',
+  });
 }
