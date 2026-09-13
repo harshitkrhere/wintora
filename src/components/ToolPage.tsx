@@ -11,6 +11,8 @@
  */
 
 import Link from 'next/link';
+import { POLICY } from '@/config/policy';
+import { Icon } from './Icons';
 
 export interface SourceRef {
   readonly title: string;
@@ -43,21 +45,58 @@ export interface ToolPageProps {
 
 export function ToolPage(props: ToolPageProps): React.ReactElement {
   return (
-    <div className="shell page tool-page">
+    <div className="shell page landing tool-page">
       <article>
-        <header className="tool-page__intro">
-          <h1>{props.h1}</h1>
-          {/* Block 2: the direct answer, first, in plain prose. */}
-          <p className="lede">{props.directAnswer}</p>
+        {/* The opening: what this answers, and what to have to hand. Same shape
+            as the landing hero, so a tool page reads as the product, not as a
+            post about it. */}
+        <header className="hero hero--page">
+          <div className="hero__copy">
+            <p className="eyebrow">Free tool · no account needed</p>
+            <h1>{props.h1}</h1>
+            {/* Block 2: the direct answer, first, in plain prose. */}
+            <p className="lede">{props.directAnswer}</p>
+            <ul className="hero__proof" aria-label="What to expect">
+              <li>{POLICY.anonymousTool.freeChecks} free checks, no account</li>
+              <li>
+                <Link href="/methodology#verify">Nothing you type is kept</Link>
+              </li>
+              <li>
+                <Link href="/methodology">Fixed checks, code public</Link>
+              </li>
+            </ul>
+          </div>
+          <div className="card">
+            <div className="card__header">
+              <h2 className="card__title">Have these to hand</h2>
+              <span className="icon-tile" aria-hidden>
+                <Icon name="document" />
+              </span>
+            </div>
+            <ul className="check-list">
+              {props.whatToGather.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
         </header>
 
         {/* Block 3: the tool, inline, before any signup ask. */}
-        <section aria-label="Tool" className="tool-page__tool">
+        <section aria-labelledby="tool-heading" className="tool-frame">
+          <div className="tool-frame__head">
+            <h2 id="tool-heading">The tool</h2>
+            <span className="tool-frame__note">
+              Runs the same fixed checks as the app. Type the figures as printed; the result shows the
+              numbers behind every finding.
+            </span>
+          </div>
           {props.tool}
         </section>
 
-        <section>
-          <h2>Who this applies to</h2>
+        <section aria-labelledby="who-heading">
+          <div className="section-intro">
+            <h2 id="who-heading">Who this is for</h2>
+          </div>
           <div className="two-col">
             <div className="card">
               <h3>This is for you if</h3>
@@ -78,31 +117,24 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
           </div>
         </section>
 
-        <section>
-          <h2>What to gather first</h2>
-          <ul className="check-list">
-            {props.whatToGather.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-
-        <section>
-          <h2>Steps</h2>
-          <ol className="steps">
+        <section aria-labelledby="steps-heading">
+          <div className="section-intro">
+            <h2 id="steps-heading">How to go about it</h2>
+          </div>
+          <ol className="flow">
             {props.steps.map((step) => (
-              <li key={step.title}>
-                <div>
-                  <strong>{step.title}</strong>
-                  <span className="muted">{step.detail}</span>
-                </div>
+              <li className="flow__step" key={step.title}>
+                <h3>{step.title}</h3>
+                <p>{step.detail}</p>
               </li>
             ))}
           </ol>
         </section>
 
-        <section>
-          <h2>Common problems</h2>
+        <section aria-labelledby="problems-heading">
+          <div className="section-intro">
+            <h2 id="problems-heading">What usually explains a difference</h2>
+          </div>
           <div className="two-col">
             {props.commonProblems.map((item) => (
               <div key={item.problem} className="card">
@@ -113,8 +145,10 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
           </div>
         </section>
 
-        <section>
-          <h2>Questions people ask</h2>
+        <section aria-labelledby="faq-heading">
+          <div className="section-intro">
+            <h2 id="faq-heading">Questions people ask</h2>
+          </div>
           <div className="stack--sm">
             {props.faq.map((item) => (
               <details key={item.question} className="card accordion">
@@ -130,8 +164,10 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
         {/* Block 8: sources, attributed and linked. A page with none is not
             publishable and is never marked indexable. */}
         {props.sources.length > 0 ? (
-          <section>
-            <h2>Where this information comes from</h2>
+          <section aria-labelledby="sources-heading">
+            <div className="section-intro">
+              <h2 id="sources-heading">Where this information comes from</h2>
+            </div>
             <ul className="link-list">
               {props.sources.map((source) => (
                 <li key={source.url} className="small">
@@ -143,30 +179,34 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
               ))}
             </ul>
           </section>
-        ) : (
-          <section>
-            <p className="notice">
-              This page describes how the tool works and does not make
-              jurisdiction-specific claims, so it cites no external sources. Pages that
-              describe a state or provincial process always do.
-            </p>
-          </section>
-        )}
+        ) : null}
 
-        <section>
-          <h2>Related</h2>
-          <ul className="link-list">
-            {props.relatedLinks.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href}>{link.label}</Link>
-              </li>
-            ))}
-          </ul>
+        <section aria-labelledby="cta-heading">
+          <div className="cta-band">
+            <h2 id="cta-heading">Keep the result, and everything that follows it.</h2>
+            <p className="lede">
+              A free account saves the check to a case, reads the bill from a photo or PDF, and drafts
+              the letter you send yourself. No card.
+            </p>
+            <div className="hero__actions">
+              <Link href="/signup" className="btn btn--primary btn--lg">
+                Create a free account
+              </Link>
+              {props.relatedLinks.slice(0, 2).map((link) => (
+                <Link key={link.href} href={link.href} className="btn btn--quiet btn--lg">
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         </section>
 
         <footer className="stack tool-page__footer">
           <p className="notice">{props.disclaimer}</p>
           <p className="caption">
+            {props.sources.length === 0
+              ? 'This page describes how the tool works and makes no jurisdiction-specific claims, so it cites no external sources. '
+              : ''}
             Last verified: <time dateTime={props.lastVerified}>{props.lastVerified}</time>
           </p>
         </footer>

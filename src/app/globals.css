@@ -4067,3 +4067,199 @@ pre.letter-text {
   color: var(--error-fg);
   font-weight: 600;
 }
+
+/* ==========================================================================
+   Public product pages: methodology and the tool pages
+   Branded like the landing page, not laid out like an article.
+   ========================================================================== */
+
+/* The opening: copy on the left, one purposeful panel on the right. Same
+   proportions as the landing hero, a little less air above. */
+.hero--page {
+  padding-top: clamp(1.5rem, 4vw, 3rem);
+  align-items: start;
+}
+.hero--page .eyebrow {
+  margin-bottom: var(--sp-3);
+}
+@media (max-width: 860px) {
+  .hero--page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Facts about the engine, as label/value rows in the hero panel. */
+.facts {
+  display: grid;
+  gap: 0;
+}
+.facts__row {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.9375rem;
+}
+.facts__row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.facts__k {
+  color: var(--ink-500);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding-top: 0.15rem;
+}
+.facts__v {
+  color: var(--ink-900);
+}
+
+/* A numbered flow: the pipeline, the steps. The number is the fact that
+   order matters here, so it is shown; everything else stays quiet. */
+.flow {
+  display: grid;
+  gap: var(--sp-6);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  counter-reset: flow;
+}
+.flow__step {
+  counter-increment: flow;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line-strong);
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+}
+.flow__step::before {
+  content: counter(flow, decimal-leading-zero);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-600);
+}
+.flow__step h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.flow__step p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-500);
+}
+
+/* The checks: one card per rule, in two columns. Title for people, the code
+   for the record, the function as the proof. */
+.check-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.check {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+}
+.check__title {
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.check__desc {
+  font-size: 0.9rem;
+  color: var(--ink-500);
+  margin: 0;
+}
+.check__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+}
+.check__meta code {
+  color: var(--ink-400);
+}
+
+/* Links that are the point of a section, as tiles rather than a list. */
+.link-cards {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.link-card {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  color: inherit;
+  text-decoration: none;
+}
+.link-card__title {
+  font-weight: 600;
+  color: var(--ink-900);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.link-card__title svg {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-400);
+}
+.link-card p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-500);
+}
+
+/* The three confidence levels, side by side. */
+.levels {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.level {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+}
+.level__name {
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.level p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-500);
+}
+
+/* The tool, framed, with one line above it saying what it is. */
+.tool-frame {
+  display: grid;
+  gap: var(--sp-4);
+}
+.tool-frame__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.tool-frame__head h2 {
+  margin: 0;
+}
+.tool-frame__note {
+  font-size: 0.875rem;
+  color: var(--ink-500);
+}
+
+/* Tool pages wrap their sections in an article; give them the landing rhythm. */
+.landing > article > section:not(.hero) {
+  padding-block: var(--sp-12) 0;
+  border-top: 1px solid var(--line);
+}
+.landing > article > .hero {
+  padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
+}
