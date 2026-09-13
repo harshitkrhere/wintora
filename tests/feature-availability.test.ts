@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ALL_FEATURES, FEATURES } from '@/config/features';
-import { SUPPORT, prioritySupportAvailable } from '@/config/support';
+import { SUPPORT, prioritySupportAvailable, responseTargetPhrase, responseTargetSentence } from '@/config/support';
 import {
   CONFIG_PLAN_MATRIX,
   benefitList,
@@ -80,6 +80,18 @@ describe('feature availability', () => {
       expect(SUPPORT.priorityHours).toBeGreaterThan(0);
       expect(FEATURES.PRIORITY_SUPPORT.available).toBe(true);
     }
+  });
+
+  // The contact page says the same thing the flag means: a number, in the
+  // customer's units, with the working week alongside so "day" is honest.
+  it('states the support targets in plain words from the same numbers', () => {
+    expect(responseTargetPhrase(8)).toBe('one working day');
+    expect(responseTargetPhrase(16)).toBe('two working days');
+    expect(responseTargetPhrase(4)).toBe('4 working hours');
+    expect(responseTargetSentence(false)).toBe('We aim to reply within two working days, Monday to Friday.');
+    expect(responseTargetSentence(true)).toBe('We aim to reply within one working day, Monday to Friday.');
+    // Priority must actually be faster than standard, or it is not priority.
+    expect(SUPPORT.priorityHours).toBeLessThan(SUPPORT.standardHours ?? Infinity);
   });
 
   it('benefit lines carry availability so pages cannot lose it', () => {

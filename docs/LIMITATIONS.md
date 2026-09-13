@@ -178,12 +178,15 @@ modelled in the schema, with no UI.
 Maya"), and `HOUSEHOLD_MEMBERS` counts distinct people across cases. There is
 no separate person record: a member exists because a case names them.
 
-**Priority support has no number yet.** `src/config/support.ts` holds the
-response targets and both are `null`. While they are, `PRIORITY_SUPPORT` is
-marked unavailable, the pricing and subscription pages say "included, not yet
-available", and the contact page does not mention it. Writing a number there
-is the whole of switching it on; `tests/feature-availability.test.ts` asserts
-the flag follows the file. Decide what can honestly be met first.
+**Priority support is a published number, kept by hand.** `src/config/support.ts`
+commits to two working days for everyone and one working day for Pro,
+Monday to Friday, and the contact page, the feature flag and the tests all
+read that file. There is no ticketing system: support is the mailbox, and the
+process is (1) look the sender's address up in Supabase Auth, (2) check the
+plan on `subscriptions`, (3) answer Pro first. Lengthening either target is a
+change to a paid promise and must be announced to customers before it takes
+effect; setting `priorityHours` back to `null` withdraws the feature from
+every page at once.
 
 **Extended history is defined narrowly.** Case records, findings and letters
 are never subject to plan retention (POLICY.retention). What
