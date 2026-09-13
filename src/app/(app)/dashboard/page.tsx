@@ -1,23 +1,31 @@
 /**
  * /dashboard — where a signed-in person lands.
  *
- * The heading is always "Home", so the landmark never moves. Beneath it: one
- * line about where things stand, the one thing to do, and the cases: open
- * ones if there are any, otherwise the closed ones. Plan and allowance live
- * on the subscription page, one link away.
+ * The heading is always "Home", so the landmark never moves. Beneath it,
+ * in order: the one thing to do next (from the case's real rows, so a
+ * person never has to remember where they left off), the cases, three
+ * quick ways in, the documents that arrived most recently, and the dates
+ * that are coming up. Plan and allowance live on the subscription page,
+ * one link away. This is not a dashboard; it is the next step and the
+ * way to it.
  */
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { listCases } from '@/lib/cases/load';
+import { pickHomeStep } from '@/lib/cases/next-step';
 import { loadUpcoming } from '@/lib/cases/upcoming';
+import { listDocuments } from '@/lib/documents/list';
 import { createAdminClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/http/api';
 import { daysUntil } from '@/domain/reminders/notice';
+import { documentTypeLabel } from '@/domain/documents/types';
 import { CaseCard } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icons';
+import { NextStepCard } from '@/components/NextStepCard';
+import { fileSummary, shortDate } from '@/components/documentStatus';
 
 export const metadata: Metadata = { title: 'Home', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -45,19 +53,22 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   }
 
   const admin = createAdminClient();
-  const cases = await listCases(admin, user.id);
-  const open = cases.filter((c) => c.status === 'OPEN');
   const now = new Date();
+  const [cases, recent] = await Promise.all([listCases(admin, user.id), listDocuments(admin, user.id, { limit: 3 })]);
+  const open = cases.filter((c) => c.status === 'OPEN');
   const coming = await loadUpcoming(admin, user.id, open, now);
   const closedCases = cases.filter((c) => c.status !== 'OPEN');
   const closed = closedCases.length;
+  const next = pickHomeStep(cases, now);
 
   const status =
     cases.length === 0
-      ? 'No cases yet. Upload a bill to start one.'
+      ? 'No cases yet. Review a bill to start one.'
       : open.length === 0
         ? `Nothing open. ${plural(closed, 'closed case')}, kept and ready to reopen.`
         : `${plural(open.length, 'open case')}${closed > 0 ? `, ${closed} closed` : ''}.`;
+
+  const requestHref = open.length === 1 ? `/cases/${open[0]!.id}/letters/new` : '/cases';
 
   return (
     <div className="shell stack--lg page">
@@ -66,40 +77,34 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           <h1>Home</h1>
           <p className="lede">{status}</p>
         </div>
-        <Link href="/upload" className="btn btn--primary btn--lg">
+        {/* On a phone the tab bar's Review is this action; the button is for the sidebar layout. */}
+        <Link href="/upload?type=BILL" className="btn btn--primary btn--lg hide-narrow">
           <Icon name="upload" />
-          Upload a bill
+          Review a bill
         </Link>
       </div>
 
-      {coming.length > 0 ? (
-        <section className="card stack" aria-labelledby="coming-heading">
-          <div className="section-head">
-            <h2 id="coming-heading">Coming up</h2>
-            <span className="caption">Reminders you set and dates you entered</span>
-          </div>
-          <ul className="upcoming">
-            {coming.slice(0, 8).map((item) => {
-              const rel = relativeDay(item.at, item.kind, now);
-              return (
-                <li key={item.id}>
-                  <span className={`upcoming__when${rel.overdue ? ' upcoming__when--overdue' : ''}`}>{rel.text}</span>
-                  <span>
-                    <Link href={`/cases/${item.caseId}`}>{item.label}</Link>
-                    <span className="muted"> · {item.caseTitle}</span>
-                    {item.verified ? <span className="badge badge--success"> Verified</span> : null}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+      {next !== null ? (
+        <NextStepCard
+          eyebrow={next.resumed ? 'Continue where you left off' : 'Your next step'}
+          caseTitle={next.caseSummary.title}
+          label={next.step.label}
+          hint={next.step.hint}
+          action={{ href: next.step.href, label: next.step.label }}
+        />
+      ) : open.length > 0 ? (
+        <NextStepCard
+          tone="quiet"
+          eyebrow="Your next step"
+          label="Nothing waiting on you"
+          hint="Every open case is checked and every draft has gone. Review a new document when one arrives."
+        />
       ) : null}
 
       {open.length > 0 ? (
         <section className="stack">
           <div className="section-head">
-            <h2>Open cases</h2>
+            <h2>Your cases</h2>
             {cases.length > open.length || open.length > 5 ? (
               <Link href="/cases" className="small">
                 All cases
@@ -117,15 +122,15 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
         // exists exactly as long as there is nothing else to show: the moment
         // the first case appears, the case page's own next steps take over.
         <EmptyState
-          title="Upload your first bill"
+          title="Review your first bill"
           body="Wintora reads the figures, you confirm every number, and the check shows what adds up and what does not, with the numbers behind it. From there:"
           steps={[
             'Upload the bill, the itemized one if you have it',
             'Add the insurer’s EOB for the same care, if you have one',
             'Read the findings and the numbers behind each',
-            'Send the letter to the billing office',
+            'Send the request to the billing office',
           ]}
-          action={{ href: '/upload', label: 'Upload a bill' }}
+          action={{ href: '/upload?type=BILL', label: 'Review a bill' }}
           secondary={{ href: '/medical-bill-checker', label: 'Or type the figures in' }}
         />
       ) : (
@@ -148,7 +153,92 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
         </section>
       )}
 
-      <p className="caption m-0">
+      {cases.length > 0 ? (
+        <section className="stack" aria-labelledby="tools-heading">
+          <div className="section-head">
+            <h2 id="tools-heading">Quick tools</h2>
+          </div>
+          <div className="row-list">
+            <Link href="/upload?type=BILL" className="row-link">
+              <Icon name="receipt" className="row-link__icon" />
+              <span className="row-link__text">
+                Review a bill
+                <span className="row-link__sub">Upload it, confirm the figures, run the check</span>
+              </span>
+              <Icon name="chevron-right" className="row-link__chevron" />
+            </Link>
+            <Link href="/upload?type=EOB" className="row-link">
+              <Icon name="shield" className="row-link__icon" />
+              <span className="row-link__text">
+                Review an EOB
+                <span className="row-link__sub">Set the insurer’s figures against the bill</span>
+              </span>
+              <Icon name="chevron-right" className="row-link__chevron" />
+            </Link>
+            {open.length > 0 ? (
+              <Link href={requestHref} className="row-link">
+                <Icon name="mail" className="row-link__icon" />
+                <span className="row-link__text">
+                  Prepare a request
+                  <span className="row-link__sub">A letter from a reviewed template, with your facts</span>
+                </span>
+                <Icon name="chevron-right" className="row-link__chevron" />
+              </Link>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {recent.length > 0 ? (
+        <section className="stack" aria-labelledby="recent-heading">
+          <div className="section-head">
+            <h2 id="recent-heading">Recent documents</h2>
+            <Link href="/documents" className="small">
+              All documents
+            </Link>
+          </div>
+          <div className="doc-list">
+            {recent.map((d) => (
+              <Link key={d.id} href={`/cases/${d.caseId}`} className="doc-card">
+                <Icon name="document" className="doc-card__icon" />
+                <span className="doc-card__body">
+                  <span className="doc-card__name">{d.filename ?? 'Document'}</span>
+                  <span className="doc-card__meta">
+                    {documentTypeLabel(d.documentType)} · {fileSummary(d.mimeType, d.pageCount)} · {shortDate(d.createdAt)}
+                  </span>
+                </span>
+                <Icon name="chevron-right" className="row-link__chevron" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {coming.length > 0 ? (
+        <section className="card stack" aria-labelledby="coming-heading">
+          <div className="section-head">
+            <h2 id="coming-heading">Coming up</h2>
+            <span className="small muted">Reminders you set and dates you entered</span>
+          </div>
+          <ul className="upcoming">
+            {coming.slice(0, 8).map((item) => {
+              const rel = relativeDay(item.at, item.kind, now);
+              return (
+                <li key={item.id}>
+                  <span className={`upcoming__when${rel.overdue ? ' upcoming__when--overdue' : ''}`}>{rel.text}</span>
+                  <span>
+                    <Link href={`/cases/${item.caseId}/dates`}>{item.label}</Link>
+                    <span className="muted"> · {item.caseTitle}</span>
+                    {item.verified ? <span className="badge badge--success"> Verified</span> : null}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      <p className="small m-0">
         <Link href="/settings/subscription">Your plan and what is left this period</Link>
       </p>
     </div>

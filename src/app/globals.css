@@ -5119,6 +5119,16 @@ html:has(dialog.sheet[open]) {
   }
 }
 
+/* --- shown only where the sidebar is: the phone has the tab bar for it --- */
+.hide-narrow {
+  display: none;
+}
+@media (min-width: 64rem) {
+  .hide-narrow {
+    display: inline-flex;
+  }
+}
+
 /* --- the phone's More button beside the action bar --- */
 .action-bar__more {
   flex: none;

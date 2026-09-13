@@ -36,9 +36,9 @@ export default async function CasesPage(): Promise<React.ReactElement> {
             One case per bill. Everything you upload and every check you run stays on it.
           </p>
         </div>
-        <Link href="/upload" className="btn btn--primary">
+        <Link href="/upload?type=BILL" className="btn btn--primary hide-narrow">
           <Icon name="upload" />
-          Upload a bill
+          Review a bill
         </Link>
       </div>
 
@@ -46,7 +46,7 @@ export default async function CasesPage(): Promise<React.ReactElement> {
         <EmptyState
           title="No cases yet"
           body="A case is one bill: its documents, every check you run on it, and a record of what happened. Your first upload creates one."
-          action={{ href: '/upload', label: 'Upload a bill' }}
+          action={{ href: '/upload?type=BILL', label: 'Review a bill' }}
           secondary={{ href: '/medical-bill-checker', label: 'Type the figures in instead' }}
         />
       ) : (
@@ -61,7 +61,7 @@ export default async function CasesPage(): Promise<React.ReactElement> {
                 compact
                 title="Nothing open"
                 body="Every case is closed. Reopen one from its page, or upload a new bill."
-                action={{ href: '/upload', label: 'Upload a bill' }}
+                action={{ href: '/upload?type=BILL', label: 'Review a bill' }}
               />
             ) : null}
             {open.length > 0 ? (
