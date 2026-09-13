@@ -12,7 +12,8 @@
 
 import { type NextRequest } from 'next/server';
 import { reminderEmail } from '@/domain/reminders/notice';
-import { dateTomorrowEmail } from '@/domain/email/messages';
+import { dateTomorrowEmail, unsentLetterEmail } from '@/domain/email/messages';
+import { NUDGE_AFTER_DAYS, nudgeEligible, nudgeKey } from '@/domain/email/nudge';
 import { notifyAccount, retryPending } from '@/lib/email/account';
 import { publicEnv } from '@/lib/env';
 import { getEmailSender } from '@/lib/email';
@@ -103,12 +104,91 @@ export const POST = handler('/api/cron/send-reminders', async (request: NextRequ
     }
   }
 
+  // The one unprompted message: a case with a document, no letter sent, and
+  // nothing happening for three days. Once per case, ever, by its log key.
+  const nudged = await sendUnsentLetterNudges(admin, appUrl, now);
+
   // Anything queued while no provider was configured, or that failed fewer
   // than three times this week, gets another go.
   const retried = await retryPending(admin);
 
-  return ok(context, { sent, failed, datesSent, retried, provider: sender.name, more: due.length === BATCH_SIZE });
+  return ok(context, { sent, failed, datesSent, nudged, retried, provider: sender.name, more: due.length === BATCH_SIZE });
 });
+
+/**
+ * Cases eligible for the unsent-letter message, and the message to each.
+ * Candidates are narrowed in the database first (open, older than the
+ * quiet period); the rule itself is decided by nudgeEligible() from what the
+ * case holds, so the same code is what the tests exercise.
+ */
+async function sendUnsentLetterNudges(
+  admin: ReturnType<typeof createAdminClient>,
+  appUrl: string,
+  now: Date,
+): Promise<{ sent: number; skipped: number }> {
+  const cutoff = new Date(now.getTime() - NUDGE_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data: candidates } = await admin
+    .from('cases')
+    .select('id, user_id, status, updated_at')
+    .eq('status', 'OPEN')
+    .is('deleted_at', null)
+    .lte('updated_at', cutoff)
+    .order('updated_at', { ascending: true })
+    .limit(BATCH_SIZE);
+  const cases = (candidates ?? []) as { id: string; user_id: string; status: string; updated_at: string }[];
+  if (cases.length === 0) return { sent: 0, skipped: 0 };
+  const ids = cases.map((c) => c.id);
+
+  const [{ data: docs }, { data: letters }] = await Promise.all([
+    admin.from('documents').select('case_id').in('case_id', ids).eq('scan_status', 'CLEAN').is('deleted_at', null),
+    admin.from('generated_documents').select('case_id').in('case_id', ids).not('sent_at', 'is', null).is('deleted_at', null),
+  ]);
+  const docCount = new Map<string, number>();
+  for (const d of (docs ?? []) as { case_id: string }[]) docCount.set(d.case_id, (docCount.get(d.case_id) ?? 0) + 1);
+  const sentCount = new Map<string, number>();
+  for (const l of (letters ?? []) as { case_id: string }[]) sentCount.set(l.case_id, (sentCount.get(l.case_id) ?? 0) + 1);
+
+  let sent = 0;
+  let skipped = 0;
+  for (const c of cases) {
+    const documentCount = docCount.get(c.id) ?? 0;
+    if (documentCount === 0 || (sentCount.get(c.id) ?? 0) > 0) {
+      skipped += 1;
+      continue;
+    }
+    // The last thing that happened on the case, from its timeline.
+    const { data: last } = await admin
+      .from('case_events')
+      .select('occurred_at')
+      .eq('case_id', c.id)
+      .order('occurred_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const eligible = nudgeEligible(
+      {
+        status: c.status,
+        documentCount,
+        sentLetterCount: sentCount.get(c.id) ?? 0,
+        lastEventAt: (last as { occurred_at: string } | null)?.occurred_at ?? null,
+        updatedAt: c.updated_at,
+      },
+      now,
+    );
+    if (!eligible) {
+      skipped += 1;
+      continue;
+    }
+    const outcome = await notifyAccount(admin, {
+      userId: c.user_id,
+      kind: 'UNSENT_LETTER',
+      key: nudgeKey(c.id),
+      message: unsentLetterEmail({ appUrl, caseId: c.id, documentCount }),
+    });
+    if (outcome === 'sent') sent += 1;
+    else skipped += 1;
+  }
+  return { sent, skipped };
+}
 
 // Vercel's scheduler calls cron routes with GET and the same bearer header.
 export const GET = POST;

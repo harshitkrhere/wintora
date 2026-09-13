@@ -154,3 +154,22 @@ export function dateTomorrowEmail(input: { appUrl: string; caseId: string }): Em
     note: 'This is a date you wrote down yourself; Wintora has not verified it. Mark it done on the case page to stop this message.',
   });
 }
+
+/**
+ * A case has a document and no letter has gone, and nothing has happened on
+ * it for a few days. One message per case, ever: what is there, what is not,
+ * one link. No urgency, because there is none we know of.
+ */
+export function unsentLetterEmail(input: { appUrl: string; caseId: string; documentCount: number }): EmailMessage {
+  const docs = input.documentCount === 1 ? 'a document' : `${input.documentCount} documents`;
+  return renderEmail({
+    subject: 'Your case has a bill on it and no letter yet',
+    heading: 'A bill is on your case, and no letter has gone out',
+    paragraphs: [
+      `You uploaded ${docs} to a case a few days ago. The check has run, or is ready to, and no letter to the billing office has been marked as sent.`,
+      'If the bill is settled, there is nothing to do. If not, the case page has the findings and a letter you can prepare from them.',
+    ],
+    cta: { label: 'Open the case', url: `${base(input.appUrl)}/cases/${input.caseId}` },
+    note: 'This is the only message Wintora sends about a case on its own, and it is sent once. Close the case if you are done with it.',
+  });
+}

@@ -12,6 +12,7 @@ import {
   subscriptionEndedEmail,
   subscriptionPausedEmail,
   subscriptionResumedEmail,
+  unsentLetterEmail,
   welcomeEmail,
 } from '@/domain/email/messages';
 import { reminderEmail, retentionNoticeEmail } from '@/domain/reminders/notice';
@@ -29,6 +30,7 @@ const ALL = [
   deletionRequestedEmail({ appUrl, executesOn: d('2026-09-20') }),
   renewalReminderEmail({ appUrl, planName: 'Plus', renewsOn: d('2026-10-13'), priceFormatted: '$199.00' }),
   dateTomorrowEmail({ appUrl, caseId: 'abc' }),
+  unsentLetterEmail({ appUrl, caseId: 'abc', documentCount: 2 }),
   reminderEmail({ appUrl, caseId: 'abc' }),
   retentionNoticeEmail({ appUrl, caseId: 'abc', removesOn: d('2026-09-20') }),
 ];
@@ -110,6 +112,15 @@ describe('what each must say', () => {
     expect(m.text).toContain('/upload');
     expect(m.text).toContain('never sends anything for you');
     expect(m.text).toContain('export or delete everything');
+  });
+
+  it('unsent letter: what is there, what is not, one link, no urgency', () => {
+    const m = unsentLetterEmail({ appUrl, caseId: 'abc', documentCount: 1 });
+    expect(m.text).toContain('You uploaded a document');
+    expect(m.text).toContain('no letter to the billing office has been marked as sent');
+    expect(m.text).toContain('/cases/abc');
+    expect(m.text).toContain('sent once');
+    expect(`${m.subject} ${m.text}`).not.toMatch(/hurry|now!|last chance|expires|only \d+ days|don.t miss/i);
   });
 
   it('date tomorrow: says it is their own date, not a verified one', () => {
