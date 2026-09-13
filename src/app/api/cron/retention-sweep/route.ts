@@ -19,6 +19,9 @@ import { log } from '@/lib/logging';
 import { createAdminClient } from '@/lib/supabase/server';
 import { createEntitlementStore, loadPlanMatrix } from '@/lib/supabase/stores';
 import { notifyAccount } from '@/lib/email/account';
+import { getPaymentProvider } from '@/lib/payments';
+import { executeDueDeletions } from '@/lib/privacy/delete-account';
+import { accountDeletedEmail } from '@/domain/email/messages';
 import { computeEntitlements, freeSnapshot } from '@/domain/entitlements/compute';
 import { retentionNoticeEmail } from '@/domain/reminders/notice';
 import { POLICY } from '@/config/policy';
@@ -151,11 +154,44 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
     exportsRemoved += 1;
   }
 
+  // 3. Accounts whose cooling-off window has passed. The request only
+  //    scheduled them; this is where they happen. See lib/privacy.
+  const deletions = await executeDueDeletions(admin, now, {
+    removeObjects: async (paths) => {
+      const { error } = await admin.storage.from(bucket).remove([...paths]);
+      if (error !== null) throw error;
+    },
+    cancelSubscription: async (providerSubscriptionId) => {
+      await getPaymentProvider().cancelImmediately(providerSubscriptionId);
+    },
+    deleteAuthUser: async (userId) => {
+      const { error } = await admin.auth.admin.deleteUser(userId);
+      if (error !== null) throw error;
+    },
+    notifyDeleted: async (userId) => {
+      try {
+        await notifyAccount(admin, {
+          userId,
+          kind: 'ACCOUNT_DELETED',
+          key: `email_account_deleted_${userId}`,
+          message: accountDeletedEmail(),
+        });
+      } catch (error) {
+        log.warn('deletion notice not sent', {
+          route: '/api/cron/retention-sweep',
+          errorClass: error instanceof Error ? error.name : 'unknown',
+        });
+      }
+    },
+  });
+
   return ok(context, {
     noticesQueued: toNotify.length,
     noticesSent: notified,
     deleted,
     exportsRemoved,
+    accountsDeleted: deletions.executed,
+    accountsDeferred: deletions.deferred,
     // True when there is more work than one batch; the scheduler runs again.
     more: toDelete.length === BATCH_SIZE,
   });

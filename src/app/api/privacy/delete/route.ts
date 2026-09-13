@@ -24,6 +24,7 @@ import { AppError } from '@/lib/errors';
 import { authorize, handler, ok, parseBody, requireUser } from '@/lib/http/api';
 import { clientIp, enforceRateLimit } from '@/lib/http/ratelimit';
 import { createAdminClient } from '@/lib/supabase/server';
+import { notifyOperator } from '@/lib/email/operator';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -123,6 +124,21 @@ export const POST = handler('/api/privacy/delete', async (request: NextRequest, 
     resource_id: (job as { id: string }).id,
     outcome: 'SUCCESS',
     request_id: context.requestId,
+  });
+
+  // For the record on the operator's side; the deletion itself runs on its
+  // own once the window has passed (lib/privacy/delete-account.ts).
+  await notifyOperator({
+    subject: 'Account deletion scheduled',
+    text: [
+      `A customer scheduled their account for deletion. It executes automatically on ${executeAfter.toISOString().slice(0, 10)} unless they cancel.`,
+      '',
+      `User id:      ${user.id}`,
+      `Deletion job: ${(job as { id: string }).id}`,
+      body.reason ? `Reason given: ${body.reason}` : 'No reason given.',
+      '',
+      'Nothing to do unless they write in. A live subscription is cancelled at the provider as part of the deletion.',
+    ].join('\n'),
   });
 
   return ok(

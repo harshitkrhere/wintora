@@ -65,21 +65,26 @@ export function ExportAction(): React.ReactElement {
   );
 }
 
-export function DeleteAction(): React.ReactElement {
+export function DeleteAction({ scheduled = false }: { scheduled?: boolean }): React.ReactElement {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, setPending] = useState(scheduled);
   const armed = confirm === 'DELETE MY ACCOUNT';
 
   const go = useCallback(async () => {
     setBusy(true);
-    setNote(await call('/api/privacy/delete', 'POST', { confirmation: confirm }));
+    const result = await call('/api/privacy/delete', 'POST', { confirmation: confirm });
+    setNote(result);
+    if (result.ok) setPending(true);
     setBusy(false);
   }, [confirm]);
 
   const cancel = useCallback(async () => {
     setBusy(true);
-    setNote(await call('/api/privacy/delete', 'DELETE'));
+    const result = await call('/api/privacy/delete', 'DELETE');
+    setNote(result);
+    if (result.ok) setPending(false);
     setBusy(false);
   }, []);
 
@@ -98,12 +103,14 @@ export function DeleteAction(): React.ReactElement {
         <p className="field__hint">The button unlocks once the words match exactly.</p>
       </div>
       <div className="actions">
-        <button type="button" className="btn btn--danger" onClick={go} disabled={!armed || busy} aria-busy={busy}>
-          {busy ? 'Working…' : 'Schedule deletion'}
+        <button type="button" className="btn btn--danger" onClick={go} disabled={!armed || busy || pending} aria-busy={busy}>
+          {busy ? 'Working…' : pending ? 'Deletion scheduled' : 'Schedule deletion'}
         </button>
-        <button type="button" className="btn btn--quiet" onClick={cancel} disabled={busy}>
-          Cancel a scheduled deletion
-        </button>
+        {pending ? (
+          <button type="button" className="btn btn--secondary" onClick={cancel} disabled={busy}>
+            Cancel the scheduled deletion
+          </button>
+        ) : null}
       </div>
       <Note note={note} />
     </div>

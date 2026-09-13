@@ -161,21 +161,31 @@ remembered.
 
 ### Export
 
-Requires step-up authentication. The job produces a single archive containing
-account and profile data, cases, documents with their originals, extractions,
-analyses and findings with evidence, generated letters, reminders, deadlines,
-billing history, and the audit log of the account itself. The download link is
-single-use, expires in one hour, and the download is audited. Exports are never
-emailed as attachments: the email says only that an export is ready in the
-dashboard.
+Requires step-up authentication. The request is recorded in `privacy_requests`
+with its statutory due date and queued as an `export_jobs` row, and the
+operator is emailed at the sending address the moment it is made
+(`src/lib/email/operator.ts`), so the deadline is met by a person who knows
+about it. For now the copy is prepared by hand: account and profile data,
+cases, documents with their originals, extractions, analyses and findings with
+evidence, generated letters, reminders, deadlines and billing history, sent to
+the account email within 30 days. The customer is told exactly that on the
+request and on the settings page, which also shows a request that is still
+pending. An automated archive with a single-use, one-hour download link is the
+intended end state and is not yet built; nothing promises it to a customer
+until it exists.
 
 ### Deletion
 
 Requires step-up authentication and an explicit typed confirmation. A 7-day
-cooling-off window allows cancellation, and the user is told the window exists.
-After it elapses, the deletion job removes storage objects, then case and
-document rows, then extractions, analyses, findings, letters, reminders,
-entitlements and usage, then the profile, then the auth user.
+cooling-off window allows cancellation, and the user is told the window exists,
+by email at the time and on the settings page for as long as it is pending.
+After it elapses the daily retention sweep executes the job
+(`src/lib/privacy/delete-account.ts`): it cancels any live subscription at the
+provider immediately, writes the tombstone, removes every storage object the
+person uploaded, sends one last message saying it is done, and deletes the
+auth user, which cascades through every table that references it. Any step
+that fails puts the job back in the queue with the reason, to be retried the
+next day; an account is never half-deleted.
 
 What survives, and why, is stated up front rather than buried:
 
@@ -183,7 +193,9 @@ What survives, and why, is stated up front rather than buried:
   and disassociated from case content.
 - Security events involving fraud or abuse.
 - A tombstone recording that an account with a given internal id was deleted on
-  a given date.
+  a given date (`account_tombstones`, no foreign key to the user, service role
+  only), carrying the billing records above as amounts, dates and provider
+  references and nothing else.
 - Backup copies until the backup retention schedule expires them.
 
 The Razorpay customer object is handled per the payment provider terms; the

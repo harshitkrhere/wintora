@@ -40,16 +40,38 @@ function when(iso: string): string {
 
 export default async function PrivacySettingsPage(): Promise<React.ReactElement> {
   const user = await optionalUser();
-  const { data: mail } =
-    user !== null
-      ? await createAdminClient()
-          .from('email_log')
-          .select('id, kind, subject, status, created_at, sent_at, last_event_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(25)
-      : { data: [] };
+  const admin = user !== null ? createAdminClient() : null;
+  const [{ data: mail }, { data: pendingExport }, { data: pendingDeletion }] =
+    user !== null && admin !== null
+      ? await Promise.all([
+          admin
+            .from('email_log')
+            .select('id, kind, subject, status, created_at, sent_at, last_event_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(25),
+          // What has been asked for and not yet done, so the page says so
+          // instead of offering the same request again.
+          admin
+            .from('export_jobs')
+            .select('id, created_at')
+            .eq('user_id', user.id)
+            .in('status', ['QUEUED', 'RUNNING'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          admin
+            .from('deletion_jobs')
+            .select('id, execute_after')
+            .eq('user_id', user.id)
+            .eq('status', 'QUEUED')
+            .is('canceled_at', null)
+            .maybeSingle(),
+        ])
+      : [{ data: [] }, { data: null }, { data: null }];
   const emails = (mail ?? []) as { id: string; kind: string; subject: string; status: string; created_at: string; sent_at: string | null; last_event_at: string | null }[];
+  const exportRequestedAt = (pendingExport as { created_at: string } | null)?.created_at ?? null;
+  const deletionOn = (pendingDeletion as { execute_after: string } | null)?.execute_after ?? null;
 
   return (
     <div className="medium stack--lg page">
@@ -76,6 +98,12 @@ export default async function PrivacySettingsPage(): Promise<React.ReactElement>
               rather than automatically, which is why it is not instant.
             </p>
           </div>
+          {exportRequestedAt !== null ? (
+            <p className="notice notice--info" role="status">
+              You asked for a copy on {when(exportRequestedAt)}. It will be sent to{' '}
+              {user?.email ?? 'your account email'} within 30 days of that.
+            </p>
+          ) : null}
           <ExportAction />
         </div>
       </section>
@@ -157,7 +185,14 @@ export default async function PrivacySettingsPage(): Promise<React.ReactElement>
               from your content.
             </p>
           </div>
-          <DeleteAction />
+          {deletionOn !== null ? (
+            <p className="notice notice--warning" role="status">
+              Your account is scheduled for deletion on{' '}
+              {new Date(deletionOn).toLocaleDateString('en-US', { dateStyle: 'long' })}. Until then nothing is
+              removed; cancel below if you have changed your mind.
+            </p>
+          ) : null}
+          <DeleteAction scheduled={deletionOn !== null} />
         </div>
       </section>
     </div>

@@ -43,6 +43,19 @@ export function welcomeEmail(input: { appUrl: string }): EmailMessage {
   });
 }
 
+/** The deletion they asked for has happened. Sent while there is still an address. */
+export function accountDeletedEmail(): EmailMessage {
+  return renderEmail({
+    subject: 'Your Wintora account has been deleted',
+    heading: 'Your account has been deleted',
+    paragraphs: [
+      'As you asked, your Wintora account and everything in it have been removed: your cases, documents, checks, letters and reminders.',
+      'What remains is a record that an account was deleted today and the billing records the law requires, kept apart from anything about your bills.',
+    ],
+    note: 'Backup copies expire on their own schedule. If you did not ask for this, reply to this message.',
+  });
+}
+
 /** A renewal charge failed. They keep everything for the grace window. */
 export function paymentFailedEmail(input: { appUrl: string; graceEnds: Date }): EmailMessage {
   return renderEmail({

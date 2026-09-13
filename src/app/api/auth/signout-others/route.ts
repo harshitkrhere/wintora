@@ -12,6 +12,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest } from 'next/server';
+import { AppError } from '@/lib/errors';
 import { handler, ok, requireUser } from '@/lib/http/api';
 import { clientIp, enforceRateLimit } from '@/lib/http/ratelimit';
 import { log } from '@/lib/logging';
@@ -35,6 +36,9 @@ export const POST = handler('/api/auth/signout-others', async (request: NextRequ
   const { error } = await supabase.auth.signOut({ scope: 'others' });
   if (error !== null) {
     log.warn('sign out others failed', { route: '/api/auth/signout-others', errorClass: error.name });
+    throw new AppError('INTERNAL', 'We could not sign out your other devices just now. Please try again in a moment.', {
+      detail: error.name,
+    });
   }
 
   return ok(context, {
