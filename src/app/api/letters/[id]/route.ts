@@ -85,6 +85,11 @@ export const PATCH = handler('/api/letters/[id]', async (request: NextRequest, c
       patch.status = 'DRAFT';
       patch.user_confirmed_at = null;
       patch.user_confirmed_accuracy = false;
+      // What was sent is no longer what is on the page; the record of the
+      // sending stays on the timeline, the letter itself starts again.
+      patch.sent_at = null;
+      patch.sent_via = null;
+      patch.sent_to = null;
       events.push({ event_type: 'LETTER_REOPENED', title: 'Letter edited after review', detail: row.title });
     }
   }

@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TemplateField } from '@/domain/letters/render';
+import { splitListInput } from '@/domain/letters/send';
 import { Icon } from './Icons';
 
 export interface TemplateSummary {
@@ -104,10 +105,7 @@ export function LetterComposer({
       for (const field of template.fields) {
         const raw = (values[field.key] ?? '').trim();
         if (raw.length === 0) continue;
-        fieldValues[field.key] =
-          field.type === 'list'
-            ? raw.split('\n').map((s) => s.trim()).filter((s) => s.length > 0)
-            : raw;
+        fieldValues[field.key] = field.type === 'list' ? splitListInput(raw) : raw;
       }
 
       try {
@@ -237,8 +235,10 @@ export function LetterComposer({
                   />
                 )}
                 {field.help ? <span className="field__hint">{field.help}</span> : null}
-                {field.type === 'list' && !field.help ? (
-                  <span className="field__hint">One entry per line. They are numbered in the letter.</span>
+                {field.type === 'list' ? (
+                  <span className="field__hint">
+                    One entry per line; the letter numbers them for you, so there is no need to.
+                  </span>
                 ) : null}
               </div>
             ))}

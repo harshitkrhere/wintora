@@ -287,8 +287,16 @@ export default async function CasePage({
                       ) : null}
                     </td>
                     <td data-label="Status">
-                      <span className={`badge ${l.status === 'FINALIZED' ? 'badge--success' : 'badge--neutral'}`}>
-                        {l.status === 'FINALIZED' ? 'Reviewed' : 'Draft'}
+                      <span>
+                        <span className={`badge ${l.sentAt !== null ? 'badge--success' : l.status === 'FINALIZED' ? 'badge--info' : 'badge--neutral'}`}>
+                          {l.sentAt !== null ? 'Sent' : l.status === 'FINALIZED' ? 'Ready to send' : 'Draft'}
+                        </span>
+                        {l.sentAt !== null ? (
+                          <span className="cell-sub">
+                            {new Date(l.sentAt).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' })}
+                            {l.sentVia ? ` · ${l.sentVia === 'portal' ? 'patient portal' : l.sentVia}` : ''}
+                          </span>
+                        ) : null}
                       </span>
                     </td>
                     <td data-label="Last changed" className="small">{when(l.updatedAt)}</td>

@@ -70,6 +70,8 @@ export interface CaseLetter {
   readonly status: string;
   readonly attachmentCount: number;
   readonly confirmedAt: string | null;
+  readonly sentAt: string | null;
+  readonly sentVia: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -267,7 +269,7 @@ export async function loadCase(
       .limit(100),
     admin
       .from('generated_documents')
-      .select('id, template_key, title, status, attachments, user_confirmed_at, created_at, updated_at')
+      .select('id, template_key, title, status, attachments, user_confirmed_at, sent_at, sent_via, created_at, updated_at')
       .eq('user_id', userId)
       .eq('case_id', caseId)
       .is('deleted_at', null)
@@ -384,7 +386,7 @@ export async function loadCase(
     })),
     letters: ((letters ?? []) as {
       id: string; template_key: string; title: string; status: string; attachments: unknown[] | null;
-      user_confirmed_at: string | null; created_at: string; updated_at: string;
+      user_confirmed_at: string | null; sent_at: string | null; sent_via: string | null; created_at: string; updated_at: string;
     }[]).map((l) => ({
       id: l.id,
       templateKey: l.template_key,
@@ -392,6 +394,8 @@ export async function loadCase(
       status: l.status,
       attachmentCount: Array.isArray(l.attachments) ? l.attachments.length : 0,
       confirmedAt: l.user_confirmed_at,
+      sentAt: l.sent_at,
+      sentVia: l.sent_via,
       createdAt: l.created_at,
       updatedAt: l.updated_at,
     })),

@@ -80,13 +80,16 @@ export interface LetterRow {
   readonly status: 'DRAFT' | 'USER_REVIEWED' | 'FINALIZED' | 'ARCHIVED';
   readonly user_confirmed_at: string | null;
   readonly user_confirmed_accuracy: boolean;
+  readonly sent_at: string | null;
+  readonly sent_via: string | null;
+  readonly sent_to: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
 
 export const LETTER_COLUMNS =
   'id, case_id, template_key, title, content, field_values, attachments, status, ' +
-  'user_confirmed_at, user_confirmed_accuracy, created_at, updated_at';
+  'user_confirmed_at, user_confirmed_accuracy, sent_at, sent_via, sent_to, created_at, updated_at';
 
 /** A letter the user owns, or not found. Ownership failures look like absence. */
 export async function loadOwnedLetter(admin: SupabaseClient, userId: string, letterId: string): Promise<LetterRow> {
@@ -116,6 +119,9 @@ export function publicLetter(row: LetterRow): Record<string, unknown> {
     attachments: row.attachments,
     status: row.status,
     confirmedAt: row.user_confirmed_at,
+    sentAt: row.sent_at,
+    sentVia: row.sent_via,
+    sentTo: row.sent_to,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
