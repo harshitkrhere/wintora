@@ -2,8 +2,9 @@
  * /dashboard — where a signed-in person lands.
  *
  * The heading is always "Home", so the landmark never moves. Beneath it: one
- * line about where things stand, the one thing to do, and the open cases.
- * Plan and allowance live on the subscription page, one link away.
+ * line about where things stand, the one thing to do, and the cases: open
+ * ones if there are any, otherwise the closed ones. Plan and allowance live
+ * on the subscription page, one link away.
  */
 
 import type { Metadata } from 'next';
@@ -33,13 +34,14 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
 
   const cases = await listCases(createAdminClient(), user.id);
   const open = cases.filter((c) => c.status === 'OPEN');
-  const closed = cases.length - open.length;
+  const closedCases = cases.filter((c) => c.status !== 'OPEN');
+  const closed = closedCases.length;
 
   const status =
     cases.length === 0
       ? 'No cases yet. Upload a bill to start one.'
       : open.length === 0
-        ? `Nothing open. ${plural(closed, 'closed case')} kept and ready to reopen.`
+        ? `Nothing open. ${plural(closed, 'closed case')}, kept and ready to reopen.`
         : `${plural(open.length, 'open case')}${closed > 0 ? `, ${closed} closed` : ''}.`;
 
   return (
@@ -79,13 +81,23 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           secondary={{ href: '/medical-bill-checker', label: 'Or type the figures in' }}
         />
       ) : (
-        <EmptyState
-          compact
-          title="All caught up"
-          body="No open cases. Closed cases are kept and can be reopened from their page at any time."
-          action={{ href: '/upload', label: 'Upload a new bill' }}
-          secondary={{ href: '/cases', label: 'See closed cases' }}
-        />
+        // Nothing open, so the closed cases are the cases. Showing them here
+        // beats a sentence saying they exist; the lede has already said so.
+        <section className="stack">
+          <div className="section-head">
+            <h2>Closed cases</h2>
+            {closed > 5 ? (
+              <Link href="/cases" className="small">
+                All cases
+              </Link>
+            ) : null}
+          </div>
+          <div className="case-list">
+            {closedCases.slice(0, 5).map((c) => (
+              <CaseCard key={c.id} summary={c} />
+            ))}
+          </div>
+        </section>
       )}
 
       <p className="caption m-0">
