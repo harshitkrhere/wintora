@@ -10,8 +10,10 @@
  * Client-only: every function here touches the document or window.
  */
 
+import { CANVAS, type ThemeName } from '@/config/theme';
+
 export type ThemeChoice = 'system' | 'light' | 'dark';
-export type Theme = 'light' | 'dark';
+export type Theme = ThemeName;
 
 export const THEME_KEY = 'wintora:theme';
 
@@ -19,7 +21,7 @@ export const THEME_KEY = 'wintora:theme';
 export const THEME_EVENT = 'wintora:theme';
 
 /** What the browser chrome is painted; matches --bg in each theme. */
-export const THEME_COLOR: Record<Theme, string> = { light: '#f4f8fa', dark: '#0c0d10' };
+export const THEME_COLOR: Record<Theme, string> = CANVAS;
 
 export function readChoice(): ThemeChoice {
   try {

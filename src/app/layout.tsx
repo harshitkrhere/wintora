@@ -8,10 +8,12 @@
  */
 
 import { appUrl } from '@/lib/env';
+import { CANVAS } from '@/config/theme';
 import type { Metadata, Viewport } from 'next';
 import { Inter, Manrope } from 'next/font/google';
 import { AuthLinkBanner, OfflineBanner } from '@/components/StatusBanners';
 import { RouteProgress } from '@/components/RouteProgress';
+import { ManifestPointer } from '@/components/ManifestPointer';
 import './globals.css';
 
 /** Manrope for the product; Inter SemiBold for the wordmark only. */
@@ -44,8 +46,8 @@ export const viewport: Viewport = {
   // One per theme, matching --bg. src/lib/theme.ts rewrites these when a
   // person chooses a theme explicitly.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f4f8fa' },
-    { media: '(prefers-color-scheme: dark)', color: '#0c0d10' },
+    { media: '(prefers-color-scheme: light)', color: CANVAS.light },
+    { media: '(prefers-color-scheme: dark)', color: CANVAS.dark },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -67,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
           Skip to content
         </a>
         <RouteProgress />
+        <ManifestPointer />
         <OfflineBanner />
         <AuthLinkBanner />
         {children}
