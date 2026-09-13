@@ -113,9 +113,18 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           </div>
         </section>
       ) : cases.length === 0 ? (
+        // The only checklist there is. It lives in the empty state, so it
+        // exists exactly as long as there is nothing else to show: the moment
+        // the first case appears, the case page's own next steps take over.
         <EmptyState
           title="Upload your first bill"
-          body="Wintora reads the figures, you confirm every number, and the check shows what adds up and what does not, with the numbers behind it."
+          body="Wintora reads the figures, you confirm every number, and the check shows what adds up and what does not, with the numbers behind it. From there:"
+          steps={[
+            'Upload the bill, the itemized one if you have it',
+            'Add the insurer’s EOB for the same care, if you have one',
+            'Read the findings and the numbers behind each',
+            'Send the letter to the billing office',
+          ]}
           action={{ href: '/upload', label: 'Upload a bill' }}
           secondary={{ href: '/medical-bill-checker', label: 'Or type the figures in' }}
         />
