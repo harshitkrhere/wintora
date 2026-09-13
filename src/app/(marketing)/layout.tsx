@@ -7,6 +7,7 @@
  */
 
 import Link from 'next/link';
+import { Analytics } from '@vercel/analytics/next';
 import { GLOBAL_DISCLAIMER } from '@/config/disclaimers';
 import { OPERATOR } from '@/config/disclosures';
 import { SiteNav } from '@/components/SiteNav';
@@ -84,6 +85,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </p>
         </div>
       </footer>
+
+      {/*
+        Cookieless traffic measurement, scoped to this layout on purpose: it
+        covers the public marketing pages only. It is never mounted inside the
+        (auth) or (app) route groups, so no page a signed-in person visits, and
+        no case ID that might appear in a path, is ever reported here. See
+        docs/PRIVACY.md and the "Who processes it" table on /privacy.
+      */}
+      <Analytics />
     </>
   );
 }
