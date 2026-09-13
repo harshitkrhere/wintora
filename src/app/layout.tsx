@@ -10,7 +10,7 @@
 import { appUrl } from '@/lib/env';
 import type { Metadata, Viewport } from 'next';
 import { Inter, Manrope } from 'next/font/google';
-import { OfflineBanner } from '@/components/StatusBanners';
+import { AuthLinkBanner, OfflineBanner } from '@/components/StatusBanners';
 import { RouteProgress } from '@/components/RouteProgress';
 import './globals.css';
 
@@ -68,6 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
         </a>
         <RouteProgress />
         <OfflineBanner />
+        <AuthLinkBanner />
         {children}
       </body>
     </html>
