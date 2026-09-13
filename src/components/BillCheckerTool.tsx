@@ -17,6 +17,7 @@ import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from './FindingCard';
 import { Icon } from './Icons';
 import type { ExtractionDraft } from '@/domain/documents/draft';
+import { saveHandoff } from '@/domain/checker/handoff';
 
 interface DraftLine {
   readonly id: string;
@@ -553,7 +554,34 @@ export function BillCheckerTool({
       </form>
       )}
 
-      {result !== null ? <Results result={result} /> : null}
+      {result !== null ? (
+        <Results
+          result={result}
+          onKeep={
+            caseId === null
+              ? () => {
+                  // The inputs, not the findings, held in this tab until the
+                  // person chooses to save them into an account. Nothing has
+                  // left the browser at this point.
+                  saveHandoff(window.sessionStorage, {
+                    currency,
+                    lines: lines.map((l) => ({ description: l.description, code: l.code, amount: l.amount })),
+                    subtotal,
+                    total,
+                    adjustments,
+                    insurancePaid,
+                    tax,
+                    payments,
+                    amountDue,
+                    statementDate,
+                    accountReference,
+                  });
+                  window.location.assign('/signup?next=%2Fupload%3Ffrom%3Dchecker');
+                }
+              : undefined
+          }
+        />
+      ) : null}
     </div>
   );
 }
@@ -600,7 +628,7 @@ function SignUpWall({ variant, limit }: { variant: 'last' | 'exhausted'; limit: 
   );
 }
 
-function Results({ result }: { result: ApiResponse }): React.ReactElement {
+function Results({ result, onKeep }: { result: ApiResponse; onKeep?: () => void }): React.ReactElement {
   const top = useRef<HTMLElement>(null);
   const { attention, review, lineItemCount } = result.analysis.summary;
   const checks = result.analysis.checksRun.length;
@@ -659,7 +687,19 @@ function Results({ result }: { result: ApiResponse }): React.ReactElement {
       <div className="stack">
         <p className="notice">{result.disclaimer}</p>
         {result.storage !== undefined ? (
-          <p className="notice notice--info">{result.storage.note}</p>
+          <div className="notice notice--info stack--sm">
+            <p className="m-0">{result.storage.note}</p>
+            {onKeep !== undefined ? (
+              <p className="m-0">
+                <button type="button" className="btn btn--secondary btn--sm" onClick={onKeep}>
+                  Keep this result
+                </button>{' '}
+                <span className="small muted">
+                  Holds these figures in this browser tab while you create a free account, then saves them to a case.
+                </span>
+              </p>
+            ) : null}
+          </div>
         ) : (
           <p className="notice notice--success">
             {result.replayed === true

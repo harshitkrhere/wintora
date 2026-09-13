@@ -101,12 +101,12 @@ export default function MedicalBillCheckerPage(): React.ReactElement {
         {
           question: 'Do I need an account?',
           answer:
-            'No. The checker runs without one. Nothing you enter is saved. An account is only useful if you want to keep the result, attach documents, or track what you have sent.',
+            'No. The checker runs without one, and nothing you enter is saved unless you choose to keep the result. An account is only useful if you want to keep it, attach documents, or track what you have sent.',
         },
         {
           question: 'Is anything stored?',
           answer:
-            'No. The figures are analysed in the request and discarded. If you create an account and save a case, that is the point at which anything is stored, and you can delete it at any time.',
+            'No. The figures are analysed in the request and discarded. If you press "Keep this result", they are held in your browser tab, and nothing else, until you create an account and save them to a case; that is the point at which anything is stored, and you can delete it at any time.',
         },
         {
           question: 'Does this tell me whether I am being overcharged?',

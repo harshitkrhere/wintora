@@ -205,7 +205,7 @@ export default function MethodologyPage(): React.ReactElement {
             <div className="facts__row">
               <span className="facts__k">Free checker</span>
               <span className="facts__v">
-                {POLICY.anonymousTool.freeChecks} checks without an account. Nothing you type there is written anywhere.
+                {POLICY.anonymousTool.freeChecks} checks without an account. Nothing you type there is written anywhere unless you choose to keep it.
               </span>
             </div>
           </div>
@@ -354,7 +354,7 @@ export default function MethodologyPage(): React.ReactElement {
       <section aria-labelledby="cta-heading">
         <div className="cta-band">
           <h2 id="cta-heading">See it run on your own figures.</h2>
-          <p className="lede">{POLICY.anonymousTool.freeChecks} checks without an account. Nothing you type is kept.</p>
+          <p className="lede">{POLICY.anonymousTool.freeChecks} checks without an account. Nothing you type is kept unless you choose to save it.</p>
           <div className="hero__actions">
             <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
               Check a bill

@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExtractionDraft } from '@/domain/documents/draft';
+import { clearHandoff, handoffToDraft, readHandoff, type CheckerHandoff } from '@/domain/checker/handoff';
 import { BillCheckerTool } from './BillCheckerTool';
 import { Icon } from './Icons';
 
@@ -90,6 +91,15 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
   const [dragging, setDragging] = useState(false);
   const [starting, setStarting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Figures typed into the free checker before signing up, held in this tab.
+  // Read once, on arrival with ?from=checker; shown as an offer, never acted
+  // on until the person chooses.
+  const [handoff, setHandoff] = useState<CheckerHandoff | null>(null);
+  useEffect(() => {
+    if (initialCaseId !== null) return;
+    if (new URLSearchParams(window.location.search).get('from') !== 'checker') return;
+    setHandoff(readHandoff(window.sessionStorage));
+  }, [initialCaseId]);
 
   // Existing cases, for the person who wants to add a second document to one.
   // Fetched once, only when the case is not already decided.
@@ -222,7 +232,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
    * it yet. Before this existed the link went to the public tool, which saves
    * nothing, so a signed-in person lost their result for choosing the keyboard.
    */
-  const typeIn = useCallback(async (existingCaseId: string | null): Promise<void> => {
+  const typeIn = useCallback(async (existingCaseId: string | null, draft: ExtractionDraft = EMPTY_DRAFT): Promise<void> => {
     setError(null);
     setHasResult(false);
     let caseId = existingCaseId;
@@ -249,8 +259,20 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
         setStarting(false);
       }
     }
-    setStep({ kind: 'review', caseId, documentId: null, document: null, draft: EMPTY_DRAFT, caseTitle });
+    setStep({ kind: 'review', caseId, documentId: null, document: null, draft, caseTitle });
   }, [cases]);
+
+  /** The stored figures become the form, in a case of their own. Cleared once the check has run. */
+  const keepHandoff = useCallback(async (): Promise<void> => {
+    if (handoff === null) return;
+    await typeIn(null, handoffToDraft(handoff));
+    setHandoff(null);
+  }, [handoff, typeIn]);
+
+  const discardHandoff = useCallback((): void => {
+    clearHandoff(window.sessionStorage);
+    setHandoff(null);
+  }, []);
 
   const current: 1 | 2 | 3 = step.kind === 'review' ? (hasResult ? 3 : 2) : 1;
   const pickedCase = step.kind === 'choose-file' && step.caseId !== null ? cases?.find((c) => c.id === step.caseId) : undefined;
@@ -258,6 +280,26 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
   return (
     <div className="stack--lg">
       <Stepper current={current} />
+
+      {step.kind === 'choose-file' && handoff !== null ? (
+        <div className="card stack">
+          <div>
+            <h2 className="card__title">These are the figures you typed before signing up</h2>
+            <p className="muted card__lead">
+              {handoff.lines.length} line item{handoff.lines.length === 1 ? '' : 's'}, held in this browser tab. Save
+              them to a case and the check runs again here, or discard them and start from the bill.
+            </p>
+          </div>
+          <div className="cluster">
+            <button type="button" className="btn btn--primary" onClick={() => void keepHandoff()} disabled={starting} aria-busy={starting}>
+              {starting ? 'Starting a case…' : 'Save them to a case'}
+            </button>
+            <button type="button" className="btn btn--quiet" onClick={discardHandoff} disabled={starting}>
+              Discard
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {step.kind === 'choose-file' ? (
         <div className="stack">
@@ -417,7 +459,15 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
             )}
           </div>
 
-          <BillCheckerTool initial={step.draft} caseId={step.caseId} onResult={() => setHasResult(true)} />
+          <BillCheckerTool
+            initial={step.draft}
+            caseId={step.caseId}
+            onResult={() => {
+              setHasResult(true);
+              // Saved to the case: the copy held in this tab has done its job.
+              clearHandoff(window.sessionStorage);
+            }}
+          />
 
           <div className="actions">
             <a href={`/cases/${step.caseId}`} className="btn btn--secondary">

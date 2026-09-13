@@ -63,7 +63,7 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
             <ul className="hero__proof" aria-label="What to expect">
               <li>{POLICY.anonymousTool.freeChecks} free checks, no account</li>
               <li>
-                <Link href="/methodology#verify">Nothing you type is kept</Link>
+                <Link href="/methodology#verify">Nothing you type is kept unless you choose to save it</Link>
               </li>
               <li>
                 <Link href="/methodology">Fixed checks, code public</Link>
