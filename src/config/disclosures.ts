@@ -86,6 +86,20 @@ export const OPERATOR: OperatorIdentity = {
 };
 
 /** True when the operator identity is complete enough to sell to consumers. */
+/**
+ * The public source repository. The strongest proof of "fixed checks" and
+ * "nothing you type is kept" is the code that does it, so pages link to the
+ * exact files rather than asking to be believed. One place, so a move of the
+ * repository is one edit.
+ */
+export const SOURCE = {
+  repo: 'https://github.com/harshitkrhere/wintora',
+  branch: 'main',
+  file(path: string, line?: number): string {
+    return `${SOURCE.repo}/blob/${SOURCE.branch}/${path}${line !== undefined ? `#L${line}` : ''}`;
+  },
+} as const;
+
 export function operatorIdentityComplete(): boolean {
   return OPERATOR.legalName !== null && OPERATOR.contactEmail !== null;
 }

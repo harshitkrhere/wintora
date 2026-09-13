@@ -87,7 +87,9 @@ export default function HomePage(): React.ReactElement {
           </div>
           <ul className="hero__proof" aria-label="What to expect">
             <li>{POLICY.anonymousTool.freeChecks} free checks, no account</li>
-            <li>Nothing you type is kept</li>
+            <li>
+              <Link href="/methodology#verify">Nothing you type is kept</Link>
+            </li>
             <li>Free plan after that, no card</li>
           </ul>
         </div>

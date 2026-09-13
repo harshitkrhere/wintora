@@ -1,7 +1,31 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CAPABILITY_STATEMENT, GLOBAL_DISCLAIMER } from '@/config/disclaimers';
+import { SOURCE } from '@/config/disclosures';
 import { BILL_CHECKS, EOB_CHECKS, ENGINE_VERSION } from '@/domain/analysis/rules';
+
+/**
+ * Where each check lives in the public source. A claim about what the
+ * engine does is worth more with the function that does it one click away.
+ */
+const CHECK_SOURCE: Record<string, string> = {
+  MISSING_REQUIRED_FIELD: 'checkRequiredFields',
+  LINE_ITEM_SUM_MISMATCH: 'checkLineItemSum',
+  TOTAL_RECONCILIATION_MISMATCH: 'checkTotalReconciliation',
+  DUPLICATE_LINE_ITEM: 'checkDuplicateLineItems',
+  REPEATED_SERVICE_DESCRIPTION: 'checkRepeatedDescriptions',
+  QUANTITY_PRICE_MISMATCH: 'checkQuantityPricing',
+  MISSING_ITEMIZATION: 'checkMissingItemization',
+  SERVICE_DATE_AFTER_STATEMENT_DATE: 'checkDateConsistency',
+  BILL_EXCEEDS_EOB_PATIENT_RESPONSIBILITY: 'checkPatientResponsibility',
+  EOB_PLAN_PAYMENT_NOT_REFLECTED: 'checkPlanPaymentReflected',
+  CHARGE_NOT_ON_EOB: 'checkLineCoverage',
+  EOB_LINE_NOT_ON_BILL: 'checkLineCoverage',
+  BILLED_AMOUNT_DIFFERS_FROM_EOB: 'checkBilledAmountAgreement',
+};
+
+const RULES_FILE = 'src/domain/analysis/rules.ts';
+const TESTS_FILE = 'tests/analysis-engine.test.ts';
 
 export const metadata: Metadata = {
   title: 'How the analysis works',
@@ -101,13 +125,21 @@ export default function MethodologyPage(): React.ReactElement {
           <span className="badge badge--neutral">Engine {ENGINE_VERSION}</span>
         </div>
 
+        <p className="small muted">
+          These are the only checks there are. Each links to the function that runs it in the
+          public source, so you can read exactly what is compared rather than take our word for it.
+        </p>
+
         <h3>On a single statement</h3>
         <ul className="rule-list">
           {BILL_CHECKS.map((code) => (
             <li key={code}>
               <code>{code}</code>
               <br />
-              <span className="muted">{CHECK_DESCRIPTIONS[code]}</span>
+              <span className="muted">{CHECK_DESCRIPTIONS[code]}</span>{' '}
+              <a href={SOURCE.file(RULES_FILE)} rel="noopener noreferrer" target="_blank" className="small">
+                {CHECK_SOURCE[code]}()
+              </a>
             </li>
           ))}
         </ul>
@@ -118,10 +150,68 @@ export default function MethodologyPage(): React.ReactElement {
             <li key={code}>
               <code>{code}</code>
               <br />
-              <span className="muted">{CHECK_DESCRIPTIONS[code]}</span>
+              <span className="muted">{CHECK_DESCRIPTIONS[code]}</span>{' '}
+              <a href={SOURCE.file(RULES_FILE)} rel="noopener noreferrer" target="_blank" className="small">
+                {CHECK_SOURCE[code]}()
+              </a>
             </li>
           ))}
         </ul>
+      </section>
+
+      <section id="verify">
+        <h2>Verify it yourself</h2>
+        <p>
+          Wintora&rsquo;s source is public. The claims on this site are not asked to be believed;
+          they are asked to be checked. The places that matter:
+        </p>
+        <ul>
+          <li>
+            <a href={SOURCE.file(RULES_FILE)} rel="noopener noreferrer" target="_blank">
+              The rules
+            </a>{' '}
+            &mdash; every check above, as plain arithmetic over the figures you confirm. No model
+            decides what is true.
+          </li>
+          <li>
+            <a href={SOURCE.file(TESTS_FILE)} rel="noopener noreferrer" target="_blank">
+              The tests
+            </a>{' '}
+            &mdash; each rule, including the cases where it must stay silent.
+          </li>
+          <li>
+            <a href={SOURCE.file('src/app/api/tools/bill-check/route.ts')} rel="noopener noreferrer" target="_blank">
+              The free checker
+            </a>{' '}
+            &mdash; the route behind &ldquo;nothing you type is kept&rdquo;: the figures go in, the
+            result comes out, and there is no write to any table.
+          </li>
+          <li>
+            <a href={SOURCE.file('src/domain/analysis/engine.ts')} rel="noopener noreferrer" target="_blank">
+              The engine
+            </a>{' '}
+            &mdash; the fixed order the checks run in, and how a result is summarised.
+          </li>
+          <li>
+            <a href={SOURCE.file('docs/SECURITY.md')} rel="noopener noreferrer" target="_blank">
+              Security
+            </a>
+            ,{' '}
+            <a href={SOURCE.file('docs/THREAT_MODEL.md')} rel="noopener noreferrer" target="_blank">
+              threat model
+            </a>{' '}
+            and{' '}
+            <a href={SOURCE.file('docs/LIMITATIONS.md')} rel="noopener noreferrer" target="_blank">
+              limitations
+            </a>{' '}
+            &mdash; what is protected, what is not, and what has not been reviewed yet, in the
+            operator&rsquo;s own words.
+          </li>
+        </ul>
+        <p className="small muted">
+          What you will not find: a certification. There is no third-party audit yet, and this page
+          does not pretend otherwise.
+        </p>
       </section>
 
       <section>
