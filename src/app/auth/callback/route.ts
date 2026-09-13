@@ -15,7 +15,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { publicEnv } from '@/lib/env';
 import { safeRedirect } from '@/lib/http/safe-redirect';
 import { log, newRequestId } from '@/lib/logging';
-import { createUserClient } from '@/lib/supabase/server';
+import { createAdminClient, createUserClient } from '@/lib/supabase/server';
+import { notifyAccount } from '@/lib/email/account';
+import { welcomeEmail } from '@/domain/email/messages';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,6 +59,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   log.info('session established from link', { requestId, route: '/auth/callback' });
+
+  // A welcome, once, for an account that is new. Every first entry lands
+  // here (email confirmation, magic link, OAuth), and the key keeps it to one
+  // message per account however many links they follow.
+  try {
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (user !== null && Date.now() - new Date(user.created_at).getTime() < 7 * 24 * 60 * 60 * 1000) {
+      await notifyAccount(createAdminClient(), {
+        userId: user.id,
+        kind: 'WELCOME',
+        key: `email_welcome_${user.id}`,
+        message: welcomeEmail({ appUrl }),
+      });
+    }
+  } catch (error) {
+    log.warn('welcome email skipped', {
+      requestId,
+      route: '/auth/callback',
+      errorClass: error instanceof Error ? error.name : 'UnknownError',
+    });
+  }
 
   return NextResponse.redirect(new URL(next, appUrl));
 }

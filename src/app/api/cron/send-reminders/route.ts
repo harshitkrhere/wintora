@@ -12,6 +12,8 @@
 
 import { type NextRequest } from 'next/server';
 import { reminderEmail } from '@/domain/reminders/notice';
+import { dateTomorrowEmail } from '@/domain/email/messages';
+import { notifyAccount } from '@/lib/email/account';
 import { publicEnv } from '@/lib/env';
 import { getEmailSender } from '@/lib/email';
 import { handler, ok } from '@/lib/http/api';
@@ -78,7 +80,34 @@ export const POST = handler('/api/cron/send-reminders', async (request: NextRequ
     }
   }
 
-  return ok(context, { sent, failed, provider: sender.name, more: due.length === BATCH_SIZE });
+  // Dates the customer entered that fall tomorrow (UTC). One message per
+  // date, keyed on the row, so a re-run does not repeat it.
+  const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
+    .toISOString()
+    .slice(0, 10);
+  const { data: dates } = await admin
+    .from('deadlines')
+    .select('id, user_id, case_id')
+    .is('completed_at', null)
+    .is('notified_at', null)
+    .eq('due_date', tomorrow)
+    .limit(BATCH_SIZE);
+
+  let datesSent = 0;
+  for (const d of (dates ?? []) as { id: string; user_id: string; case_id: string }[]) {
+    const outcome = await notifyAccount(admin, {
+      userId: d.user_id,
+      kind: 'DATE_TOMORROW',
+      key: `email_date_${d.id}`,
+      message: dateTomorrowEmail({ appUrl, caseId: d.case_id }),
+    });
+    if (outcome === 'sent' || outcome === 'duplicate' || outcome === 'no_address') {
+      await admin.from('deadlines').update({ notified_at: now.toISOString() }).eq('id', d.id);
+      if (outcome === 'sent') datesSent += 1;
+    }
+  }
+
+  return ok(context, { sent, failed, datesSent, provider: sender.name, more: due.length === BATCH_SIZE });
 });
 
 // Vercel's scheduler calls cron routes with GET and the same bearer header.

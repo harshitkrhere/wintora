@@ -8,7 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY } from '@/config/policy';
-import { isBillingInterval, isPlanSlug, type BillingInterval, type PlanSlug } from '@/config/plans';
+import { PLANS, isBillingInterval, isPlanSlug, type BillingInterval, type PlanSlug } from '@/config/plans';
 import {
   tryTransition,
   type BillingEvent,
@@ -23,6 +23,15 @@ import type {
 import { recomputeEntitlements } from '@/lib/supabase/stores';
 import { billingCountry } from '@/lib/payments';
 import { log } from '@/lib/logging';
+import { publicEnv } from '@/lib/env';
+import { notifyAccount } from '@/lib/email/account';
+import {
+  paymentFailedEmail,
+  subscriptionCanceledEmail,
+  subscriptionEndedEmail,
+  subscriptionPausedEmail,
+  subscriptionResumedEmail,
+} from '@/domain/email/messages';
 import type { ClaimResult, HandlerMap, WebhookEventStore } from './webhook';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -358,6 +367,85 @@ export async function syncSubscription(
   await rememberCustomer(client, provider, userId, subscription.providerCustomerId);
   await auditTransition(client, userId, previous?.status ?? 'FREE', status);
   await recomputeEntitlements(client, userId);
+  await notifyTransition(client, userId, previous?.status ?? 'FREE', status, {
+    subscriptionId: subscription.providerSubscriptionId,
+    planSlug: plan?.slug ?? null,
+    periodEnd: subscription.currentPeriodEnd,
+    gracePeriodEnd,
+  });
+}
+
+/**
+ * Tell the customer what just happened to their subscription, once per
+ * transition. Keyed on the subscription and the period so a redelivered
+ * webhook cannot send it twice. Never throws: an email is not a reason to
+ * fail a billing event.
+ */
+async function notifyTransition(
+  client: SupabaseClient,
+  userId: string,
+  from: SubscriptionStatus,
+  to: SubscriptionStatus,
+  ctx: {
+    subscriptionId: string;
+    planSlug: string | null;
+    periodEnd: Date | null;
+    gracePeriodEnd: Date | null;
+  },
+): Promise<void> {
+  if (from === to) return;
+  const appUrl = publicEnv().NEXT_PUBLIC_APP_URL;
+  const planName = ctx.planSlug !== null && isPlanSlug(ctx.planSlug) ? PLANS[ctx.planSlug].displayName : 'paid';
+  const period = ctx.periodEnd?.toISOString().slice(0, 10) ?? 'none';
+  const wasFailing = from === 'PAST_DUE' || from === 'GRACE';
+  const nowFailing = to === 'PAST_DUE' || to === 'GRACE';
+
+  try {
+    if (nowFailing && !wasFailing && ctx.gracePeriodEnd !== null) {
+      await notifyAccount(client, {
+        userId,
+        kind: 'PAYMENT_FAILED',
+        key: `email_payment_failed_${ctx.subscriptionId}_${period}`,
+        message: paymentFailedEmail({ appUrl, graceEnds: ctx.gracePeriodEnd }),
+      });
+    } else if (to === 'CANCELED_PENDING_EXPIRY') {
+      await notifyAccount(client, {
+        userId,
+        kind: 'CANCELED',
+        key: `email_canceled_${ctx.subscriptionId}_${period}`,
+        message: subscriptionCanceledEmail({ appUrl, periodEnds: ctx.periodEnd, planName }),
+      });
+    } else if (to === 'PAUSED') {
+      await notifyAccount(client, {
+        userId,
+        kind: 'PAUSED',
+        key: `email_paused_${ctx.subscriptionId}_${new Date().toISOString().slice(0, 10)}`,
+        message: subscriptionPausedEmail({
+          appUrl,
+          resumesBy: new Date(Date.now() + POLICY.pause.maxDays * DAY_MS),
+        }),
+      });
+    } else if (from === 'PAUSED' && to === 'ACTIVE') {
+      await notifyAccount(client, {
+        userId,
+        kind: 'RESUMED',
+        key: `email_resumed_${ctx.subscriptionId}_${new Date().toISOString().slice(0, 10)}`,
+        message: subscriptionResumedEmail({ appUrl, planName }),
+      });
+    } else if (to === 'EXPIRED' && from === 'CANCELED_PENDING_EXPIRY') {
+      await notifyAccount(client, {
+        userId,
+        kind: 'ENDED',
+        key: `email_ended_${ctx.subscriptionId}`,
+        message: subscriptionEndedEmail({ appUrl, planName }),
+      });
+    }
+  } catch (error) {
+    log.warn('subscription email failed', {
+      route: 'payments.notifyTransition',
+      errorClass: error instanceof Error ? error.name : 'UnknownError',
+    });
+  }
 }
 
 /**

@@ -14,6 +14,9 @@
  */
 
 import { type NextRequest } from 'next/server';
+import { publicEnv } from '@/lib/env';
+import { notifyAccount } from '@/lib/email/account';
+import { deletionRequestedEmail } from '@/domain/email/messages';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { POLICY } from '@/config/policy';
@@ -103,6 +106,15 @@ export const POST = handler('/api/privacy/delete', async (request: NextRequest, 
       detail: error?.code,
     });
   }
+
+  // Tell the account holder. If the request was not theirs, this is how they
+  // find out in time to stop it.
+  await notifyAccount(admin, {
+    userId: user.id,
+    kind: 'DELETION_REQUESTED',
+    key: `email_deletion_${(job as { id: string }).id}`,
+    message: deletionRequestedEmail({ appUrl: publicEnv().NEXT_PUBLIC_APP_URL, executesOn: executeAfter }),
+  });
 
   await admin.from('audit_logs').insert({
     user_id: user.id,

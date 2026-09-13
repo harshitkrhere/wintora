@@ -362,6 +362,7 @@ constant time.
 | Retention sweep | `POST /api/cron/retention-sweep` | Hourly |
 | Billing reconciliation | `POST /api/cron/reconcile-billing` | Every 6 hours |
 | Reminder emails | `POST /api/cron/send-reminders` | Hourly |
+| Annual renewal notices | `POST /api/cron/send-renewal-reminders` | Daily |
 
 All three also accept `GET`, which is what Vercel's scheduler sends (with the
 same bearer header, taken from the `CRON_SECRET` environment variable).
@@ -379,7 +380,8 @@ tighten them to hourly and every six hours respectively.
   "crons": [
     { "path": "/api/cron/retention-sweep", "schedule": "0 3 * * *" },
     { "path": "/api/cron/reconcile-billing", "schedule": "0 4 * * *" },
-    { "path": "/api/cron/send-reminders", "schedule": "0 13 * * *" }
+    { "path": "/api/cron/send-reminders", "schedule": "0 13 * * *" },
+    { "path": "/api/cron/send-renewal-reminders", "schedule": "30 13 * * *" }
   ]
 }
 ```
@@ -388,6 +390,38 @@ Both process in batches and report `more: true` when there is further work, so a
 backlog drains over successive runs rather than timing out.
 
 ---
+
+## 5a. Email
+
+Two senders, both configured once:
+
+**The product's own messages** (reminders, retention notices, subscription
+changes, deletion requests, the welcome, the annual renewal notice) go through
+`src/lib/email` with `EMAIL_PROVIDER=resend` and `RESEND_API_KEY`. Every
+message is claimed in the `jobs` table by an idempotency key before it is
+sent, so a redelivered webhook or a re-run cron cannot send it twice, and with
+no provider configured the rows still accumulate as `QUEUED`.
+
+**Sign-in messages** (confirmation, password reset, magic link, email change)
+are sent by Supabase Auth, whose built-in sender is rate-limited to a few per
+hour and sends from a Supabase address. Point it at Resend instead:
+
+Supabase dashboard → Project Settings → Authentication → SMTP Settings →
+Enable custom SMTP:
+
+| Field | Value |
+| --- | --- |
+| Sender email | `info@wintora.online` (must be on the domain verified in Resend) |
+| Sender name | `Wintora` |
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Username | `resend` |
+| Password | the Resend API key (sending access) |
+
+Then Authentication → Rate Limits: raise "emails per hour" from the built-in
+sender's cap. Optional but worth it: Authentication → Email Templates, replace
+the default wording with a plain sentence and the link, matching the product's
+own messages.
 
 ## 6. Deployment gate
 
