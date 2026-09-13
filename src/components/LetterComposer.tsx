@@ -17,6 +17,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TemplateField } from '@/domain/letters/render';
 import { splitListInput } from '@/domain/letters/send';
+import { clearLetterDraft, localStorageOrNull, readLetterDraft, writeLetterDraft } from '@/domain/letters/draft-store';
+import { offlineFailure, readApiError, type ApiFailure } from '@/lib/http/client';
+import { ActionBar } from './ActionBar';
+import { ApiNotice } from './ApiNotice';
 import { Icon } from './Icons';
 
 export interface TemplateSummary {
@@ -64,25 +68,52 @@ export function LetterComposer({
   const [docIds, setDocIds] = useState<string[]>([]);
   const [findingIds, setFindingIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiFailure | null>(null);
+  // What was typed is kept in this browser until the draft is made, so a
+  // dropped connection or a closed tab does not lose it.
+  const [restored, setRestored] = useState(false);
   // One key per form session: a double-click or a retry is the same letter.
   const [idempotencyKey] = useState(() => crypto.randomUUID().replace(/-/g, ''));
 
   const template = useMemo(() => templates.find((t) => t.key === templateKey) ?? null, [templates, templateKey]);
 
-  // When a template is chosen, start from what the case knows. A value the
-  // customer has typed for a field of the same name is kept.
+  // When a template is chosen, start from what the case knows, under what
+  // this browser kept from an earlier attempt at the same letter. A value
+  // the customer has typed for a field of the same name is kept.
   useEffect(() => {
     if (template === null) return;
+    const kept = readLetterDraft(localStorageOrNull(), caseId, template.key, templates.map((t) => t.key), new Date());
     setValues((prev) => {
       const next: Record<string, string> = {};
       for (const field of template.fields) {
-        next[field.key] = prev[field.key] ?? prefill[field.key] ?? '';
+        next[field.key] = prev[field.key] ?? kept?.values[field.key] ?? prefill[field.key] ?? '';
       }
       return next;
     });
+    if (kept !== null) {
+      if (kept.docIds.length > 0) setDocIds(kept.docIds.slice());
+      if (kept.findingIds.length > 0) setFindingIds(kept.findingIds.slice());
+    }
+    setRestored(kept !== null);
     setError(null);
-  }, [template, prefill]);
+  }, [template, templates, prefill, caseId]);
+
+  // Every change is kept. Nothing typed is sent anywhere by this.
+  useEffect(() => {
+    if (template === null) return;
+    writeLetterDraft(localStorageOrNull(), caseId, template.key, { values, docIds, findingIds }, new Date());
+  }, [template, caseId, values, docIds, findingIds]);
+
+  const startOver = useCallback((): void => {
+    if (template === null) return;
+    clearLetterDraft(localStorageOrNull(), caseId, template.key);
+    const next: Record<string, string> = {};
+    for (const field of template.fields) next[field.key] = prefill[field.key] ?? '';
+    setValues(next);
+    setDocIds([]);
+    setFindingIds([]);
+    setRestored(false);
+  }, [template, caseId, prefill]);
 
   const grouped = useMemo(() => {
     const out = new Map<string, TemplateSummary[]>();
@@ -122,16 +153,20 @@ export function LetterComposer({
               : {}),
           }),
         });
-        const json = (await response.json()) as
-          | { letter: { id: string } }
-          | { error: { message: string } };
-        if (!response.ok || !('letter' in json)) {
-          setError('error' in json ? json.error.message : 'We could not prepare the draft.');
+        if (!response.ok) {
+          setError(await readApiError(response, 'We could not prepare the draft.'));
           return;
         }
+        const json = (await response.json()) as { letter: { id: string } } | { error: { message: string } };
+        if (!('letter' in json)) {
+          setError({ code: null, message: 'error' in json ? json.error.message : 'We could not prepare the draft.' });
+          return;
+        }
+        // Made: the copy this browser kept has done its job.
+        clearLetterDraft(localStorageOrNull(), caseId, template.key);
         router.push(`/cases/${caseId}/letters/${json.letter.id}`);
       } catch {
-        setError('We could not reach the service. Please check your connection.');
+        setError(offlineFailure());
       } finally {
         setBusy(false);
       }
@@ -288,13 +323,18 @@ export function LetterComposer({
             </fieldset>
           ) : null}
 
-          {error !== null ? (
-            <p role="alert" className="notice notice--error">
-              {error}
+          {restored ? (
+            <p className="notice notice--info" role="status">
+              Restored what you typed earlier.{' '}
+              <button type="button" className="btn btn--link" onClick={startOver}>
+                Start over
+              </button>
             </p>
           ) : null}
 
-          <div className="form-actions">
+          <ApiNotice failure={error} />
+
+          <ActionBar inCard secondary={<span className="small muted">You review it before anything leaves your hands.</span>}>
             <button
               type="submit"
               className="btn btn--primary btn--lg"
@@ -304,8 +344,7 @@ export function LetterComposer({
               {busy ? 'Preparing…' : 'Prepare the draft'}
               {!busy ? <Icon name="arrow-right" /> : null}
             </button>
-            <span className="small muted">You review it before anything leaves your hands.</span>
-          </div>
+          </ActionBar>
         </form>
       ) : null}
     </div>

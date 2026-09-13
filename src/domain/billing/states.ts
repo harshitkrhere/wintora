@@ -258,7 +258,8 @@ export const STATUS_DESCRIPTIONS: Readonly<Record<SubscriptionStatus, string>> =
   PAUSED: 'Your subscription is paused.',
   CANCELED_PENDING_EXPIRY:
     'Your subscription is canceled. Your features stay active until the end of the current period.',
-  EXPIRED: 'Your subscription has ended. Your account is on the Free plan.',
+  EXPIRED:
+    'Your plan has ended. Your account is still here: your cases, your documents and the basic bill check stay yours, on the Free plan.',
   REFUNDED: 'This subscription was refunded.',
   REVOKED: 'This subscription was ended by us. Please contact support.',
 };

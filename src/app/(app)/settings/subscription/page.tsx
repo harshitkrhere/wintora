@@ -203,7 +203,7 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
         </div>
       ) : null}
 
-      <section className="two-col">
+      <section className="two-col sub-plan">
         <div className="card">
           <div className="card__header">
             <h2 className="card__title">Billing</h2>
@@ -334,7 +334,7 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
       </section>
 
       {manageable ? (
-        <section className="stack">
+        <section className="stack sub-later">
           <div className="section-head">
             <h2>Invoices</h2>
             <span className="caption">{BILLING_PAGE_DISCLOSURES.invoiceSource}</span>
@@ -391,7 +391,7 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
         </section>
       ) : null}
 
-      <section className="stack">
+      <section className="stack sub-later">
         <div className="section-head">
           <h2>What happens if…</h2>
         </div>
@@ -430,7 +430,7 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
         </div>
       </section>
 
-      <section className="stack">
+      <section className="stack sub-later">
         <div className="section-head">
           <h2>Appearance</h2>
         </div>

@@ -4153,6 +4153,15 @@ pre.letter-text {
   display: grid;
   gap: 0.5rem;
 }
+/* On a phone the switch above shows one side; from 64rem both are there. */
+.compare__side--off {
+  display: none;
+}
+@media (min-width: 64rem) {
+  .compare__side--off {
+    display: grid;
+  }
+}
 .compare-lines {
   display: grid;
   gap: 0.5rem;
@@ -5133,6 +5142,21 @@ html:has(dialog.sheet[open]) {
 @media (min-width: 64rem) {
   .show-narrow {
     display: none;
+  }
+}
+
+/* --- Account on a phone: what is left this period comes before the
+   feature lists; the wide screen keeps its two columns in document order --- */
+.sub-plan {
+  order: 1;
+}
+.sub-later {
+  order: 2;
+}
+@media (min-width: 64rem) {
+  .sub-plan,
+  .sub-later {
+    order: 0;
   }
 }
 

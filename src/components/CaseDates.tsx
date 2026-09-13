@@ -13,16 +13,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CaseDeadline, CaseReminder } from '@/lib/cases/load';
+import { offlineFailure, readApiError, type ApiFailure } from '@/lib/http/client';
+import { ApiNotice } from './ApiNotice';
 import { Icon } from './Icons';
-
-async function readError(response: Response, fallback: string): Promise<string> {
-  try {
-    const json = (await response.json()) as { error?: { message?: string } };
-    return json.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function dayLabel(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -60,7 +53,7 @@ export function CaseDates({
   const [title, setTitle] = useState('');
   const [when, setWhen] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiFailure | null>(null);
 
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
@@ -74,13 +67,13 @@ export function CaseDates({
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
       if (!response.ok) {
-        setError(await readError(response, 'That was not saved.'));
+        setError(await readApiError(response, 'That was not saved.'));
         return false;
       }
       router.refresh();
       return true;
     } catch {
-      setError('We could not reach the service. Please check your connection.');
+      setError(offlineFailure());
       return false;
     }
   };
@@ -264,13 +257,9 @@ export function CaseDates({
         </div>
       )}
 
-      {error !== null ? (
-        <p role="alert" className="notice notice--error">
-          {error}
-        </p>
-      ) : null}
+      <ApiNotice failure={error} />
 
-      <p className="caption m-0">
+      <p className="small muted m-0">
         {emailOn
           ? 'Reminders are emailed to you on the day, with a link to the case and nothing from it. '
           : 'Reminders show here and on your home page. '}

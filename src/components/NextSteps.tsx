@@ -12,6 +12,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { offlineFailure, readApiError, type ApiFailure } from '@/lib/http/client';
+import { ApiNotice } from './ApiNotice';
 
 export interface Step {
   readonly text: string;
@@ -22,7 +24,7 @@ export function NextSteps({ caseId, steps }: { caseId: string; steps: readonly S
   const router = useRouter();
   const [items, setItems] = useState<readonly Step[]>(steps);
   const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiFailure | null>(null);
 
   const doneCount = items.filter((s) => s.done).length;
   const allDone = doneCount === items.length;
@@ -39,12 +41,16 @@ export function NextSteps({ caseId, steps }: { caseId: string; steps: readonly S
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ step: step.text, done: next }),
       });
-      if (!response.ok) throw new Error('not recorded');
+      if (!response.ok) {
+        setItems((prev) => prev.map((s) => (s.text === step.text ? { ...s, done: step.done } : s)));
+        setError(await readApiError(response, 'That was not recorded. Please try again.'));
+        return;
+      }
       // The timeline beneath is server-rendered; ask for it again.
       router.refresh();
     } catch {
       setItems((prev) => prev.map((s) => (s.text === step.text ? { ...s, done: step.done } : s)));
-      setError('That was not recorded. Please check your connection and try again.');
+      setError(offlineFailure());
     } finally {
       setPending(null);
     }
@@ -74,12 +80,8 @@ export function NextSteps({ caseId, steps }: { caseId: string; steps: readonly S
           </li>
         ))}
       </ul>
-      {error !== null ? (
-        <p role="alert" className="notice notice--error">
-          {error}
-        </p>
-      ) : null}
-      <p className="caption card__last">
+      <ApiNotice failure={error} />
+      <p className="small muted card__last">
         Ticking a step records it on the timeline, so the case remembers what you have done.
         Nothing is sent to anyone.
       </p>

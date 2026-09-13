@@ -20,6 +20,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FOLLOW_UP_AFTER_DAYS, followUpDate, mailtoLink, type SendRoute } from '@/domain/letters/send';
+import { offlineFailure, readApiError, type ApiFailure } from '@/lib/http/client';
+import { ActionBar } from './ActionBar';
+import { ApiNotice } from './ApiNotice';
 import { Icon } from './Icons';
 
 export interface LetterView {
@@ -33,15 +36,6 @@ export interface LetterView {
   readonly sentVia: string | null;
   readonly sentTo: string | null;
   readonly attachments: readonly { kind: string; id: string; label: string }[];
-}
-
-async function readError(response: Response, fallback: string): Promise<string> {
-  try {
-    const json = (await response.json()) as { error?: { message?: string } };
-    return json.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 function today(): string {
@@ -85,7 +79,7 @@ export function LetterReview({
   const [reminderSet, setReminderSet] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiFailure | null>(null);
 
   const dirty = content !== saved;
   const ready = status === 'FINALIZED' && sentAt === null;
@@ -109,13 +103,13 @@ export function LetterReview({
           body: body !== undefined ? JSON.stringify(body) : undefined,
         });
         if (!response.ok) {
-          setError(await readError(response, 'That was not saved.'));
+          setError(await readApiError(response, 'That was not saved.'));
           return null;
         }
         router.refresh();
         return (await response.json().catch(() => ({}))) as Record<string, unknown>;
       } catch {
-        setError('We could not reach the service. Please check your connection.');
+        setError(offlineFailure());
         return null;
       } finally {
         setBusy(null);
@@ -176,7 +170,7 @@ export function LetterReview({
       await navigator.clipboard.writeText(saved);
       setNote('Copied');
     } catch {
-      setError('Your browser did not allow copying. Select the text and copy it instead.');
+      setError({ code: null, message: 'Your browser did not allow copying. Select the text and copy it instead.' });
     }
   };
 
@@ -227,19 +221,10 @@ export function LetterReview({
                 </label>
               </li>
             </ul>
-            <div className="letter-actions">
-              <button type="button" className="btn btn--primary" onClick={finish} disabled={!agreed || busy !== null} aria-busy={busy === 'confirm'}>
-                {busy === 'confirm' ? 'One moment…' : 'Get my letter'}
-              </button>
-              <button type="button" className="btn btn--quiet" onClick={save} disabled={!dirty || busy !== null}>
-                {busy === 'save' ? 'Saving…' : 'Save for later'}
-              </button>
-              <span className="spacer" />
-              <span className="small muted" aria-live="polite">
-                {note ?? ''}
-              </span>
-            </div>
-            <p className="caption m-0">{confirmation}</p>
+            <p className="small muted m-0" aria-live="polite">
+              {note ?? ''}
+            </p>
+            <p className="small m-0">{confirmation}</p>
           </div>
         ) : null}
 
@@ -247,14 +232,6 @@ export function LetterReview({
         {ready && !editing ? (
           <div className="stack--sm">
             <div className="letter-actions">
-              <a className="btn btn--primary" href={mailto.href} onClick={() => setRoute('email')}>
-                <Icon name="mail" />
-                Email it
-              </a>
-              <a className="btn btn--secondary" href={`/api/letters/${letter.id}/download?format=pdf`} onClick={() => setRoute('post')}>
-                <Icon name="document" />
-                Download PDF
-              </a>
               <button type="button" className="btn btn--quiet" onClick={copy}>
                 Copy text
               </button>
@@ -266,7 +243,7 @@ export function LetterReview({
                 {note ?? ''}
               </span>
             </div>
-            <p className="caption m-0">
+            <p className="small m-0">
               &ldquo;Email it&rdquo; opens your own mail app with the letter filled in; you add their address and press send.
               The billing address is usually near the top of the statement or on the payment stub.
               {mailto.bodyIncluded ? '' : ' This letter is long, so attach the PDF to the email.'}
@@ -289,19 +266,7 @@ export function LetterReview({
               <strong>{day(followUpDate(new Date(sentAt!)))}</strong>, send the follow-up; it refers back to this letter by date.
             </p>
             <div className="letter-actions">
-              {canRemind ? (
-                reminderSet ? (
-                  <span className="badge badge--success">Reminder set</span>
-                ) : (
-                  <button type="button" className="btn btn--primary" onClick={remind} disabled={busy !== null} aria-busy={busy === 'remind'}>
-                    <Icon name="clock" />
-                    {busy === 'remind' ? 'Setting…' : `Remind me in ${FOLLOW_UP_AFTER_DAYS} days`}
-                  </button>
-                )
-              ) : null}
-              <a className="btn btn--secondary" href={`/cases/${letter.caseId}/letters/new?template=FOLLOW_UP_PREVIOUS_LETTER`}>
-                Write the follow-up
-              </a>
+              {canRemind && reminderSet ? <span className="badge badge--success">Reminder set</span> : null}
               <a className="btn btn--quiet" href={`/api/letters/${letter.id}/download?format=pdf`}>
                 PDF
               </a>
@@ -313,14 +278,10 @@ export function LetterReview({
         ) : null}
 
         {letter.attachments.length > 0 ? (
-          <p className="caption m-0">Evidence attached: {letter.attachments.map((a) => a.label).join('; ')}.</p>
+          <p className="small muted m-0">Evidence attached: {letter.attachments.map((a) => a.label).join('; ')}.</p>
         ) : null}
 
-        {error !== null ? (
-          <p role="alert" className="notice notice--error">
-            {error}
-          </p>
-        ) : null}
+        <ApiNotice failure={error} />
       </div>
 
       <div className="letter-actions">
@@ -333,6 +294,55 @@ export function LetterReview({
           Remove
         </button>
       </div>
+
+      {/* The one action for this state, under the thumb; its quieter twin beside it. */}
+      {editing ? (
+        <ActionBar
+          secondary={
+            <button type="button" className="btn btn--link" onClick={save} disabled={!dirty || busy !== null}>
+              {busy === 'save' ? 'Saving…' : 'Save for later'}
+            </button>
+          }
+        >
+          <button type="button" className="btn btn--primary btn--lg" onClick={finish} disabled={!agreed || busy !== null} aria-busy={busy === 'confirm'}>
+            {busy === 'confirm' ? 'One moment…' : 'Get my letter'}
+          </button>
+        </ActionBar>
+      ) : ready ? (
+        <ActionBar
+          secondary={
+            <a className="btn btn--link" href={`/api/letters/${letter.id}/download?format=pdf`} onClick={() => setRoute('post')}>
+              Download PDF
+            </a>
+          }
+        >
+          <a className="btn btn--primary btn--lg" href={mailto.href} onClick={() => setRoute('email')}>
+            <Icon name="mail" />
+            Email it
+          </a>
+        </ActionBar>
+      ) : sent ? (
+        <ActionBar
+          secondary={
+            canRemind && !reminderSet ? (
+              <a className="btn btn--link" href={`/cases/${letter.caseId}/letters/new?template=FOLLOW_UP_PREVIOUS_LETTER`}>
+                Write the follow-up
+              </a>
+            ) : undefined
+          }
+        >
+          {canRemind && !reminderSet ? (
+            <button type="button" className="btn btn--primary btn--lg" onClick={remind} disabled={busy !== null} aria-busy={busy === 'remind'}>
+              <Icon name="clock" />
+              {busy === 'remind' ? 'Setting…' : `Remind me in ${FOLLOW_UP_AFTER_DAYS} days`}
+            </button>
+          ) : (
+            <a className="btn btn--primary btn--lg" href={`/cases/${letter.caseId}/letters/new?template=FOLLOW_UP_PREVIOUS_LETTER`}>
+              Write the follow-up
+            </a>
+          )}
+        </ActionBar>
+      ) : null}
     </div>
   );
 }

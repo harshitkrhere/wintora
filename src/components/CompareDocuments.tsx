@@ -17,9 +17,26 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { AnalysisResult } from '@/domain/analysis/types';
 import type { ExtractionDraft } from '@/domain/documents/draft';
+import { offlineFailure, readApiError, type ApiFailure } from '@/lib/http/client';
+import { ActionBar } from './ActionBar';
+import { ApiNotice } from './ApiNotice';
 import { FindingCard } from './FindingCard';
 import { Icon } from './Icons';
+import { Segmented, segmentedIds } from './Segmented';
 import { fromCents, toCents } from './BillCheckerTool';
+
+type Side = 'bill' | 'eob';
+const SIDES: readonly { value: Side; label: string }[] = [
+  { value: 'bill', label: 'Bill' },
+  { value: 'eob', label: 'EOB' },
+];
+
+/** A typed amount as money, for the two figures shown above the switch. */
+function shown(raw: string, currency: string): string {
+  const cents = toCents(raw);
+  if (cents === null) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
+}
 
 export interface ReadDocument {
   readonly id: string;
@@ -113,7 +130,9 @@ export function CompareDocuments({
   const [eobResponsibility, setEobResponsibility] = useState('');
   const [currency, setCurrency] = useState<'USD' | 'CAD'>('USD');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiFailure | null>(null);
+  // On a phone one side is shown at a time; both stay mounted so edits keep.
+  const [side, setSide] = useState<Side>('bill');
   const [result, setResult] = useState<Response | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID().replace(/-/g, ''));
 
@@ -157,7 +176,7 @@ export function CompareDocuments({
       const billFilled = billLines.filter((l) => l.description.trim().length > 0 && toCents(l.amount) !== null);
       const eobFilled = eobLines.filter((l) => l.description.trim().length > 0);
       if (billFilled.length === 0) {
-        setError('The statement needs at least one line with a description and an amount.');
+        setError({ code: null, message: 'The statement needs at least one line with a description and an amount.' });
         setBusy(false);
         return;
       }
@@ -213,15 +232,19 @@ export function CompareDocuments({
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body),
         });
+        if (!response.ok) {
+          setError(await readApiError(response, 'The comparison could not run. Please try again.'));
+          return;
+        }
         const json = (await response.json()) as Response | { error: { message: string } };
-        if (!response.ok || !('analysis' in json)) {
-          setError('error' in json ? json.error.message : 'Something went wrong. Please try again.');
+        if (!('analysis' in json)) {
+          setError({ code: null, message: 'error' in json ? json.error.message : 'The comparison could not run. Please try again.' });
           return;
         }
         setResult(json);
         setIdempotencyKey(crypto.randomUUID().replace(/-/g, ''));
       } catch {
-        setError('We could not reach the service. Please check your connection.');
+        setError(offlineFailure());
       } finally {
         setBusy(false);
       }
@@ -240,8 +263,29 @@ export function CompareDocuments({
         </p>
       ) : null}
 
+      {/* On a phone: the two figures that matter side by side, then a
+          switch between the two documents. The wide screen shows both. */}
+      <div className="show-narrow stack">
+        <div className="amount-pair">
+          <div className="amount amount--sm">
+            <span className="amount__value">{shown(amountDue.length > 0 ? amountDue : total, currency)}</span>
+            <span className="amount__label">Bill: amount due</span>
+          </div>
+          <div className="amount amount--sm">
+            <span className="amount__value">{shown(eobResponsibility, currency)}</span>
+            <span className="amount__label">EOB: your responsibility</span>
+          </div>
+        </div>
+        <Segmented label="Document" options={SIDES} value={side} onChange={setSide} idBase={`${formId}-side`} />
+      </div>
+
       <div className="compare">
-        <section className="card stack" aria-labelledby={`${formId}-bill`}>
+        <section
+          className={`card stack compare__side${side === 'bill' ? '' : ' compare__side--off'}`}
+          id={segmentedIds(`${formId}-side`, 'bill').panel}
+          role="tabpanel"
+          aria-labelledby={segmentedIds(`${formId}-side`, 'bill').tab}
+        >
           <div className="compare__pick">
             <h2 id={`${formId}-bill`} className="card__title">
               The statement
@@ -326,7 +370,12 @@ export function CompareDocuments({
           </div>
         </section>
 
-        <section className="card stack" aria-labelledby={`${formId}-eob`}>
+        <section
+          className={`card stack compare__side${side === 'eob' ? '' : ' compare__side--off'}`}
+          id={segmentedIds(`${formId}-side`, 'eob').panel}
+          role="tabpanel"
+          aria-labelledby={segmentedIds(`${formId}-side`, 'eob').tab}
+        >
           <div className="compare__pick">
             <h2 id={`${formId}-eob`} className="card__title">
               The explanation of benefits
@@ -412,20 +461,19 @@ export function CompareDocuments({
         </section>
       </div>
 
-      <div className="form-actions">
+      <ActionBar
+        secondary={
+          <span className="small muted">
+            {billId === eobId ? 'Choose two different documents.' : 'Runs on the figures as you have confirmed them, and is saved to the case.'}
+          </span>
+        }
+      >
         <button type="submit" className="btn btn--primary btn--lg" disabled={busy || !enabled || billId === eobId} aria-busy={busy}>
-          {busy ? 'Comparing…' : 'Compare the two'}
+          {busy ? 'Comparing…' : 'Run the check'}
         </button>
-        <span className="small muted">
-          {billId === eobId ? 'Choose two different documents.' : 'Runs on the figures as you have confirmed them, and is saved to the case.'}
-        </span>
-      </div>
+      </ActionBar>
 
-      {error !== null ? (
-        <p role="alert" className="notice notice--error">
-          {error}
-        </p>
-      ) : null}
+      <ApiNotice failure={error} />
 
       {result !== null ? (
         <section aria-live="polite" className="stack--md reveal">
