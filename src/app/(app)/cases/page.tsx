@@ -31,7 +31,6 @@ export default async function CasesPage(): Promise<React.ReactElement> {
     <div className="shell stack--lg page">
       <div className="page-head">
         <div className="page-head__text">
-          <p className="eyebrow">Cases</p>
           <h1>Your cases</h1>
           <p className="lede">
             One case per bill. Everything you upload and every check you run stays on it.
@@ -65,9 +64,13 @@ export default async function CasesPage(): Promise<React.ReactElement> {
                 action={{ href: '/upload', label: 'Upload a bill' }}
               />
             ) : null}
-            {open.map((c) => (
-              <CaseCard key={c.id} summary={c} />
-            ))}
+            {open.length > 0 ? (
+              <div className="case-list">
+                {open.map((c) => (
+                  <CaseCard key={c.id} summary={c} />
+                ))}
+              </div>
+            ) : null}
           </section>
           {rest.length > 0 ? (
             <section className="stack">
@@ -75,9 +78,11 @@ export default async function CasesPage(): Promise<React.ReactElement> {
                 <h2>Closed</h2>
                 <span className="section-head__count">{rest.length}</span>
               </div>
-              {rest.map((c) => (
-                <CaseCard key={c.id} summary={c} />
-              ))}
+              <div className="case-list">
+                {rest.map((c) => (
+                  <CaseCard key={c.id} summary={c} />
+                ))}
+              </div>
             </section>
           ) : null}
         </>

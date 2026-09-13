@@ -97,7 +97,6 @@ export default async function BillingSuccessPage(): Promise<React.ReactElement> 
         {/* A short refresh, because the wait is normally a few seconds. */}
         <meta httpEquiv="refresh" content="4" />
         <div className="page-head__text">
-          <p className="eyebrow">Almost there</p>
           <h1>Finalising your subscription</h1>
           <p className="lede">
             We are waiting for confirmation from the payment provider before switching on
@@ -128,12 +127,9 @@ export default async function BillingSuccessPage(): Promise<React.ReactElement> 
 
   return (
     <div className="narrow page stack--md">
-      <div className="text-center">
-        <div className="icon-tile icon-tile--lg icon-tile--success mx-auto" aria-hidden>
-          <Icon name="check" />
-        </div>
-        <p className="eyebrow mt-4">Confirmed</p>
-        <h1>You are now subscribed to {summary.planDisplayName}.</h1>
+      <div>
+        <p className="badge badge--success">Confirmed</p>
+        <h1 className="mt-2">You are now subscribed to {summary.planDisplayName}.</h1>
       </div>
 
       <div className="card">

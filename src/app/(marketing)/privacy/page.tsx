@@ -74,7 +74,6 @@ const SUBPROCESSORS: readonly {
 export default function PrivacyPage(): React.ReactElement {
   return (
     <div className="narrow page legal">
-      <p className="eyebrow">Privacy policy</p>
       <h1>What we hold about you, and why</h1>
       <p className="lede">
         Medical bills are health information. This page says exactly what the software

@@ -3,11 +3,9 @@
 /**
  * The public site's navigation.
  *
- * On a wide screen: three links and the account control, inline. On a phone
- * the three links fold into a floating menu under the header, opened by one
- * button; the account control stays in the bar. Before this existed the links
- * were simply hidden below 720px, and a phone visitor could reach the tool,
- * the methodology and the prices only through the footer.
+ * On a wide screen: three links, a quiet way in, and the one action. On a
+ * phone the three links fold into a sheet under the header, opened by one
+ * button; the action stays in the bar, in reach.
  *
  * The menu is open for exactly one path: following a link, or the browser
  * moving to another page, changes the path and so closes it without an
@@ -20,11 +18,10 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { AuthNav } from './AuthNav';
 import { Icon } from './Icons';
-import { ThemeToggle } from './ThemeToggle';
 
 const LINKS = [
-  { href: '/medical-bill-checker', label: 'Check a bill' },
   { href: '/methodology', label: 'How it works' },
+  { href: '/bill-vs-eob', label: 'Bill vs EOB' },
   { href: '/pricing', label: 'Pricing' },
 ] as const;
 
@@ -57,8 +54,10 @@ export function SiteNav(): React.ReactElement {
           </Link>
         ))}
       </div>
-      <ThemeToggle variant="icon" />
       <AuthNav />
+      <Link href="/medical-bill-checker" className="btn btn--primary site-nav__cta">
+        Check a bill
+      </Link>
       <button
         type="button"
         className="icon-btn site-nav__toggle"

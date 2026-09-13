@@ -77,7 +77,6 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
   return (
     <div className="narrow page stack--md">
       <div className="page-head__text">
-        <p className="eyebrow">Checkout</p>
         <h1>Complete your subscription</h1>
         <p className="lede">
           The secure payment form opens on this page. Your card details go straight to

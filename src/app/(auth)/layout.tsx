@@ -1,6 +1,6 @@
 /**
- * Auth shell: one card, centred, nothing to navigate. The mark is the only
- * way back, and it goes home.
+ * Auth shell: one narrow column on the canvas, nothing to navigate. The mark
+ * is the only way back, and it goes home.
  */
 
 import Link from 'next/link';
@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }):
     <main id="main" className="auth-shell">
       <div className="auth-card">
         <Link href="/" className="auth-card__mark" aria-label="Wintora home">
-          <LeafMark size={42} />
+          <LeafMark size={32} title="" />
         </Link>
         {children}
       </div>

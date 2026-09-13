@@ -46,7 +46,6 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
     <div className="shell page tool-page">
       <article>
         <header className="tool-page__intro">
-          <p className="eyebrow">Free tool</p>
           <h1>{props.h1}</h1>
           {/* Block 2: the direct answer, first, in plain prose. */}
           <p className="lede">{props.directAnswer}</p>
@@ -68,7 +67,7 @@ export function ToolPage(props: ToolPageProps): React.ReactElement {
                 ))}
               </ul>
             </div>
-            <div className="card card--soft">
+            <div className="card">
               <h3>This will not help with</h3>
               <ul className="x-list">
                 {props.doesNotApplyTo.map((item) => (

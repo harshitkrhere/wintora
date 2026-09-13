@@ -31,9 +31,6 @@ export function CaseCard({ summary }: { summary: CaseSummary }): React.ReactElem
 
   return (
     <Link href={`/cases/${summary.id}`} className="card case-card">
-      <span className={`icon-tile ${closed ? 'icon-tile--neutral' : ''}`} aria-hidden>
-        <Icon name="document" />
-      </span>
       <span className="case-card__body">
         <span className="case-card__title">{summary.title}</span>
         <span className="case-card__meta">

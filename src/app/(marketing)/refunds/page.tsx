@@ -28,7 +28,6 @@ export default function RefundsPage(): React.ReactElement {
 
   return (
     <div className="narrow page legal">
-      <p className="eyebrow">Refunds and cancellation</p>
       <h1>Cancel any time. Refunds without an argument.</h1>
       <p className="lede">
         This is the whole policy. Last updated{' '}

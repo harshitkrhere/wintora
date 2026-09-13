@@ -36,7 +36,6 @@ export default async function UploadPage({
   return (
     <div className="medium stack--lg page">
       <div className="page-head__text">
-        <p className="eyebrow">Upload</p>
         <h1>Check a bill from your documents</h1>
         <p className="lede">
           Upload a PDF or a photo. We read the figures, you confirm them, and the same

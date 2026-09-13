@@ -335,9 +335,6 @@ export function BillCheckerTool({
               the checks to be useful.
             </p>
           </div>
-          <span className="icon-tile" aria-hidden>
-            <Icon name="receipt" />
-          </span>
         </div>
 
         <fieldset className="form-group form-group--first">
@@ -557,11 +554,6 @@ function AllowanceNote({ caseId, allowance }: { caseId: string | null; allowance
 function SignUpWall({ variant, limit }: { variant: 'last' | 'exhausted'; limit: number }): React.ReactElement {
   return (
     <div className="empty" role="status">
-      <div className="empty__mark" aria-hidden>
-        <span>
-          <Icon name="lock" className="empty__icon" />
-        </span>
-      </div>
       <h2 className="empty__title">
         {variant === 'last' ? 'That was your last free check' : `You have used your ${limit} free checks`}
       </h2>
@@ -597,7 +589,6 @@ function Results({ result }: { result: ApiResponse }): React.ReactElement {
   return (
     <section ref={top} aria-live="polite" className="stack--md reveal">
       <div>
-        <p className="eyebrow">What we found</p>
         <h2 className="m-0">{result.headline}</h2>
         <p className="small muted mt-1">
           {lineItemCount} line item{lineItemCount === 1 ? '' : 's'} checked against {checks} rules.

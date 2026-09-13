@@ -50,14 +50,14 @@ export function AuthNav(): React.ReactElement {
 
   if (state === 'signed-in') {
     return (
-      <Link href="/dashboard" className="btn btn--primary">
+      <Link href="/dashboard" className="btn btn--secondary site-nav__signin">
         Dashboard
       </Link>
     );
   }
 
   return (
-    <Link href="/signin" className="btn btn--secondary">
+    <Link href="/signin" className="btn btn--quiet site-nav__signin">
       Sign in
     </Link>
   );

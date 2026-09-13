@@ -1,8 +1,9 @@
 /**
  * Public site chrome. Statically prerendered; must never read cookies.
  *
- * The header carries four things: the mark, three destinations, and one
- * action. Everything else is noise. The footer lists only pages that exist.
+ * The header carries the mark, three destinations, a quiet way in and the
+ * one action. The footer lists only pages that exist, the appearance
+ * control, and the lines the law and honesty require.
  */
 
 import Link from 'next/link';
@@ -18,7 +19,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <header className="site-header">
         <div className="shell site-header__inner">
           <Link href="/" className="brand">
-            <LeafMark />
+            <LeafMark title="" />
             <span>Wintora</span>
           </Link>
           <SiteNav />
@@ -32,11 +33,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="footer-grid">
             <div>
               <Link href="/" className="brand">
-                <LeafMark size={26} />
+                <LeafMark size={24} title="" />
                 <span>Wintora</span>
               </Link>
               <p className="footer__tagline">
-                Understand your medical bills before you pay. Review, compare, take action.
+                Clear answers about medical bills, before you pay.
               </p>
             </div>
             <div>
@@ -71,6 +72,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="footer-bottom">
+            <p className="footer-copy">© 2026 Wintora. All rights reserved.</p>
             <ThemeToggle variant="segmented" />
           </div>
 

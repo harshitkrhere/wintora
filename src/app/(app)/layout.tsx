@@ -2,7 +2,7 @@
  * Signed-in shell. Reads the session, so everything under it is dynamic.
  *
  * On a wide screen: a sidebar with the mark, four destinations, the account
- * and the way out. On a phone: a slim top bar with the mark and the way out,
+ * and the way out. Appearance is chosen in Settings, not in the chrome. On a phone: a slim top bar with the mark and the way out,
  * and the same four destinations along the bottom, in reach of a thumb. The
  * marketing navigation does not appear here: a person inside the product is
  * not being sold to.
@@ -14,7 +14,6 @@ import { requireUser } from '@/lib/http/api';
 import { isSafeMode } from '@/lib/env';
 import { LeafMark } from '@/components/Logo';
 import { SignOutButton } from '@/components/SignOutButton';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { AppNav } from '@/components/AppNav';
 import { SafeModeBanner } from '@/components/SafeModeBanner';
 
@@ -35,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="app-shell">
       <aside className="sidebar" aria-label="Sidebar">
         <Link href="/dashboard" className="brand sidebar__brand" aria-label="Dashboard">
-          <LeafMark />
+          <LeafMark title="" />
           <span>Wintora</span>
         </Link>
         <AppNav variant="sidebar" />
@@ -47,7 +46,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="sidebar__email">{email ?? 'Signed in'}</span>
           </div>
           <div className="sidebar__tools">
-            <ThemeToggle variant="icon" />
             <SignOutButton />
           </div>
         </div>
@@ -57,11 +55,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="app-topbar">
           <div className="shell app-topbar__inner">
             <Link href="/dashboard" className="brand" aria-label="Dashboard">
-              <LeafMark />
+              <LeafMark title="" />
               <span>Wintora</span>
             </Link>
             <div className="app-topbar__end">
-              <ThemeToggle variant="icon" />
               <SignOutButton />
             </div>
           </div>

@@ -23,7 +23,6 @@ export default function ContactPage(): React.ReactElement {
 
   return (
     <div className="narrow page legal">
-      <p className="eyebrow">Contact</p>
       <h1>Talk to a person</h1>
       <p className="lede">
         {OPERATOR.tradingName} is run by a small team, so you will get a reply from

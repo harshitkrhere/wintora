@@ -1,12 +1,12 @@
 /**
  * 404.
  *
- * Apologetic, plain, and never a dead end. No search box: there is nothing
- * on this site to search, and a box that searches nothing is decoration.
- * Four real places to go instead.
+ * Plain, and never a dead end. No search box: there is nothing on this site
+ * to search, and a box that searches nothing is decoration. The one filled
+ * action works for everyone, signed in or not.
  *
- * Static and cookie-free, so it renders under either shell without
- * reading the session. The links cover both audiences.
+ * Static and cookie-free, so it renders under either shell without reading
+ * the session. The quiet links cover both audiences.
  */
 
 import type { Metadata } from 'next';
@@ -20,26 +20,25 @@ export default function NotFound(): React.ReactElement {
     <main id="main" className="auth-shell">
       <div className="auth-card auth-card--wide">
         <Link href="/" className="auth-card__mark" aria-label="Wintora home">
-          <LeafMark size={42} />
+          <LeafMark size={32} title="" />
         </Link>
         <h1>That page is not here</h1>
         <p className="lede">
-          Sorry about that. The link may be old, or it may have been typed slightly
-          wrong. Nothing of yours has been affected.
+          The link may be old, or typed slightly wrong. Nothing of yours has been affected.
         </p>
         <div className="auth-actions">
-          <Link href="/dashboard" className="btn btn--primary btn--lg">
-            Go to your dashboard
+          <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
+            Check a bill
           </Link>
           <div className="auth-actions--row">
-            <Link href="/cases" className="btn btn--quiet">
-              Your cases
-            </Link>
-            <Link href="/medical-bill-checker" className="btn btn--quiet">
-              Check a bill
-            </Link>
             <Link href="/" className="btn btn--quiet">
               Home
+            </Link>
+            <Link href="/signin" className="btn btn--quiet">
+              Sign in
+            </Link>
+            <Link href="/cases" className="btn btn--quiet">
+              Your cases
             </Link>
           </div>
         </div>

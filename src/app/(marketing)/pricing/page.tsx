@@ -43,6 +43,15 @@ function unitLabel(count: number, unit: string): string {
   return count === 1 && unit.endsWith('s') ? unit.slice(0, -1) : unit;
 }
 
+/**
+ * The left-hand word of a ledger row on a plan: the unit for a limit ("Cases",
+ * "Analyses a month"), the feature's name for everything else.
+ */
+function limitLabel(key: FeatureKey, unit: string | undefined): string {
+  const base = unit === undefined ? FEATURES[key].name : unit.charAt(0).toUpperCase() + unit.slice(1);
+  return key.startsWith('MONTHLY_') ? `${base} a month` : base;
+}
+
 /** The one line a plan gets in the at-a-glance strip. */
 function glancePrice(plan: PlanDefinition, state: Pick<PageState, 'country' | 'interval'>): string {
   if (plan.isFree) return 'Free';
@@ -117,7 +126,7 @@ function cell(plan: PlanDefinition, key: FeatureKey): React.ReactElement {
 
   return (
     <span className="yes" aria-label="Included">
-      Included
+      ✓
     </span>
   );
 }
@@ -182,7 +191,7 @@ function PlanCard({ plan, state }: { plan: PlanDefinition; state: PageState }): 
   const highlights = HIGHLIGHT_FEATURES.map((key) => ({
     key,
     grant: plan.features[key],
-  })).filter((row) => row.grant?.enabled === true);
+  })).filter((row) => row.grant?.enabled === true && FEATURES[row.key].available);
 
   const classes = ['card', 'plan'];
   if (plan.recommended) classes.push('plan--recommended');
@@ -202,22 +211,24 @@ function PlanCard({ plan, state }: { plan: PlanDefinition; state: PageState }): 
 
       <PlanPriceBlock plan={plan} state={state} />
 
+      {/* A ledger: the thing on the left, the limit on the right. Only
+          features that exist today are listed; the rest are under "Planned". */}
       <ul className="plan__features" aria-label={`What ${plan.displayName} includes`}>
-        {highlights.slice(0, 6).map(({ key, grant }) => (
-          <li key={key} className={FEATURES[key].available ? undefined : 'muted'}>
-            <span>
-              {grant?.limitValue !== undefined && grant.limitValue !== null
-                ? `${grant.limitValue.toLocaleString('en-US')} ${
-                    grant.limitUnit === undefined ? '' : unitLabel(grant.limitValue, grant.limitUnit)
-                  }`.trim()
-                : FEATURES[key].benefitText}
-              {/* Said on the pricing page, before money changes hands, not after. */}
-              {!FEATURES[key].available && (
-                <span className="small muted"> — not yet available</span>
-              )}
-            </span>
-          </li>
-        ))}
+        {highlights.slice(0, 6).map(({ key, grant }) =>
+          grant?.limitValue !== undefined && grant.limitValue !== null ? (
+            <li key={key}>
+              <span>{limitLabel(key, grant.limitUnit)}</span>
+              <span className="plan__value">{grant.limitValue.toLocaleString('en-US')}</span>
+            </li>
+          ) : (
+            <li key={key}>
+              <span>{FEATURES[key].name}</span>
+              <span className="plan__value plan__value--yes" aria-label="Included">
+                ✓
+              </span>
+            </li>
+          ),
+        )}
       </ul>
 
       {plan.isFree ? (
@@ -326,11 +337,10 @@ export default async function PricingPage({
   return (
     <div className="shell pricing">
       <section className="pricing__intro">
-        <p className="eyebrow">Pricing</p>
         <h1>Plans and pricing</h1>
         <p className="lede">
-          Every limit below is the limit the software actually enforces. There is no
-          feature on this page that the backend does not implement.
+          Every limit below is the one the software enforces. Nothing on this page is
+          promised that the product does not do today.
         </p>
 
         <div className="pricing__controls">
@@ -410,13 +420,10 @@ export default async function PricingPage({
               </tr>
             </thead>
             <tbody>
-              {ALL_FEATURES.map((feature) => (
+              {ALL_FEATURES.filter((feature) => feature.available).map((feature) => (
                 <tr key={feature.key}>
                   <th scope="row" className="table__feature">
                     {feature.name}
-                    {!feature.available && (
-                      <span className="small muted"> · not yet available</span>
-                    )}
                     <span className="muted small table__feature-desc">{feature.description}</span>
                   </th>
                   {ALL_PLANS.map((plan) => (
@@ -428,6 +435,29 @@ export default async function PricingPage({
           </table>
         </div>
       </section>
+
+      {/* Said here, before money changes hands: what is being built is not
+          part of any plan until it ships. */}
+      {ALL_FEATURES.some((f) => !f.available) ? (
+        <section>
+          <div className="section-intro">
+            <h2>Planned, and not yet available</h2>
+            <p className="lede">
+              These are being built. None of them is part of any plan until it ships, and
+              nothing here is charged for.
+            </p>
+          </div>
+          <ul className="x-list">
+            {ALL_FEATURES.filter((f) => !f.available).map((f) => (
+              <li key={f.key}>
+                <span>
+                  <strong>{f.name}.</strong> {f.description}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section>
         <div className="section-intro">

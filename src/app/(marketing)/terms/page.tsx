@@ -33,7 +33,6 @@ const operatorName = OPERATOR.legalName ?? `${OPERATOR.tradingName}, operated by
 export default function TermsPage(): React.ReactElement {
   return (
     <div className="narrow page legal">
-      <p className="eyebrow">Terms of service</p>
       <h1>The terms, in plain words</h1>
       <p className="lede">
         These terms are the agreement between you and {OPERATOR.tradingName} when you use

@@ -68,7 +68,6 @@ export default function MethodologyPage(): React.ReactElement {
   return (
     <div className="medium page tool-page">
       <header className="tool-page__intro">
-        <p className="eyebrow">Methodology</p>
         <h1>How the analysis works</h1>
         <p className="lede">
           Every finding you see comes from fixed arithmetic rules run over the figures on
@@ -152,7 +151,7 @@ export default function MethodologyPage(): React.ReactElement {
               ))}
             </ul>
           </div>
-          <div className="card card--soft">
+          <div className="card">
             <h3>It cannot</h3>
             <ul className="x-list">
               {CAPABILITY_STATEMENT.doesNot.map((item) => (

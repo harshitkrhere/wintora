@@ -15,6 +15,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ManageSubscription } from '@/components/ManageSubscription';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Icon } from '@/components/Icons';
 import { BILLING_PAGE_DISCLOSURES } from '@/config/disclosures';
 import { formatPrice, type CurrencyCode } from '@/config/plans';
@@ -428,6 +429,13 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
             </p>
           </div>
         </div>
+      </section>
+
+      <section className="stack">
+        <div className="section-head">
+          <h2>Appearance</h2>
+        </div>
+        <ThemeToggle variant="segmented" />
       </section>
     </div>
   );
