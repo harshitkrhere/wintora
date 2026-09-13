@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic';
 const bodySchema = z.object({
   email: z.string().trim().email().max(320),
   password: z.string().min(1).max(400),
-  country: z.enum(['US', 'CA']).optional(),
+  country: z.enum(['US', 'CA', 'OTHER']).optional(),
   next: z.string().max(600).optional(),
 });
 

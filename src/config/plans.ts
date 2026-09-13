@@ -22,8 +22,26 @@ import type { FeatureKey } from './features';
 export const PLAN_SLUGS = ['free', 'essential', 'plus', 'pro'] as const;
 export type PlanSlug = (typeof PLAN_SLUGS)[number];
 
+/** The countries with a price list. Every charge is in one of these. */
 export const COUNTRIES = ['US', 'CA'] as const;
 export type CountryCode = (typeof COUNTRIES)[number];
+
+/**
+ * Where a customer says they are. The product is built for the United States
+ * and works in Canada; anyone else is welcome, is told the letters are
+ * written for US billing, and is charged from the US price list.
+ */
+export const RESIDENCE_COUNTRIES = ['US', 'CA', 'OTHER'] as const;
+export type ResidenceCountry = (typeof RESIDENCE_COUNTRIES)[number];
+
+export function isResidenceCountry(value: string): value is ResidenceCountry {
+  return (RESIDENCE_COUNTRIES as readonly string[]).includes(value);
+}
+
+/** The price list a residence maps to. OTHER, and anything unknown, is USD. */
+export function billingCountryFor(residence: string | null | undefined): CountryCode {
+  return residence === 'CA' ? 'CA' : 'US';
+}
 
 export type CurrencyCode = 'USD' | 'CAD';
 

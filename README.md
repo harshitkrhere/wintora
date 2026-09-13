@@ -1,8 +1,10 @@
 # Wintora
 
-A consumer software utility that helps people in the United States and Canada
-understand, organise and act on healthcare bills and related administrative
-paperwork.
+A consumer software utility that helps people understand, organise and act on
+healthcare bills and related administrative paperwork. It is built for the
+United States, where itemised bills and insurer EOBs routinely fail to
+reconcile; it works in Canada; and it is open to anyone elsewhere, who is told
+plainly that the letters and guidance assume US billing.
 
 It is **not** a law firm, medical provider, insurer, debt collector, government
 agency, credit-repair business, or autonomous negotiation agent. It prepares

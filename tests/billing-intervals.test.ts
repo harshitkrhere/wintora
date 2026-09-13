@@ -178,3 +178,15 @@ describe('formatPrice', () => {
     expect(formatPrice(2599, 'CAD')).toBe('CA$25.99');
   });
 });
+
+describe('where a customer is, and what they are charged from', () => {
+  it('maps Canada to the CAD list and everywhere else, including OTHER, to USD', async () => {
+    const { billingCountryFor, isResidenceCountry } = await import('@/config/plans');
+    expect(billingCountryFor('CA')).toBe('CA');
+    expect(billingCountryFor('US')).toBe('US');
+    expect(billingCountryFor('OTHER')).toBe('US');
+    expect(billingCountryFor(null)).toBe('US');
+    expect(isResidenceCountry('OTHER')).toBe(true);
+    expect(isResidenceCountry('IN')).toBe(false);
+  });
+});

@@ -56,7 +56,7 @@ export function AuthForm({
 }): React.ReactElement {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [country, setCountry] = useState<'US' | 'CA'>('US');
+  const [country, setCountry] = useState<'US' | 'CA' | 'OTHER'>('US');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(initialError);
   const [done, setDone] = useState(false);
@@ -220,13 +220,16 @@ export function AuthForm({
           <select
             id="auth-country"
             value={country}
-            onChange={(e) => setCountry(e.target.value === 'CA' ? 'CA' : 'US')}
+            onChange={(e) => setCountry(e.target.value === 'CA' ? 'CA' : e.target.value === 'OTHER' ? 'OTHER' : 'US')}
           >
             <option value="US">United States</option>
             <option value="CA">Canada</option>
+            <option value="OTHER">Somewhere else</option>
           </select>
           <p className="field__hint">
-            Guidance differs by country, so we ask once. Nothing else is required.
+            {country === 'OTHER'
+              ? 'Wintora is built for US medical billing: the letters and the guidance assume a US billing office and insurer. The arithmetic checks work on any bill, and plans are priced in US dollars.'
+              : 'Sets the currency you would be charged in and which letters fit your bills. Nothing else is required.'}
           </p>
         </div>
       ) : null}

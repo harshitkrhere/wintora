@@ -9,6 +9,20 @@ with Razorpay as payment gateway. Not businesses, not teams, not seats.
 
 ---
 
+## Market
+
+The product is built for the **United States** and about 90% of product,
+copy and growth effort goes there: itemised bills, insurer EOBs and billing
+offices that do not reconcile the two are an American shape of problem, and a
+single bill runs to thousands of dollars. Canada is supported (CAD prices, the
+province list) but not promoted, because most care there is public. Anyone
+elsewhere may sign up ("Somewhere else" at sign-up, stored as `OTHER`), is
+told the letters assume US billing, and is charged from the US price list in
+USD. India's claim-rejection problem is real and large but a different shape
+(policy clauses and an Ombudsman path, not arithmetic) and a different price
+point; it is deliberately not served. See `market-focus` in the operator's
+notes for the reasoning.
+
 ## 1. Structure: one free tier, three paid, good-better-best
 
 | | `free` | `essential` | `plus` | `pro` |

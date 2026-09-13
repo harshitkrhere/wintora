@@ -6,7 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BillingInterval, CountryCode, CurrencyCode, PlanSlug } from '@/config/plans';
+import { billingCountryFor, type BillingInterval, type CountryCode, type CurrencyCode, type PlanSlug } from '@/config/plans';
 import {
   assertProviderSuitable,
   type PaymentProvider,
@@ -99,8 +99,8 @@ export async function billingCountry(
     .select('country')
     .eq('id', userId)
     .maybeSingle();
-  const value = (data as { country: string } | null)?.country;
-  return value === 'CA' ? 'CA' : 'US';
+  // 'OTHER' (outside the US and Canada) is charged from the US list, in USD.
+  return billingCountryFor((data as { country: string } | null)?.country);
 }
 
 /**
