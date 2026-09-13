@@ -6,7 +6,6 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/http/api';
 import { UploadFlow } from '@/components/UploadFlow';
@@ -44,10 +43,6 @@ export default async function UploadPage({
       </div>
 
       <UploadFlow initialCaseId={initialCaseId} />
-
-      <p className="caption">
-        Prefer to type the numbers in? <Link href="/medical-bill-checker">Use the bill checker</Link>.
-      </p>
     </div>
   );
 }

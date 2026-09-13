@@ -46,9 +46,10 @@ type Step =
   | {
       kind: 'review';
       caseId: string;
-      documentId: string;
+      /** Null when the figures are being typed in with no document behind them. */
+      documentId: string | null;
       draft: ExtractionDraft;
-      document: DocumentSummary;
+      document: DocumentSummary | null;
       caseTitle: string;
     };
 
@@ -87,6 +88,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
   const [error, setError] = useState<string | null>(null);
   const [hasResult, setHasResult] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [starting, setStarting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // Existing cases, for the person who wants to add a second document to one.
@@ -214,6 +216,42 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
     }
   }, []);
 
+  /**
+   * No document: the person would rather type the figures than upload. Same
+   * case, same form, same engine, same quota; the case simply has no file on
+   * it yet. Before this existed the link went to the public tool, which saves
+   * nothing, so a signed-in person lost their result for choosing the keyboard.
+   */
+  const typeIn = useCallback(async (existingCaseId: string | null): Promise<void> => {
+    setError(null);
+    setHasResult(false);
+    let caseId = existingCaseId;
+    let caseTitle = cases?.find((c) => c.id === caseId)?.title ?? 'Typed-in bill';
+    if (caseId === null) {
+      setStarting(true);
+      try {
+        const created = await fetch('/api/cases', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title: 'Typed-in bill' }),
+        });
+        if (!created.ok) {
+          setError(await readError(created, 'We could not start a case for this bill.'));
+          return;
+        }
+        const json = (await created.json()) as { case: { id: string; title: string } };
+        caseId = json.case.id;
+        caseTitle = json.case.title;
+      } catch {
+        setError('We could not reach the service. Please check your connection.');
+        return;
+      } finally {
+        setStarting(false);
+      }
+    }
+    setStep({ kind: 'review', caseId, documentId: null, document: null, draft: EMPTY_DRAFT, caseTitle });
+  }, [cases]);
+
   const current: 1 | 2 | 3 = step.kind === 'review' ? (hasResult ? 3 : 2) : 1;
   const pickedCase = step.kind === 'choose-file' && step.caseId !== null ? cases?.find((c) => c.id === step.caseId) : undefined;
 
@@ -271,6 +309,19 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
                 {error}
               </p>
             )}
+            <p className="caption card__last">
+              Prefer to type the numbers in?{' '}
+              <button
+                type="button"
+                className="btn btn--link"
+                onClick={() => void typeIn(step.caseId)}
+                disabled={starting}
+                aria-busy={starting}
+              >
+                {starting ? 'Starting a case…' : 'Enter the figures yourself'}
+              </button>{' '}
+              — it is saved to {step.caseId !== null ? 'this case' : 'a new case'} just the same.
+            </p>
           </div>
 
           {step.caseId === null && cases !== null && cases.length > 0 ? (
@@ -340,13 +391,16 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
           <div className="card stack">
             <CaseName caseId={step.caseId} initial={step.caseTitle} />
             <div>
-              <h2 className="card__title">Check these figures</h2>
+              <h2 className="card__title">{step.document === null ? 'Enter the figures' : 'Check these figures'}</h2>
               <p className="muted card__lead">
-                {step.draft.lineItems.length > 0
-                  ? `We read ${step.draft.lineItems.length} line item${step.draft.lineItems.length === 1 ? '' : 's'} from “${step.document.filename ?? 'your document'}”. `
-                  : `We could not read line items from “${step.document.filename ?? 'your document'}”. `}
-                Compare every value against the document. Correct anything that is wrong, add
-                anything that is missing, then run the check.
+                {step.document === null
+                  ? 'Copy the numbers exactly as they are printed on the statement. You do not need every line for the checks to be useful. '
+                  : step.draft.lineItems.length > 0
+                    ? `We read ${step.draft.lineItems.length} line item${step.draft.lineItems.length === 1 ? '' : 's'} from “${step.document.filename ?? 'your document'}”. `
+                    : `We could not read line items from “${step.document.filename ?? 'your document'}”. `}
+                {step.document === null
+                  ? 'The result is saved to the case, and you can upload the bill itself later.'
+                  : 'Compare every value against the document. Correct anything that is wrong, add anything that is missing, then run the check.'}
               </p>
             </div>
             {step.draft.notes.length > 0 && (
@@ -378,7 +432,7 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
                 setStep({ kind: 'choose-file', caseId: step.caseId });
               }}
             >
-              Upload another document to this case
+              {step.document === null ? 'Upload the bill to this case' : 'Upload another document to this case'}
             </button>
           </div>
         </div>
