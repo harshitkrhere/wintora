@@ -12,14 +12,6 @@
 
 export type SendRoute = 'email' | 'post' | 'portal' | 'fax' | 'other';
 
-export const SEND_ROUTES: readonly { key: SendRoute; label: string }[] = [
-  { key: 'email', label: 'Email' },
-  { key: 'post', label: 'Post' },
-  { key: 'portal', label: 'Patient portal' },
-  { key: 'fax', label: 'Fax' },
-  { key: 'other', label: 'In person or other' },
-];
-
 /** How long a billing office is typically given before a polite follow-up. */
 export const FOLLOW_UP_AFTER_DAYS = 14;
 
@@ -87,18 +79,3 @@ export function followUpDate(sentOn: Date, days = FOLLOW_UP_AFTER_DAYS): string 
   const d = new Date(Date.UTC(sentOn.getUTCFullYear(), sentOn.getUTCMonth(), sentOn.getUTCDate() + days));
   return d.toISOString().slice(0, 10);
 }
-
-/**
- * Where the address usually is. Plain observation about how statements are
- * laid out, not advice about the dispute.
- */
-export const WHERE_TO_SEND: Readonly<Record<SendRoute, string>> = {
-  email:
-    'Look for "Billing questions", "Customer service" or "Contact us" on the statement, usually near the top, at the bottom, or on the payment stub. Some offices only take questions by phone or portal; if there is no email address, use one of the other routes.',
-  post:
-    'Use the billing office address on the statement, which is often different from the hospital\'s street address, and often on the tear-off payment stub. Print the PDF, sign it, keep a copy, and if the matter is important use a mailing option that gives you proof of delivery.',
-  portal:
-    'If the provider has a patient portal with secure messages, paste the plain text there. Messages sent through the portal are usually logged against your account, which makes them easy to refer back to.',
-  fax: 'Some billing offices still print a fax number on the statement. Send the PDF and keep the confirmation page.',
-  other: 'If you hand it in at the billing desk, ask for a stamped or dated copy back.',
-};

@@ -54,8 +54,7 @@ export default async function LetterPage({
           </p>
           <h1>{row.title}</h1>
           <p className="lede">
-            Read every line and change anything. When it says what you mean, confirm it, and this
-            page walks you through sending it yourself and what to expect after.
+            Read it, change anything, then email it or print it. Wintora never sends it for you.
           </p>
         </div>
         <div className="page-head__actions">
