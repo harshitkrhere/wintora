@@ -15,6 +15,8 @@
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { DISCLAIMERS } from '@/config/disclaimers';
+import { isFreePlan, type PlanSlug } from '@/config/plans';
+import { recordProductEvent } from '@/lib/events/record';
 import { renderLetter } from '@/domain/letters/render';
 import {
   appendEvidence,
@@ -127,6 +129,14 @@ export const POST = handler('/api/letters', async (request: NextRequest, context
     resource: { type: 'case', id: body.caseId },
     action: 'create',
     amount: 1,
+  }).catch(async (error: unknown) => {
+    // The free plan's letter allowance refusing a draft: a funnel event, then
+    // the refusal. Reached when the period's letters are already used up.
+    const meta = error instanceof AppError ? (error.meta as { reason?: string; plan?: string } | undefined) : undefined;
+    if (meta?.reason === 'LIMIT_REACHED' && (meta.plan === undefined || isFreePlan(meta.plan as PlanSlug))) {
+      await recordProductEvent(admin, { kind: 'free_limit_hit', userId: user.id, caseId: body.caseId });
+    }
+    throw error;
   });
 
   // Resolve the evidence BEFORE the quota is touched, so a bad id costs
@@ -235,6 +245,9 @@ export const POST = handler('/api/letters', async (request: NextRequest, context
     );
   } catch (error) {
     if (error instanceof QuotaExceededError) {
+      if (isFreePlan(decision.plan)) {
+        await recordProductEvent(admin, { kind: 'free_limit_hit', userId: user.id, caseId: body.caseId });
+      }
       throw new AppError('QUOTA_EXCEEDED', decision.message, {
         detail: `quota exhausted for ${error.featureKey}`,
       });

@@ -21,7 +21,9 @@ import { DISCLAIMERS } from '@/config/disclaimers';
 import { POLICY } from '@/config/policy';
 import { AppError } from '@/lib/errors';
 import { FREE_CHECKS_COOKIE, freeChecksCookie, readFreeChecks } from '@/lib/http/tool-quota';
-import { createUserClient, getCurrentUser } from '@/lib/supabase/server';
+import { createAdminClient, createUserClient, getCurrentUser } from '@/lib/supabase/server';
+import { anonymousHash, recordProductEvent } from '@/lib/events/record';
+import { serverEnv } from '@/lib/env';
 import {
   analyzeBill,
   analyzeBillAgainstEob,
@@ -89,6 +91,12 @@ export const POST = handler('/api/tools/bill-check', async (request: NextRequest
     const cookie = freeChecksCookie(used);
     cookieStore.set(cookie.name, cookie.value, cookie.options);
     anonymous = { used, limit, remaining: Math.max(limit - used, 0) };
+
+    // The funnel's first step. A keyed hash of the address, never the address.
+    await recordProductEvent(createAdminClient(), {
+      kind: 'anon_check_completed',
+      anonHash: anonymousHash(clientIp(request.headers), serverEnv().LOG_HASH_SECRET),
+    });
   }
 
   return ok(context, {

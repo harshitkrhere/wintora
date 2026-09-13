@@ -22,7 +22,8 @@ import { handler, ok, parseBody } from '@/lib/http/api';
 import { clientIp, enforceRateLimit } from '@/lib/http/ratelimit';
 import { safeRedirect } from '@/lib/http/safe-redirect';
 import { log } from '@/lib/logging';
-import { createUserClient } from '@/lib/supabase/server';
+import { createAdminClient, createUserClient } from '@/lib/supabase/server';
+import { recordProductEvent } from '@/lib/events/record';
 import { passwordProblem } from '@/lib/auth/password';
 
 export const runtime = 'nodejs';
@@ -91,6 +92,13 @@ export const POST = handler('/api/auth/signup', async (request: NextRequest, con
   if (alreadyRegistered) {
     log.info('sign-up for existing address', { route: '/api/auth/signup' });
     return ok(context, { kind: 'CHECK_EMAIL', message: checkEmailMessage() });
+  }
+
+  // A new account exists from here, whether or not it still has to confirm
+  // its address. Sign-ins through Google start at /api/auth/oauth and are not
+  // counted here.
+  if (data.user !== null) {
+    await recordProductEvent(createAdminClient(), { kind: 'signup_completed', userId: data.user.id });
   }
 
   // Email confirmation on: no session yet, the user must click the link.

@@ -13,6 +13,7 @@ import { AppError } from '@/lib/errors';
 import { handler, ok, parseBody, pathIdAfter, requireUser } from '@/lib/http/api';
 import { clientIp, enforceRateLimit } from '@/lib/http/ratelimit';
 import { createAdminClient } from '@/lib/supabase/server';
+import { recordIfFirst } from '@/lib/events/record';
 import { LETTER_COLUMNS, loadOwnedLetter, publicLetter, type LetterRow } from '@/lib/letters/service';
 
 export const runtime = 'nodejs';
@@ -75,6 +76,17 @@ export const POST = handler('/api/letters/[id]/sent', async (request: NextReques
     origin: 'USER',
     occurred_at: sentOn.toISOString(),
   });
+
+  const { count } = await admin
+    .from('generated_documents')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .not('sent_at', 'is', null);
+  // First ever, not first this time: re-marking the same letter must not
+  // count again, so the letter has to have been unsent a moment ago.
+  if (row.sent_at === null) {
+    await recordIfFirst(admin, { kind: 'first_letter_sent', userId: user.id, caseId: row.case_id }, count);
+  }
 
   const updated = data as unknown as LetterRow;
   return ok(context, {

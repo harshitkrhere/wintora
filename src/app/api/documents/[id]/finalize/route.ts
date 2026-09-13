@@ -16,6 +16,7 @@
  */
 
 import { type NextRequest } from 'next/server';
+import { recordIfFirst } from '@/lib/events/record';
 import { structuralScan } from '@/domain/documents/inspect';
 import { retentionUntil } from '@/domain/retention/policy';
 import { freeSnapshot } from '@/domain/entitlements/compute';
@@ -167,6 +168,19 @@ export const POST = handler('/api/documents/[id]/finalize', async (request: Next
           origin: 'USER',
         });
       },
+    );
+
+    // The account's first accepted upload, counted once. "Accepted" rather
+    // than "started": a row that never finished is not an upload.
+    const { count } = await admin
+      .from('documents')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('scan_status', 'CLEAN');
+    await recordIfFirst(
+      admin,
+      { kind: 'first_document_uploaded', userId: user.id, ...(row.case_id !== null ? { caseId: row.case_id } : {}) },
+      count,
     );
   } catch (error) {
     if (error instanceof QuotaExceededError) {

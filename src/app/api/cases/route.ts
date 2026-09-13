@@ -9,7 +9,8 @@
 
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { COUNTRIES } from '@/config/plans';
+import { COUNTRIES, isFreePlan, isPlanSlug, type PlanSlug } from '@/config/plans';
+import { recordProductEvent } from '@/lib/events/record';
 import { authorize, handler, ok, parseBody, requireUser } from '@/lib/http/api';
 import { clientIp, enforceRateLimit } from '@/lib/http/ratelimit';
 import { AppError } from '@/lib/errors';
@@ -30,6 +31,15 @@ const createSchema = z.object({
   statementDate: z.string().date().optional(),
   accountReference: z.string().trim().max(120).optional(),
 });
+
+/** The free plan's one-case limit refusing a second: a funnel event, then the refusal. */
+async function recordFreeLimitHit(error: unknown, userId: string): Promise<void> {
+  if (!(error instanceof AppError) || error.code !== 'ENTITLEMENT_DENIED') return;
+  const meta = error.meta as { reason?: string; plan?: string } | undefined;
+  const plan: PlanSlug = meta?.plan !== undefined && isPlanSlug(meta.plan) ? meta.plan : 'free';
+  if (meta?.reason !== 'LIMIT_REACHED' || !isFreePlan(plan)) return;
+  await recordProductEvent(createAdminClient(), { kind: 'free_limit_hit', userId });
+}
 
 export const GET = handler('/api/cases', async (_request: NextRequest, context) => {
   const user = await requireUser();
@@ -69,6 +79,9 @@ export const POST = handler('/api/cases', async (request: NextRequest, context) 
     feature: 'MAX_ACTIVE_CASES',
     action: 'create',
     amount: 1,
+  }).catch(async (error: unknown) => {
+    await recordFreeLimitHit(error, user.id);
+    throw error;
   });
 
   const admin = createAdminClient();
