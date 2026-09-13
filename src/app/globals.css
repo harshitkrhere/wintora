@@ -547,7 +547,7 @@ strong {
 .two-col {
   display: grid;
   gap: var(--sp-5);
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   align-items: start;
 }
 .grid-3 {
@@ -2815,7 +2815,7 @@ details[open] > summary::before {
   color: var(--ink-500);
   text-decoration: none;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: clamp(0.6875rem, 3.3vw, 0.75rem);
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -3510,7 +3510,7 @@ details[open] > summary::before {
 .terms-grid {
   display: grid;
   gap: var(--sp-6);
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
 }
 .terms-grid h3 {
   font-size: 1rem;
@@ -3680,8 +3680,7 @@ details[open] > summary::before {
   :root {
     --header-h: 56px;
   }
-  .shell,
-  .app-main .shell {
+  .shell {
     width: min(var(--shell-max), 100% - 2rem);
   }
   .narrow,
@@ -4423,6 +4422,32 @@ pre.letter-text {
    section is written for a phone held in one hand and widened from there
    at 40rem and 64rem. Nothing here is used by the marketing pages. */
 
+/* --- width: nothing a person typed or a file was called decides how wide
+   a screen is. A case named after a file has no spaces in it; as a grid
+   item with the default min-width it would set the page's one column to
+   its own width, push everything else out past the viewport, and the
+   phone would zoom out to fit. Breaking anywhere keeps min-content sizes
+   small, and grid items may always shrink to their track. --- */
+.app-main,
+.sheet {
+  overflow-wrap: anywhere;
+}
+.app-main :is(.stack, .stack--sm, .stack--md, .stack--lg, .case-overview__main, .case-overview__side) > * {
+  min-width: 0;
+}
+.app-main img,
+.app-main svg,
+.app-main table,
+.app-main pre {
+  max-width: 100%;
+}
+.app-main :is(input, select, textarea) {
+  min-width: 0;
+}
+.app-main .evidence-ledger__row > * {
+  min-width: 0;
+}
+
 /* --- touch: inside the app nothing a thumb hits is smaller than 44px --- */
 .app-shell .btn {
   min-height: var(--touch);
@@ -4513,6 +4538,8 @@ pre.letter-text {
 .sheet__panel {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
   max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top) - 16px));
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--surface-raised);
@@ -4539,6 +4566,7 @@ pre.letter-text {
   margin: 0;
   font-size: var(--text-3);
   outline: none;
+  overflow-wrap: anywhere;
 }
 .sheet__desc {
   margin: -0.25rem 0 0.5rem;
@@ -4632,6 +4660,8 @@ html:has(dialog.sheet[open]) {
 }
 .action-bar .btn--primary {
   flex: 1;
+  min-width: 0;
+  white-space: normal;
 }
 @media (min-width: 64rem) {
   .action-bar {
@@ -4664,7 +4694,10 @@ html:has(dialog.sheet[open]) {
 }
 .segmented [role="tab"] {
   min-height: var(--touch);
-  padding: 0 0.5rem;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  line-height: 1.2;
+  white-space: normal;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -4789,7 +4822,7 @@ html:has(dialog.sheet[open]) {
 }
 .amount-pair {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
   gap: var(--sp-4);
 }
 
@@ -5052,6 +5085,7 @@ html:has(dialog.sheet[open]) {
 }
 .fact-list dd {
   margin: 0;
+  min-width: 0;
   text-align: right;
   color: var(--ink-900);
   font-weight: 600;

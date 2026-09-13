@@ -32,6 +32,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { ExtractionDraft } from '@/domain/documents/draft';
 import { INTAKE_TYPES, intakeFor, intakeForDocumentType, type IntakeKey } from '@/domain/documents/intake';
+import { titleFromFilename } from '@/domain/documents/title';
 import { clearHandoff, handoffToDraft, readHandoff, type CheckerHandoff } from '@/domain/checker/handoff';
 import { offlineFailure, readApiError, type ApiFailure } from '@/lib/http/client';
 import { ActionBar } from './ActionBar';
@@ -86,16 +87,6 @@ type Step =
     };
 
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.heic,.tif,.tiff,application/pdf,image/png,image/jpeg,image/heic,image/tiff';
-
-/**
- * A working name from the file name: "mercy_general-march.pdf" becomes
- * "mercy general march". Good enough to find the case again; replaced by the
- * provider's name once the bill has been read, if the reader finds one.
- */
-export function titleFromFilename(filename: string): string {
-  const stem = filename.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_\-\s]+/g, ' ').trim();
-  return (stem.length > 0 ? stem : 'Uploaded bill').slice(0, 120);
-}
 
 const EMPTY_DRAFT: ExtractionDraft = {
   engine: 'none', engineVersion: '0', currency: null, lineItems: [],
