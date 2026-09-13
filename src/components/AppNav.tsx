@@ -82,7 +82,7 @@ export function AppNav({ variant }: { variant: 'sidebar' | 'tabbar' }): React.Re
     <nav className="sidebar__nav" aria-label="App">
       <button
         type="button"
-        className="btn btn--primary sidebar__review"
+        className="btn btn--brand sidebar__review"
         aria-haspopup="dialog"
         aria-expanded={reviewing}
         onClick={() => setReviewing(true)}

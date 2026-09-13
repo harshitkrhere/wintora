@@ -78,7 +78,7 @@ export default function HomePage(): React.ReactElement {
             numbers behind every finding, so you know exactly what to ask.
           </p>
           <div className="hero__actions">
-            <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
+            <Link href="/medical-bill-checker" className="btn btn--brand btn--lg">
               Check a bill
             </Link>
             <Link href="/signup" className="btn btn--secondary btn--lg">
@@ -192,7 +192,7 @@ export default function HomePage(): React.ReactElement {
             anyone on your behalf.
           </p>
           <div className="hero__actions">
-            <Link href="/medical-bill-checker" className="btn btn--primary btn--lg">
+            <Link href="/medical-bill-checker" className="btn btn--brand btn--lg">
               Check your own bill
             </Link>
             <Link href="/pricing" className="btn btn--quiet btn--lg">

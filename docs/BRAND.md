@@ -58,6 +58,22 @@ not used decoratively, and there are no gradients anywhere in the product.
 The dark theme keeps the brand hues and inverts the neutrals; the tokens live
 in `src/app/globals.css` section 1.
 
+Where the two brand colours go, decided by the owner in September 2026: used
+sparingly, in the few places that should leave the colour in a person's mind
+as Wintora's, and nowhere else.
+
+- **Wintora Blue is the action that starts a check.** The landing page's
+  "Check a bill", the free checker's own button, and Review inside the app
+  (the raised disc on the phone's tab bar, the button above the sidebar).
+  `.btn--brand`. Every other button is Midnight; blue otherwise appears only
+  on links.
+- **Wintora Teal is what is settled, and the word above the next step.** Ticks
+  and done states, "looks consistent", and the small label on the dark
+  next-step card, where it sits on navy the way the teal leaf sits on the
+  mark.
+
+The hex values are used as they are in both themes.
+
 ## Typography
 
 **Manrope** is the product typeface, loaded through `next/font` as

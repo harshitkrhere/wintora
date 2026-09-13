@@ -725,6 +725,20 @@ hr {
   background: color-mix(in srgb, var(--btn-primary-bg) 86%, var(--bg));
   color: var(--btn-primary-fg);
 }
+/* The brand's one blue action: what starts a check. The hero's call to
+   action, the checker's own button, Review inside the app. Nothing else is
+   this colour except links, so it stays recognisable. The hex is the brand's
+   in both themes; white on Wintora Blue reads at 5:1. */
+.btn--brand {
+  background: var(--blue-600);
+  color: #fff;
+  border-color: transparent;
+}
+.btn--brand:hover,
+.btn--brand:focus-visible {
+  background: var(--blue-700);
+  color: #fff;
+}
 .btn--secondary {
   background: var(--surface);
   border-color: var(--line-strong);
@@ -2846,8 +2860,8 @@ details[open] > summary::before {
   height: 52px;
   margin-top: -18px;
   border-radius: 50%;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-fg);
+  background: var(--blue-600);
+  color: #fff;
   box-shadow: var(--shadow-float);
   transition: transform var(--dur-fast) var(--ease);
 }
@@ -4840,7 +4854,7 @@ html:has(dialog.sheet[open]) {
   font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.01em;
-  opacity: 0.72;
+  color: var(--teal-600);
 }
 .next-step__case {
   margin: 0;
@@ -4875,11 +4889,13 @@ html:has(dialog.sheet[open]) {
   color: var(--ink-900);
   border: 1px solid var(--line);
 }
-.next-step--quiet .next-step__eyebrow,
 .next-step--quiet .next-step__hint,
 .next-step--quiet .next-step__case {
   opacity: 1;
   color: var(--ink-500);
+}
+.next-step--quiet .next-step__eyebrow {
+  color: var(--success-fg);
 }
 
 /* --- intake: two big ways in, then the kind of document --- */

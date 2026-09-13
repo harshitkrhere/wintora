@@ -569,7 +569,7 @@ export function BillCheckerTool({
           </ActionBar>
         ) : (
           <div className="form-actions">
-            <button type="submit" className="btn btn--primary btn--lg" disabled={busy} aria-busy={busy}>
+            <button type="submit" className="btn btn--brand btn--lg" disabled={busy} aria-busy={busy}>
               {busy ? 'Checking…' : 'Check my bill'}
             </button>
             <span className="small muted">
