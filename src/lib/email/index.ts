@@ -20,9 +20,14 @@ export interface OutboundEmail {
   readonly text: string;
 }
 
+export interface SendReceipt {
+  /** The provider's id for the message, when it gives one. Delivery events refer to it. */
+  readonly providerMessageId: string | null;
+}
+
 export interface EmailSender {
   readonly name: 'hostinger' | 'resend';
-  send(message: OutboundEmail): Promise<void>;
+  send(message: OutboundEmail): Promise<SendReceipt>;
 }
 
 /** "Wintora <info@wintora.online>" -> { name: "Wintora", address: "info@wintora.online" }. */
@@ -54,7 +59,7 @@ class HostingerSender implements EmailSender {
     private readonly from: string,
   ) {}
 
-  async send(message: OutboundEmail): Promise<void> {
+  async send(message: OutboundEmail): Promise<SendReceipt> {
     const { name } = parseFrom(this.from);
     const response = await fetch(
       `https://api.mail.hostinger.com/api/v1/mailboxes/${encodeURIComponent(this.mailboxId)}/send`,
@@ -85,6 +90,8 @@ class HostingerSender implements EmailSender {
       }
       throw new Error(`hostinger send failed: ${response.status} ${code}`);
     }
+    // 204: sent and filed under Sent, no id to track by.
+    return { providerMessageId: null };
   }
 }
 
@@ -96,7 +103,7 @@ class ResendSender implements EmailSender {
     private readonly from: string,
   ) {}
 
-  async send(message: OutboundEmail): Promise<void> {
+  async send(message: OutboundEmail): Promise<SendReceipt> {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -114,6 +121,8 @@ class ResendSender implements EmailSender {
     if (!response.ok) {
       throw new Error(`resend send failed: ${response.status}`);
     }
+    const json = (await response.json().catch(() => ({}))) as { id?: string };
+    return { providerMessageId: typeof json.id === 'string' ? json.id : null };
   }
 }
 

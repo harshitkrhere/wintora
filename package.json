@@ -30,7 +30,8 @@
     "ocr:smoke": "node scripts/ocr-smoke.mjs",
     "brand": "node scripts/brand-assets.mjs",
     "env:sync": "node scripts/sync-env.mjs",
-    "tunnel": "node scripts/tunnel-url.mjs"
+    "tunnel": "node scripts/tunnel-url.mjs",
+    "email:log": "node scripts/email-log.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -130,6 +130,8 @@ const serverSchema = z.object({
   HOSTINGER_EMAIL_TOKEN: z.string().optional(),
   HOSTINGER_MAILBOX_ID: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  /** Signing secret of the Resend webhook that reports delivery, bounces and complaints. */
+  RESEND_WEBHOOK_SECRET: z.string().optional(),
 
   CRON_SECRET: z.string().optional(),
   LOG_HASH_SECRET: z.string().optional(),

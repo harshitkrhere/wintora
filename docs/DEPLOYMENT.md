@@ -419,7 +419,22 @@ Enable custom SMTP:
 | Password | the Resend API key (sending access) |
 
 Then Authentication → Rate Limits: raise "emails per hour" from the built-in
-sender's cap. Optional but worth it: Authentication → Email Templates, replace
+sender's cap.
+
+**Delivery tracking.** Every product message is a row in `email_log` (who,
+what, when, the provider's message id, status). Resend reports what happened
+next through a signed webhook: Resend → Webhooks → Add endpoint
+`https://www.wintora.online/api/webhooks/resend`, events `email.sent`,
+`email.delivered`, `email.delivery_delayed`, `email.bounced`,
+`email.complained`; copy the signing secret into `RESEND_WEBHOOK_SECRET`. An
+address that bounces or complains is not written to again for ninety days.
+Leave open and click tracking OFF in Resend → Domains → wintora.online: the
+product does not put pixels or rewritten links in its mail, and says so on
+the customer's privacy page, where they can see every message sent to them.
+
+`npm run email:log` prints the last fifty rows from the operator's machine
+(`--kind WELCOME`, `--status BOUNCED`, `--with-address` to resolve the
+account's email). Optional but worth it: Authentication → Email Templates, replace
 the default wording with a plain sentence and the link, matching the product's
 own messages.
 

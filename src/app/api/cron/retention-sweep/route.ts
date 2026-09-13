@@ -18,7 +18,7 @@ import { assertCronAuthorized } from '@/lib/http/cron';
 import { log } from '@/lib/logging';
 import { createAdminClient } from '@/lib/supabase/server';
 import { createEntitlementStore, loadPlanMatrix } from '@/lib/supabase/stores';
-import { getEmailSender } from '@/lib/email';
+import { notifyAccount } from '@/lib/email/account';
 import { computeEntitlements, freeSnapshot } from '@/domain/entitlements/compute';
 import { retentionNoticeEmail } from '@/domain/reminders/notice';
 import { POLICY } from '@/config/policy';
@@ -61,18 +61,10 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
       .in('id', toNotify.map((d) => d.id));
 
     // The notification itself says only that something needs attention. It
-    // never names a provider, a condition or an amount. The job row is the
-    // record; the send happens right here when a provider is configured.
-    await admin.from('jobs').insert(
-      toNotify.map((doc) => ({
-        job_type: 'SEND_RETENTION_NOTICE',
-        user_id: doc.user_id,
-        payload: { documentId: doc.id },
-        idempotency_key: `retention_notice_${doc.id}`,
-      })),
-    );
-
-    notified = await sendRetentionNotices(admin, toNotify, now);
+    // never names a provider, a condition or an amount. It is logged in
+    // email_log under the document's key, so it goes once and its fate is
+    // recorded; with no provider configured it queues there for later.
+    notified = await sendRetentionNotices(admin, toNotify);
   }
 
   // Which accounts keep the figures read from a document after the file is
@@ -170,38 +162,24 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
 });
 
 /**
- * Send the retention notices that were just queued. Best effort: a failed
- * send leaves the job QUEUED for the next run, and the in-app "kept until"
- * date on the case page has said the same thing all along.
+ * Send the retention notices. Best effort: a failed send stays in email_log
+ * for the reminders cron to retry, and the in-app "kept until" date on the
+ * case page has said the same thing all along.
  */
 async function sendRetentionNotices(
   admin: ReturnType<typeof createAdminClient>,
   docs: readonly { id: string; user_id: string; case_id: string | null; retention_until: string }[],
-  now: Date,
 ): Promise<number> {
-  const sender = getEmailSender();
-  if (sender === null) return 0;
   const appUrl = publicEnv().NEXT_PUBLIC_APP_URL;
-
   let sent = 0;
   for (const doc of docs) {
-    const { data } = await admin.auth.admin.getUserById(doc.user_id);
-    const to = data?.user?.email ?? null;
-    if (to === null) continue;
-    const message = retentionNoticeEmail({ appUrl, caseId: doc.case_id, removesOn: new Date(doc.retention_until) });
-    try {
-      await sender.send({ to, ...message });
-      await admin
-        .from('jobs')
-        .update({ status: 'SUCCEEDED', completed_at: now.toISOString(), attempts: 1 })
-        .eq('idempotency_key', `retention_notice_${doc.id}`);
-      sent += 1;
-    } catch (error) {
-      log.warn('retention notice not sent', {
-        route: '/api/cron/retention-sweep',
-        errorClass: error instanceof Error ? error.name : 'UnknownError',
-      });
-    }
+    const outcome = await notifyAccount(admin, {
+      userId: doc.user_id,
+      kind: 'RETENTION_NOTICE',
+      key: `email_retention_${doc.id}`,
+      message: retentionNoticeEmail({ appUrl, caseId: doc.case_id, removesOn: new Date(doc.retention_until) }),
+    });
+    if (outcome === 'sent') sent += 1;
   }
   return sent;
 }

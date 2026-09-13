@@ -14,13 +14,43 @@ import type { Metadata } from 'next';
 import { POLICY } from '@/config/policy';
 import { DeleteAction, ExportAction } from '@/components/PrivacyActions';
 import { SettingsNav } from '@/components/SettingsNav';
+import { optionalUser } from '@/lib/http/api';
+import { createAdminClient } from '@/lib/supabase/server';
 import { SignOutOthersButton } from '@/components/SignOutOthersButton';
 import { Icon } from '@/components/Icons';
 
 export const metadata: Metadata = { title: 'Your data', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
-export default function PrivacySettingsPage(): React.ReactElement {
+const STATUS_LABEL: Record<string, { text: string; tone: string }> = {
+  QUEUED: { text: 'Waiting to send', tone: 'badge--neutral' },
+  SENT: { text: 'Sent', tone: 'badge--info' },
+  DELAYED: { text: 'Delayed', tone: 'badge--warning' },
+  DELIVERED: { text: 'Delivered', tone: 'badge--success' },
+  BOUNCED: { text: 'Bounced', tone: 'badge--error' },
+  COMPLAINED: { text: 'Marked as spam', tone: 'badge--error' },
+  FAILED: { text: 'Could not be sent', tone: 'badge--warning' },
+  SUPPRESSED: { text: 'Not sent (address bounced earlier)', tone: 'badge--neutral' },
+  NO_ADDRESS: { text: 'No address on the account', tone: 'badge--neutral' },
+};
+
+function when(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+export default async function PrivacySettingsPage(): Promise<React.ReactElement> {
+  const user = await optionalUser();
+  const { data: mail } =
+    user !== null
+      ? await createAdminClient()
+          .from('email_log')
+          .select('id, kind, subject, status, created_at, sent_at, last_event_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(25)
+      : { data: [] };
+  const emails = (mail ?? []) as { id: string; kind: string; subject: string; status: string; created_at: string; sent_at: string | null; last_event_at: string | null }[];
+
   return (
     <div className="medium stack--lg page">
       <SettingsNav current="privacy" />
@@ -64,6 +94,51 @@ export default function PrivacySettingsPage(): React.ReactElement {
             </p>
           </div>
           <SignOutOthersButton />
+        </div>
+      </section>
+
+      <section className="card status-card">
+        <span className="icon-tile" aria-hidden>
+          <Icon name="mail" />
+        </span>
+        <div className="status-card__body stack">
+          <div>
+            <h2 className="card__title">Emails we have sent you</h2>
+            <p className="muted card__last">
+              Every message Wintora has sent to your address, and what became of it. None of
+              them carry anything from a case; each is a fact about your account and a link. We
+              do not track whether you open or click them.
+            </p>
+          </div>
+          {emails.length === 0 ? (
+            <p className="caption m-0">Nothing yet.</p>
+          ) : (
+            <div className="table-scroll table--responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">When</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emails.map((e) => {
+                    const s = STATUS_LABEL[e.status] ?? { text: e.status, tone: 'badge--neutral' };
+                    return (
+                      <tr key={e.id}>
+                        <td data-label="When" className="small">{when(e.sent_at ?? e.created_at)}</td>
+                        <td data-label="Subject">{e.subject}</td>
+                        <td data-label="Status">
+                          <span className={`badge ${s.tone}`}>{s.text}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
 

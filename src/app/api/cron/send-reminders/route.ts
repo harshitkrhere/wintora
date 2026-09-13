@@ -13,12 +13,11 @@
 import { type NextRequest } from 'next/server';
 import { reminderEmail } from '@/domain/reminders/notice';
 import { dateTomorrowEmail } from '@/domain/email/messages';
-import { notifyAccount } from '@/lib/email/account';
+import { notifyAccount, retryPending } from '@/lib/email/account';
 import { publicEnv } from '@/lib/env';
 import { getEmailSender } from '@/lib/email';
 import { handler, ok } from '@/lib/http/api';
 import { assertCronAuthorized } from '@/lib/http/cron';
-import { log } from '@/lib/logging';
 import { createAdminClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -49,35 +48,32 @@ export const POST = handler('/api/cron/send-reminders', async (request: NextRequ
 
   const due = (data ?? []) as { id: string; user_id: string; case_id: string | null; remind_at: string }[];
 
-  // One address lookup per account, not per reminder.
-  const emailByUser = new Map<string, string | null>();
   let sent = 0;
   let failed = 0;
 
   for (const reminder of due) {
-    if (!emailByUser.has(reminder.user_id)) {
-      const { data: userData } = await admin.auth.admin.getUserById(reminder.user_id);
-      emailByUser.set(reminder.user_id, userData?.user?.email ?? null);
-    }
-    const to = emailByUser.get(reminder.user_id) ?? null;
-    if (to === null || reminder.case_id === null) {
-      // Nowhere to send it. Mark it so it is not retried forever; the case
+    if (reminder.case_id === null) {
+      // Nowhere to link to. Mark it so it is not retried forever; the case
       // page still shows it as due.
       await admin.from('reminders').update({ notified_at: now.toISOString() }).eq('id', reminder.id);
       continue;
     }
-
-    try {
-      await sender.send({ to, ...reminderEmail({ appUrl, caseId: reminder.case_id }) });
-      await admin.from('reminders').update({ notified_at: now.toISOString() }).eq('id', reminder.id);
-      sent += 1;
-    } catch (error) {
+    // Logged in email_log under the reminder's own key; a re-run finds the
+    // row and stops. The reminder is marked once the message has a row,
+    // whatever became of it, because the log is where "what became of it"
+    // lives now.
+    const outcome = await notifyAccount(admin, {
+      userId: reminder.user_id,
+      kind: 'REMINDER_DUE',
+      key: `email_reminder_${reminder.id}`,
+      message: reminderEmail({ appUrl, caseId: reminder.case_id }),
+    });
+    if (outcome === 'failed') {
       failed += 1;
-      log.warn('reminder not sent', {
-        route: '/api/cron/send-reminders',
-        errorClass: error instanceof Error ? error.name : 'UnknownError',
-      });
+      continue;
     }
+    await admin.from('reminders').update({ notified_at: now.toISOString() }).eq('id', reminder.id);
+    if (outcome === 'sent') sent += 1;
   }
 
   // Dates the customer entered that fall tomorrow (UTC). One message per
@@ -107,7 +103,11 @@ export const POST = handler('/api/cron/send-reminders', async (request: NextRequ
     }
   }
 
-  return ok(context, { sent, failed, datesSent, provider: sender.name, more: due.length === BATCH_SIZE });
+  // Anything queued while no provider was configured, or that failed fewer
+  // than three times this week, gets another go.
+  const retried = await retryPending(admin);
+
+  return ok(context, { sent, failed, datesSent, retried, provider: sender.name, more: due.length === BATCH_SIZE });
 });
 
 // Vercel's scheduler calls cron routes with GET and the same bearer header.
