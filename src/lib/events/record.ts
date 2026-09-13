@@ -36,7 +36,14 @@ export interface ProductEvent {
 export interface EventsClient {
   from(table: string): {
     insert(row: Record<string, unknown>): PromiseLike<{ error: { code?: string; message?: string } | null }>;
-    select(columns: string, options?: { count?: 'exact'; head?: boolean }): unknown;
+    select(
+      columns: string,
+      options?: { count?: 'exact'; head?: boolean },
+    ): {
+      eq(column: string, value: unknown): {
+        eq(column: string, value: unknown): PromiseLike<{ count: number | null; error: unknown }>;
+      };
+    };
   };
 }
 
@@ -80,6 +87,33 @@ export async function recordIfFirst(
   countIncludingThis: number | null | undefined,
 ): Promise<boolean> {
   if (!isFirst(countIncludingThis)) return false;
+  await recordProductEvent(admin, event);
+  return true;
+}
+
+/**
+ * Record an event at most once per account, whichever path gets there
+ * first. Account creation ends in several places (the sign-up route when
+ * confirmations are off, the auth callback for a confirmed address, a magic
+ * link or Google), and each may be reached more than once; the count must
+ * still be one. Never throws.
+ */
+export async function recordOnce(admin: EventsClient | SupabaseClient, event: ProductEvent & { userId: string }): Promise<boolean> {
+  try {
+    const { count, error } = await (admin as EventsClient)
+      .from('product_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('kind', event.kind)
+      .eq('user_id', event.userId);
+    if (error !== null || (count ?? 0) > 0) return false;
+  } catch (error) {
+    log.warn('product event lookup failed', {
+      route: 'events.recordOnce',
+      kind: event.kind,
+      errorClass: error instanceof Error ? error.name : 'UnknownError',
+    });
+    return false;
+  }
   await recordProductEvent(admin, event);
   return true;
 }

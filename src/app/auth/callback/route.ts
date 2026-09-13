@@ -18,6 +18,7 @@ import { log, newRequestId } from '@/lib/logging';
 import { createAdminClient, createUserClient } from '@/lib/supabase/server';
 import { notifyAccount } from '@/lib/email/account';
 import { welcomeEmail } from '@/domain/email/messages';
+import { recordOnce } from '@/lib/events/record';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,14 +61,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   log.info('session established from link', { requestId, route: '/auth/callback' });
 
-  // A welcome, once, for an account that is new. Every first entry lands
-  // here (email confirmation, magic link, OAuth), and the key keeps it to one
-  // message per account however many links they follow.
+  // A new account's first entry, whichever way it was made: a confirmed
+  // email address, a magic link, or Google. Two things happen once per
+  // account, each guarded by its own once-only key: the sign-up is counted
+  // in the funnel, and the welcome is sent.
   try {
     const { data } = await supabase.auth.getUser();
     const user = data.user;
     if (user !== null && Date.now() - new Date(user.created_at).getTime() < 7 * 24 * 60 * 60 * 1000) {
-      await notifyAccount(createAdminClient(), {
+      const admin = createAdminClient();
+      await recordOnce(admin, { kind: 'signup_completed', userId: user.id });
+      await notifyAccount(admin, {
         userId: user.id,
         kind: 'WELCOME',
         key: `email_welcome_${user.id}`,

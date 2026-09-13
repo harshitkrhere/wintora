@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { anonymousHash, isFirst, recordIfFirst, recordProductEvent, type EventsClient } from '@/lib/events/record';
+import { anonymousHash, isFirst, recordIfFirst, recordOnce, recordProductEvent, type EventsClient } from '@/lib/events/record';
 
 function fakeClient(behaviour: 'ok' | 'error' | 'throw'): EventsClient & { inserted: Record<string, unknown>[] } {
   const inserted: Record<string, unknown>[] = [];
@@ -19,7 +19,18 @@ function fakeClient(behaviour: 'ok' | 'error' | 'throw'): EventsClient & { inser
           return Promise.resolve({ error: null });
         },
         select() {
-          return undefined;
+          // A count of what is already inserted for that kind and account.
+          return {
+            eq(_c: string, kind: unknown) {
+              return {
+                eq(_c2: string, userId: unknown) {
+                  if (behaviour === 'throw') throw new Error('network down');
+                  const count = inserted.filter((r) => r.kind === kind && r.user_id === userId).length;
+                  return Promise.resolve({ count, error: null });
+                },
+              };
+            },
+          };
         },
       };
     },
@@ -62,6 +73,20 @@ describe('first only', () => {
     const client = fakeClient('ok');
     expect(await recordIfFirst(client, { kind: 'first_letter_sent', userId: 'u1' }, null)).toBe(false);
     expect(client.inserted).toHaveLength(0);
+  });
+});
+
+describe('recordOnce', () => {
+  it('records the first time and never again for the same account, whatever path asks', async () => {
+    const client = fakeClient('ok');
+    expect(await recordOnce(client, { kind: 'signup_completed', userId: 'u1' })).toBe(true);
+    expect(await recordOnce(client, { kind: 'signup_completed', userId: 'u1' })).toBe(false);
+    expect(await recordOnce(client, { kind: 'signup_completed', userId: 'u2' })).toBe(true);
+    expect(client.inserted.filter((r) => r.user_id === 'u1')).toHaveLength(1);
+  });
+
+  it('does nothing, and does not throw, when the lookup fails', async () => {
+    expect(await recordOnce(fakeClient('throw'), { kind: 'signup_completed', userId: 'u1' })).toBe(false);
   });
 });
 
