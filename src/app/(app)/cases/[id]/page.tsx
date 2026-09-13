@@ -13,11 +13,10 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { requireUser } from '@/lib/http/api';
 import { createAdminClient } from '@/lib/supabase/server';
-import { loadCase, type CaseAnalysis, type CaseEvent } from '@/lib/cases/load';
-import { suggestedActions } from '@/domain/analysis/engine';
-import type { AnalysisResult } from '@/domain/analysis/types';
+import { loadCase } from '@/lib/cases/load';
+import { checklistFor } from '@/lib/cases/next-step';
 import { FindingCard } from '@/components/FindingCard';
-import { NextSteps, type Step } from '@/components/NextSteps';
+import { NextSteps } from '@/components/NextSteps';
 import { CaseStatusButton } from '@/components/CaseStatusButton';
 import { CaseDates } from '@/components/CaseDates';
 import { CaseMember } from '@/components/CaseMember';
@@ -59,36 +58,6 @@ const TYPE_LABEL: Record<string, string> = {
   BILL_CONSISTENCY: 'Bill check',
   BILL_VS_EOB: 'Bill compared with EOB',
 };
-
-/**
- * The checklist for a case: the engine's suggested actions for the latest
- * check, each marked done or not by the customer's own timeline entries
- * (newest first, so the first STEP_* event for a step is the current state).
- * Returns an empty list when there is nothing to chase.
- */
-function checklistFor(analysis: CaseAnalysis, events: readonly CaseEvent[]): Step[] {
-  const codes = new Set(analysis.findings.map((f) => f.code));
-  if (codes.has('NO_ISSUES_FOUND')) return [];
-
-  // suggestedActions reads only the findings and the analysis type; the rest
-  // of the result is not stored and is not needed.
-  const shape: AnalysisResult = {
-    engineVersion: analysis.engineVersion,
-    analysisType: analysis.analysisType === 'BILL_VS_EOB' ? 'BILL_VS_EOB' : 'BILL_CONSISTENCY',
-    findings: analysis.findings,
-    checksRun: [],
-    summary: { lineItemCount: 0, totalChargesCents: null, currency: 'USD', attention: 0, review: 0, info: 0 },
-  };
-  const actions = suggestedActions(shape, { savedToCase: true });
-  if (actions.every((a) => a.startsWith('Nothing to chase'))) return [];
-
-  return actions.map((text) => {
-    const last = events.find(
-      (e) => (e.eventType === 'STEP_DONE' || e.eventType === 'STEP_REOPENED') && e.detail === text,
-    );
-    return { text, done: last?.eventType === 'STEP_DONE' };
-  });
-}
 
 export default async function CasePage({
   params,

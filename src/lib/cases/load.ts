@@ -11,6 +11,15 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  keptDocuments,
+  nextStepFor,
+  type CaseFacts,
+  type FactAnalysis,
+  type FactDocument,
+  type FactLetter,
+  type NextStep,
+} from './next-step';
 import type { Finding, Severity, Confidence } from '@/domain/analysis/types';
 
 export interface CaseSummary {
@@ -26,16 +35,20 @@ export interface CaseSummary {
   readonly memberLabel: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** Kept documents: not deleted, scan CLEAN. Refused, failed and unfinished uploads are not counted. */
   readonly documentCount: number;
   readonly analysisCount: number;
   /** Highest severity across the latest analysis, or null if none ran. */
   readonly attention: Severity | null;
+  /** The one thing to do next, from the case's real rows; null when nothing waits. */
+  readonly nextStep: NextStep | null;
 }
 
 export interface CaseDocument {
   readonly id: string;
   readonly filename: string | null;
   readonly mimeType: string;
+  readonly documentType: string;
   readonly byteSize: number;
   readonly pageCount: number | null;
   readonly scanStatus: string;
@@ -151,17 +164,28 @@ export async function listCases(admin: SupabaseClient, userId: string): Promise<
 
   const ids = cases.map((c) => c.id);
 
-  // Counts, the latest verdict and the household member, in three queries
-  // rather than 3N.
-  const [{ data: docs }, { data: analyses }, { data: members }] = await Promise.all([
-    admin.from('documents').select('case_id').eq('user_id', userId).in('case_id', ids).is('deleted_at', null),
+  // The facts each case's next step is decided from, the latest verdict and
+  // the household member, in four queries rather than 4N.
+  const [{ data: docs }, { data: analyses }, { data: letters }, { data: members }] = await Promise.all([
+    admin
+      .from('documents')
+      .select('id, case_id, original_filename, document_type, scan_status, extraction_status, created_at, deleted_at')
+      .eq('user_id', userId)
+      .in('case_id', ids)
+      .is('deleted_at', null),
     admin
       .from('analyses')
-      .select('id, case_id, created_at, analysis_findings(severity)')
+      .select('id, case_id, analysis_type, status, document_id, compare_document_id, created_at, analysis_findings(severity)')
       .eq('user_id', userId)
       .in('case_id', ids)
       .eq('status', 'COMPLETED')
       .order('created_at', { ascending: false }),
+    admin
+      .from('generated_documents')
+      .select('id, case_id, status, sent_at, updated_at, deleted_at')
+      .eq('user_id', userId)
+      .in('case_id', ids)
+      .is('deleted_at', null),
     admin.from('case_members').select('case_id, member_label').eq('user_id', userId).in('case_id', ids),
   ]);
 
@@ -170,37 +194,78 @@ export async function listCases(admin: SupabaseClient, userId: string): Promise<
     memberByCase.set(m.case_id, m.member_label);
   }
 
-  const docCount = new Map<string, number>();
-  for (const d of (docs ?? []) as { case_id: string }[]) {
-    docCount.set(d.case_id, (docCount.get(d.case_id) ?? 0) + 1);
+  const docsByCase = new Map<string, FactDocument[]>();
+  for (const d of (docs ?? []) as {
+    id: string; case_id: string; original_filename: string | null; document_type: string;
+    scan_status: string; extraction_status: string; created_at: string; deleted_at: string | null;
+  }[]) {
+    const list = docsByCase.get(d.case_id) ?? [];
+    list.push({
+      id: d.id,
+      type: d.document_type,
+      scanStatus: d.scan_status,
+      extractionStatus: d.extraction_status,
+      deletedAt: d.deleted_at,
+      createdAt: d.created_at,
+      filename: d.original_filename,
+    });
+    docsByCase.set(d.case_id, list);
   }
 
-  const analysisCount = new Map<string, number>();
-  const latestAttention = new Map<string, Severity | null>();
-  for (const a of (analyses ?? []) as { case_id: string; analysis_findings: { severity: Severity }[] | null }[]) {
-    analysisCount.set(a.case_id, (analysisCount.get(a.case_id) ?? 0) + 1);
-    // Ordered newest first, so the first one seen per case is the latest.
-    if (!latestAttention.has(a.case_id)) {
-      latestAttention.set(a.case_id, worst((a.analysis_findings ?? []).map((f) => f.severity)));
-    }
+  const analysesByCase = new Map<string, FactAnalysis[]>();
+  for (const a of (analyses ?? []) as {
+    case_id: string; analysis_type: string; status: string; document_id: string | null;
+    compare_document_id: string | null; created_at: string; analysis_findings: { severity: Severity }[] | null;
+  }[]) {
+    const list = analysesByCase.get(a.case_id) ?? [];
+    list.push({
+      type: a.analysis_type,
+      status: a.status,
+      documentId: a.document_id,
+      compareDocumentId: a.compare_document_id,
+      worstSeverity: worst((a.analysis_findings ?? []).map((f) => f.severity)),
+      createdAt: a.created_at,
+    });
+    analysesByCase.set(a.case_id, list);
   }
 
-  return cases.map((c) => ({
-    id: c.id,
-    title: c.title,
-    providerName: c.provider_name,
-    status: c.status,
-    amountCents: c.amount_cents,
-    currency: c.currency,
-    statementDate: c.statement_date,
-    accountReference: c.account_reference,
-    memberLabel: memberByCase.get(c.id) ?? null,
-    createdAt: c.created_at,
-    updatedAt: c.updated_at,
-    documentCount: docCount.get(c.id) ?? 0,
-    analysisCount: analysisCount.get(c.id) ?? 0,
-    attention: latestAttention.get(c.id) ?? null,
-  }));
+  const lettersByCase = new Map<string, FactLetter[]>();
+  for (const l of (letters ?? []) as {
+    id: string; case_id: string; status: string; sent_at: string | null; updated_at: string; deleted_at: string | null;
+  }[]) {
+    const list = lettersByCase.get(l.case_id) ?? [];
+    list.push({ id: l.id, status: l.status, sentAt: l.sent_at, deletedAt: l.deleted_at, updatedAt: l.updated_at });
+    lettersByCase.set(l.case_id, list);
+  }
+
+  return cases.map((c) => {
+    const facts: CaseFacts = {
+      id: c.id,
+      status: c.status,
+      documents: docsByCase.get(c.id) ?? [],
+      analyses: analysesByCase.get(c.id) ?? [],
+      letters: lettersByCase.get(c.id) ?? [],
+    };
+    // Newest first already, so the first completed check is the latest.
+    const latest = facts.analyses[0];
+    return {
+      id: c.id,
+      title: c.title,
+      providerName: c.provider_name,
+      status: c.status,
+      amountCents: c.amount_cents,
+      currency: c.currency,
+      statementDate: c.statement_date,
+      accountReference: c.account_reference,
+      memberLabel: memberByCase.get(c.id) ?? null,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+      documentCount: keptDocuments(facts.documents).length,
+      analysisCount: facts.analyses.length,
+      attention: latest?.worstSeverity ?? null,
+      nextStep: nextStepFor(facts),
+    };
+  });
 }
 
 export async function loadCase(
@@ -235,7 +300,7 @@ export async function loadCase(
   ] = await Promise.all([
     admin
       .from('documents')
-      .select('id, original_filename, mime_type, byte_size, page_count, scan_status, extraction_status, retention_until, created_at')
+      .select('id, original_filename, mime_type, byte_size, document_type, page_count, scan_status, extraction_status, retention_until, created_at')
       .eq('user_id', userId)
       .eq('case_id', caseId)
       .is('deleted_at', null)
@@ -253,7 +318,7 @@ export async function loadCase(
     admin
       .from('analyses')
       .select(
-        'id, analysis_type, engine_version, status, completed_at, created_at, ' +
+        'id, analysis_type, engine_version, status, completed_at, created_at, document_id, compare_document_id, ' +
           'analysis_findings(id, code, severity, title, explanation, recommended_action, confidence, ' +
           'finding_evidence(document_id, page_number, field_path, observed, expected))',
       )
@@ -302,7 +367,8 @@ export async function loadCase(
   };
   type AnalysisRow = {
     id: string; analysis_type: string; engine_version: string; status: string;
-    completed_at: string | null; created_at: string; analysis_findings: FindingRow[] | null;
+    completed_at: string | null; created_at: string; document_id: string | null; compare_document_id: string | null;
+    analysis_findings: FindingRow[] | null;
   };
 
   const mappedAnalyses: CaseAnalysis[] = ((analyses ?? []) as unknown as AnalysisRow[]).map((a) => ({
@@ -332,6 +398,42 @@ export async function loadCase(
 
   const latest = mappedAnalyses.find((a) => a.status === 'COMPLETED');
 
+  type DocRow = {
+    id: string; original_filename: string | null; mime_type: string; byte_size: number; document_type: string;
+    page_count: number | null; scan_status: string; extraction_status: string;
+    retention_until: string | null; created_at: string;
+  };
+  const docRows = (docs ?? []) as DocRow[];
+  const analysisRows = (analyses ?? []) as unknown as AnalysisRow[];
+  type LetterRow = {
+    id: string; template_key: string; title: string; status: string; attachments: unknown[] | null;
+    user_confirmed_at: string | null; sent_at: string | null; sent_via: string | null; created_at: string; updated_at: string;
+  };
+  const letterRows = (letters ?? []) as LetterRow[];
+
+  const facts: CaseFacts = {
+    id: c.id,
+    status: c.status,
+    documents: docRows.map((d) => ({
+      id: d.id,
+      type: d.document_type,
+      scanStatus: d.scan_status,
+      extractionStatus: d.extraction_status,
+      deletedAt: null,
+      createdAt: d.created_at,
+      filename: d.original_filename,
+    })),
+    analyses: analysisRows.map((a) => ({
+      type: a.analysis_type,
+      status: a.status,
+      documentId: a.document_id,
+      compareDocumentId: a.compare_document_id,
+      worstSeverity: worst((a.analysis_findings ?? []).map((f) => f.severity)),
+      createdAt: a.created_at,
+    })),
+    letters: letterRows.map((l) => ({ id: l.id, status: l.status, sentAt: l.sent_at, deletedAt: null, updatedAt: l.updated_at })),
+  };
+
   return {
     summary: {
       id: c.id,
@@ -345,20 +447,18 @@ export async function loadCase(
       memberLabel: (member as { member_label: string } | null)?.member_label ?? null,
       createdAt: c.created_at,
       updatedAt: c.updated_at,
-      documentCount: (docs ?? []).length,
+      documentCount: keptDocuments(facts.documents).length,
       analysisCount: mappedAnalyses.filter((a) => a.status === 'COMPLETED').length,
       attention: latest ? worst(latest.findings.map((f) => f.severity)) : null,
+      nextStep: nextStepFor(facts),
     },
     notes: c.notes,
-    documents: ((docs ?? []) as {
-      id: string; original_filename: string | null; mime_type: string; byte_size: number;
-      page_count: number | null; scan_status: string; extraction_status: string;
-      retention_until: string | null; created_at: string;
-    }[]).map((d) => ({
+    documents: docRows.map((d) => ({
       id: d.id,
       filename: d.original_filename,
       mimeType: d.mime_type,
       byteSize: d.byte_size,
+      documentType: d.document_type,
       pageCount: d.page_count,
       scanStatus: d.scan_status,
       extractionStatus: d.extraction_status,
@@ -384,10 +484,7 @@ export async function loadCase(
       origin: e.origin,
       occurredAt: e.occurred_at,
     })),
-    letters: ((letters ?? []) as {
-      id: string; template_key: string; title: string; status: string; attachments: unknown[] | null;
-      user_confirmed_at: string | null; sent_at: string | null; sent_via: string | null; created_at: string; updated_at: string;
-    }[]).map((l) => ({
+    letters: letterRows.map((l) => ({
       id: l.id,
       templateKey: l.template_key,
       title: l.title,
