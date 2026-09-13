@@ -5,7 +5,8 @@
  *
  * On a wide screen: three links, a quiet way in, and the one action. On a
  * phone the three links fold into a sheet under the header, opened by one
- * button; the action stays in the bar, in reach.
+ * button, with the way in (Sign in, or Dashboard once signed in) as a fourth
+ * row; the action stays in the bar, in reach.
  *
  * The menu is open for exactly one path: following a link, or the browser
  * moving to another page, changes the path and so closes it without an
@@ -16,7 +17,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
-import { AuthNav } from './AuthNav';
+import { AuthNav, useSessionState } from './AuthNav';
 import { Icon } from './Icons';
 
 const LINKS = [
@@ -27,6 +28,7 @@ const LINKS = [
 
 export function SiteNav(): React.ReactElement {
   const path = usePathname();
+  const session = useSessionState();
   const [openFor, setOpenFor] = useState<string | null>(null);
   const open = openFor === path;
   const panelId = useId();
@@ -53,8 +55,10 @@ export function SiteNav(): React.ReactElement {
             {link.label}
           </Link>
         ))}
+        {/* The account link again, as a row, for phones where the bar hides it. */}
+        <AuthNav state={session} variant="menu" onNavigate={() => setOpenFor(null)} />
       </div>
-      <AuthNav />
+      <AuthNav state={session} />
       <Link href="/medical-bill-checker" className="btn btn--primary site-nav__cta">
         Check a bill
       </Link>

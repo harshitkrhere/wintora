@@ -24,7 +24,8 @@ import { readSessionHint, writeSessionHint } from '@/lib/auth/session-hint';
 
 type State = 'unknown' | 'signed-in' | 'signed-out';
 
-export function AuthNav(): React.ReactElement {
+/** Whether the visitor has a session: the tab's last answer first, then the server's. */
+export function useSessionState(): State {
   const [state, setState] = useState<State>('unknown');
 
   useEffect(() => {
@@ -48,17 +49,39 @@ export function AuthNav(): React.ReactElement {
     };
   }, []);
 
-  if (state === 'signed-in') {
+  return state;
+}
+
+/**
+ * The account link, in two shapes: a button in the header bar, or a row in
+ * the phone menu. The bar version is hidden on the narrowest screens to keep
+ * the "Check a bill" action in reach, which is exactly why the menu carries
+ * the same link there.
+ */
+export function AuthNav({
+  state,
+  variant = 'bar',
+  onNavigate,
+}: {
+  state: State;
+  variant?: 'bar' | 'menu';
+  onNavigate?: () => void;
+}): React.ReactElement {
+  const signedIn = state === 'signed-in';
+  const href = signedIn ? '/dashboard' : '/signin';
+  const label = signedIn ? 'Dashboard' : 'Sign in';
+
+  if (variant === 'menu') {
     return (
-      <Link href="/dashboard" className="btn btn--secondary site-nav__signin">
-        Dashboard
+      <Link href={href} className="site-nav__account" onClick={onNavigate}>
+        {label}
       </Link>
     );
   }
 
   return (
-    <Link href="/signin" className="btn btn--quiet site-nav__signin">
-      Sign in
+    <Link href={href} className={`btn ${signedIn ? 'btn--secondary' : 'btn--quiet'} site-nav__signin`}>
+      {label}
     </Link>
   );
 }
