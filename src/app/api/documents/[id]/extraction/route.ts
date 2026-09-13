@@ -9,7 +9,7 @@ import { type NextRequest } from 'next/server';
 import { handler, ok, requireUser } from '@/lib/http/api';
 import { clientIp, enforceRateLimit } from '@/lib/http/ratelimit';
 import { createAdminClient } from '@/lib/supabase/server';
-import { documentIdFromPath, loadOwnedDocument, publicDocument } from '@/lib/documents/service';
+import { documentIdFromPath, latestDraft, loadOwnedDocument, publicDocument } from '@/lib/documents/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,17 +22,8 @@ export const GET = handler('/api/documents/[id]/extraction', async (request: Nex
   const admin = createAdminClient();
   const row = await loadOwnedDocument(admin, user.id, documentId);
 
-  const { data } = await admin
-    .from('document_extractions')
-    .select('payload, created_at')
-    .eq('document_id', documentId)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
   return ok(context, {
     document: publicDocument(row),
-    draft: (data as { payload: unknown } | null)?.payload ?? null,
+    draft: await latestDraft(admin, user.id, documentId),
   });
 });

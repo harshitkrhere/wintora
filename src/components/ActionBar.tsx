@@ -11,6 +11,7 @@ export function ActionBar({
   children,
   secondary,
   more,
+  inCard = false,
 }: {
   /** The primary action: one button or link with .btn--primary. */
   children: React.ReactNode;
@@ -18,9 +19,11 @@ export function ActionBar({
   secondary?: React.ReactNode;
   /** A small extra control at the right, such as the More button. */
   more?: React.ReactNode;
+  /** Rendered as the last thing inside a card, flush with its edges. */
+  inCard?: boolean;
 }): React.ReactElement {
   return (
-    <div className="action-bar" role="group" aria-label="Actions">
+    <div className={`action-bar${inCard ? ' action-bar--in-card' : ''}`} role="group" aria-label="Actions">
       {secondary !== undefined ? <div className="action-bar__secondary">{secondary}</div> : null}
       {children}
       {more !== undefined ? <div className="action-bar__more">{more}</div> : null}

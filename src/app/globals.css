@@ -4615,6 +4615,12 @@ html:has(dialog.sheet[open]) {
 .action-bar__secondary {
   margin-right: auto;
 }
+/* The last thing in a card: flush with its edges, rounded with it. */
+.action-bar--in-card {
+  margin: var(--sp-5) calc(var(--sp-5) * -1) calc(var(--sp-5) * -1);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--surface);
+}
 .action-bar .btn--primary {
   flex: 1;
 }
@@ -4625,6 +4631,12 @@ html:has(dialog.sheet[open]) {
     padding: 0;
     border: 0;
     background: transparent;
+  }
+  .action-bar--in-card {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    border-top: 1px solid var(--line);
+    justify-content: flex-start;
   }
   .action-bar .btn--primary {
     flex: none;
@@ -4851,8 +4863,17 @@ html:has(dialog.sheet[open]) {
     border-color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
-.intake__choice:hover {
+.intake__choice:hover,
+.intake__choice:focus-within {
   border-color: var(--ink-900);
+}
+.intake__choice:focus-within {
+  box-shadow: var(--ring);
+}
+/* A file dragged over the card on a desktop: the card says so. */
+.card[data-drag="true"] {
+  border-color: var(--ink-900);
+  box-shadow: var(--ring);
 }
 .intake__choice svg {
   flex: none;

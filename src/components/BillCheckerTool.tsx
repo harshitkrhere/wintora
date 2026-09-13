@@ -16,6 +16,7 @@ import { POLICY } from '@/config/policy';
 import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from './FindingCard';
 import { Icon } from './Icons';
+import { ActionBar } from './ActionBar';
 import type { ExtractionDraft } from '@/domain/documents/draft';
 import { saveHandoff } from '@/domain/checker/handoff';
 
@@ -115,6 +116,8 @@ export function BillCheckerTool({
   showEob = false,
   initial = null,
   caseId = null,
+  documentId = null,
+  inApp = false,
   onResult,
 }: {
   showEob?: boolean;
@@ -129,6 +132,16 @@ export function BillCheckerTool({
    * against the plan's quota. When null, this is the anonymous public tool.
    */
   caseId?: string | null;
+  /**
+   * The uploaded document these figures were confirmed from, when there is
+   * one. Recorded on the analysis, so the case knows this bill was checked.
+   */
+  documentId?: string | null;
+  /**
+   * Inside the signed-in app the submit lives in the action bar, under the
+   * thumb, and says what it does there.
+   */
+  inApp?: boolean;
   /** Told when a result arrives, so a surrounding flow can mark the step done. */
   onResult?: (result: AnalysisResult) => void;
 }): React.ReactElement {
@@ -261,7 +274,11 @@ export function BillCheckerTool({
         const response = await fetch(caseId !== null ? '/api/analyses' : '/api/tools/bill-check', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(caseId !== null ? { caseId, idempotencyKey, ...payload } : payload),
+          body: JSON.stringify(
+            caseId !== null
+              ? { caseId, idempotencyKey, ...(documentId !== null ? { documentId } : {}), ...payload }
+              : payload,
+          ),
         });
 
         const json = (await response.json()) as
@@ -537,14 +554,29 @@ export function BillCheckerTool({
           </fieldset>
         ) : null}
 
-        <div className="form-actions">
-          <button type="submit" className="btn btn--primary btn--lg" disabled={busy} aria-busy={busy}>
-            {busy ? 'Checking…' : 'Check my bill'}
-          </button>
-          <span className="small muted">
-            <AllowanceNote caseId={caseId} allowance={allowance} />
-          </span>
-        </div>
+        {inApp ? (
+          <ActionBar
+            inCard
+            secondary={
+              <span className="small muted">
+                <AllowanceNote caseId={caseId} allowance={allowance} />
+              </span>
+            }
+          >
+            <button type="submit" className="btn btn--primary btn--lg" disabled={busy} aria-busy={busy}>
+              {busy ? 'Checking…' : 'Run the check'}
+            </button>
+          </ActionBar>
+        ) : (
+          <div className="form-actions">
+            <button type="submit" className="btn btn--primary btn--lg" disabled={busy} aria-busy={busy}>
+              {busy ? 'Checking…' : 'Check my bill'}
+            </button>
+            <span className="small muted">
+              <AllowanceNote caseId={caseId} allowance={allowance} />
+            </span>
+          </div>
+        )}
 
         {error !== null ? (
           <p role="alert" className="notice notice--error mt-4">

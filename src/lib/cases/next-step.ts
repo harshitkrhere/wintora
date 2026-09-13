@@ -18,8 +18,11 @@
  *   bill / eob      a kept document by its stored type. Anything else is
  *                   kept and listed but never asked for a step.
  *   checked bill    a completed check names it as the document or the
- *                   compared document. A check on typed figures checks
- *                   no document.
+ *                   compared document. Checks recorded before the link
+ *                   existed name nothing; one of those that ran after the
+ *                   bill arrived is taken to be its check, so an old case
+ *                   is not nagged. A typed check from before the bill
+ *                   arrived checks no document.
  *   checked eob     a completed bill-vs-EOB check names it as the
  *                   compared document.
  *   letter          not deleted, not archived. Unsent means sent_at is
@@ -104,13 +107,21 @@ export function nextStepFor(facts: CaseFacts): NextStep | null {
 
   const covered = new Set<string>();
   const compared = new Set<string>();
+  // The newest completed check that named no document at all; a bill that
+  // arrived before it is taken as checked by it.
+  let unattributedAt: string | null = null;
   for (const check of completed) {
     if (check.documentId !== null) covered.add(check.documentId);
     if (check.compareDocumentId !== null) {
       covered.add(check.compareDocumentId);
       if (check.type === 'BILL_VS_EOB') compared.add(check.compareDocumentId);
     }
+    if (check.documentId === null && check.compareDocumentId === null && unattributedAt === null) {
+      unattributedAt = check.createdAt;
+    }
   }
+  const isCovered = (d: FactDocument): boolean =>
+    covered.has(d.id) || (unattributedAt !== null && d.createdAt < unattributedAt);
 
   const base = `/cases/${facts.id}`;
 
@@ -126,7 +137,7 @@ export function nextStepFor(facts: CaseFacts): NextStep | null {
 
   // 3. A bill nobody has checked yet, oldest first. Whether it was read
   //    does not matter: a failed read is finished with typed figures.
-  const uncheckedBill = bills.find((d) => !covered.has(d.id));
+  const uncheckedBill = bills.find((d) => !isCovered(d));
   if (uncheckedBill !== undefined) {
     return {
       key: 'check-figures',

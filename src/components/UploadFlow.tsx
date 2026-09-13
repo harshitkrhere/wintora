@@ -1,29 +1,45 @@
 'use client';
 
 /**
- * Upload a bill, have it read, review the figures, run the analysis.
+ * Review a document: bring it in, have it read, confirm the figures, run
+ * the check.
  *
  * Three steps, shown as three steps, and the customer is in control of the
  * one that matters: the machine-read draft is shown in the same form they
- * could have filled in by hand, every value editable, and nothing is analysed
- * until they press the button. A misread costs them a correction. It cannot
- * become a finding.
+ * could have filled in by hand, every value editable, and nothing is
+ * analysed until they press the button. A misread costs them a correction.
+ * It cannot become a finding.
  *
- * The case is created the moment a file is chosen, named after the file, and
- * renamed after the provider on the bill once the document has been read.
- * Nobody is asked to name a bill they have not shown us yet. The name can be
- * changed on the review step, and it is saved as soon as they leave the field.
+ * The kind of document is chosen first (a bill, an EOB, something else),
+ * preselected by the Review sheet through the URL and changeable here. The
+ * engine checks bills and EOBs; anything else is kept with the case and
+ * the words say so before the file is chosen.
+ *
+ * The case is created the moment a file is chosen, named after the file,
+ * and renamed after the provider on the bill once the document has been
+ * read. Nobody is asked to name a bill they have not shown us yet. The name
+ * can be changed on the review step, and it is saved as soon as they leave
+ * the field. Once a case exists the URL says so, so a reload comes back to
+ * it, and a document that was read but never checked can be reopened at
+ * the review step from anywhere (`resume`).
  *
  * The file goes browser -> storage directly, using a signed URL the server
- * issued for exactly one path. The server never sees the bytes in transit; it
- * reads them back from storage to inspect them.
+ * issued for exactly one path. The server never sees the bytes in transit;
+ * it reads them back from storage to inspect them.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { ExtractionDraft } from '@/domain/documents/draft';
+import { INTAKE_TYPES, intakeFor, intakeForDocumentType, type IntakeKey } from '@/domain/documents/intake';
 import { clearHandoff, handoffToDraft, readHandoff, type CheckerHandoff } from '@/domain/checker/handoff';
+import { offlineFailure, readApiError, type ApiFailure } from '@/lib/http/client';
+import { ActionBar } from './ActionBar';
+import { ApiNotice } from './ApiNotice';
 import { BillCheckerTool } from './BillCheckerTool';
 import { Icon } from './Icons';
+import { Segmented } from './Segmented';
+import { UploadProgress, type UploadStage } from './UploadProgress';
 
 interface CaseSummary {
   id: string;
@@ -34,16 +50,28 @@ interface CaseSummary {
 interface DocumentSummary {
   id: string;
   filename: string | null;
+  documentType: string;
   scanStatus: string;
   scanDetail: string | null;
   extractionStatus: string;
 }
 
+/** A kept document reopened at the review step, as the server page loaded it. */
+export interface ResumeDocument {
+  readonly id: string;
+  readonly filename: string | null;
+  readonly documentType: string;
+  readonly scanStatus: string;
+  readonly extractionStatus: string;
+  readonly pageCount: number | null;
+  /** Null when the read failed or never finished: the figures are typed. */
+  readonly draft: ExtractionDraft | null;
+}
+
 type Step =
   | { kind: 'choose-file'; caseId: string | null }
-  | { kind: 'uploading'; caseId: string | null; note: string }
+  | { kind: 'uploading'; caseId: string | null; stage: UploadStage }
   | { kind: 'rejected'; caseId: string; message: string }
-  | { kind: 'reading'; caseId: string }
   | {
       kind: 'review';
       caseId: string;
@@ -52,18 +80,12 @@ type Step =
       draft: ExtractionDraft;
       document: DocumentSummary | null;
       caseTitle: string;
+      intake: IntakeKey;
+      /** The document is here but nothing could be read from it. */
+      unread: boolean;
     };
 
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.heic,.tif,.tiff,application/pdf,image/png,image/jpeg,image/heic,image/tiff';
-
-async function readError(response: Response, fallback: string): Promise<string> {
-  try {
-    const json = (await response.json()) as { error?: { message?: string } };
-    return json.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 /**
  * A working name from the file name: "mercy_general-march.pdf" becomes
@@ -83,23 +105,63 @@ const EMPTY_DRAFT: ExtractionDraft = {
   overallConfidence: 'LOW', notes: [],
 };
 
-export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | null }): React.ReactElement {
-  const [step, setStep] = useState<Step>({ kind: 'choose-file', caseId: initialCaseId });
+const INTAKE_OPTIONS = INTAKE_TYPES.map((type) => ({ value: type.key, label: type.label }));
+
+export function UploadFlow({
+  initialCaseId = null,
+  initialCaseTitle = null,
+  initialIntake = 'BILL',
+  resume = null,
+  notice = null,
+  fromChecker = false,
+}: {
+  initialCaseId?: string | null;
+  initialCaseTitle?: string | null;
+  initialIntake?: IntakeKey;
+  resume?: ResumeDocument | null;
+  /** One neutral sentence from the server page about a URL it could not honour. */
+  notice?: string | null;
+  fromChecker?: boolean;
+}): React.ReactElement {
+  const [intake, setIntake] = useState<IntakeKey>(initialIntake);
+  const [step, setStep] = useState<Step>(() => {
+    if (resume !== null && initialCaseId !== null) {
+      return {
+        kind: 'review',
+        caseId: initialCaseId,
+        documentId: resume.id,
+        draft: resume.draft ?? EMPTY_DRAFT,
+        document: {
+          id: resume.id,
+          filename: resume.filename,
+          documentType: resume.documentType,
+          scanStatus: resume.scanStatus,
+          scanDetail: null,
+          extractionStatus: resume.extractionStatus,
+        },
+        caseTitle: initialCaseTitle ?? (resume.filename !== null ? titleFromFilename(resume.filename) : 'Case'),
+        intake: intakeForDocumentType(resume.documentType).key,
+        unread: resume.draft === null,
+      };
+    }
+    return { kind: 'choose-file', caseId: initialCaseId };
+  });
   const [cases, setCases] = useState<CaseSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [hasResult, setHasResult] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [rereading, setRereading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
   // Figures typed into the free checker before signing up, held in this tab.
   // Read once, on arrival with ?from=checker; shown as an offer, never acted
   // on until the person chooses.
   const [handoff, setHandoff] = useState<CheckerHandoff | null>(null);
   useEffect(() => {
-    if (initialCaseId !== null) return;
-    if (new URLSearchParams(window.location.search).get('from') !== 'checker') return;
+    if (initialCaseId !== null || !fromChecker) return;
     setHandoff(readHandoff(window.sessionStorage));
-  }, [initialCaseId]);
+  }, [initialCaseId, fromChecker]);
 
   // Existing cases, for the person who wants to add a second document to one.
   // Fetched once, only when the case is not already decided.
@@ -111,41 +173,52 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
       .catch(() => setCases([]));
   }, [initialCaseId]);
 
-  const upload = useCallback(async (existingCaseId: string | null, file: File): Promise<void> => {
-    setError(null);
+  /** The URL follows the case, so a reload comes back to it. */
+  const rememberCase = useCallback((caseId: string, kind: IntakeKey): void => {
+    try {
+      window.history.replaceState(window.history.state, '', `/upload?case=${caseId}&type=${kind}`);
+    } catch {
+      // A browser that refuses is a browser that reloads to a fresh start. Fine.
+    }
+  }, []);
+
+  const upload = useCallback(async (existingCaseId: string | null, file: File, kind: IntakeKey): Promise<void> => {
+    setFailure(null);
     setHasResult(false);
     let caseId = existingCaseId;
     let adoptTitle = false;
+    const chosen = intakeFor(kind);
 
     try {
       // 0. A case to put it in, if there is not one yet. Named after the file
       //    for now; the document itself will offer a better name in a moment.
       if (caseId === null) {
-        setStep({ kind: 'uploading', caseId: null, note: 'Starting a case…' });
+        setStep({ kind: 'uploading', caseId: null, stage: 'uploading' });
         const created = await fetch('/api/cases', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ title: titleFromFilename(file.name) }),
         });
         if (!created.ok) {
-          setError(await readError(created, 'We could not start a case for this bill.'));
+          setFailure(await readApiError(created, 'We could not start a case for this document.'));
           setStep({ kind: 'choose-file', caseId: null });
           return;
         }
         const json = (await created.json()) as { case: { id: string } };
         caseId = json.case.id;
-        adoptTitle = true;
+        adoptTitle = kind === 'BILL';
+        rememberCase(caseId, kind);
       }
 
       // 1. Ask for permission and a place to put it.
-      setStep({ kind: 'uploading', caseId, note: 'Preparing…' });
+      setStep({ kind: 'uploading', caseId, stage: 'uploading' });
       const begin = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ caseId, filename: file.name, byteSize: file.size }),
+        body: JSON.stringify({ caseId, filename: file.name, byteSize: file.size, documentType: chosen.documentType }),
       });
       if (!begin.ok) {
-        setError(await readError(begin, 'We could not start the upload.'));
+        setFailure(await readApiError(begin, 'We could not start the upload.'));
         setStep({ kind: 'choose-file', caseId });
         return;
       }
@@ -156,27 +229,26 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
 
       // 2. Send the bytes straight to storage. The URL is single-use and
       //    bound to one path, so this cannot write anywhere else.
-      setStep({ kind: 'uploading', caseId, note: 'Uploading…' });
       const put = await fetch(target.url, {
         method: 'PUT',
         headers: { 'content-type': file.type || 'application/octet-stream' },
         body: file,
       });
       if (!put.ok) {
-        setError('The upload did not complete. Please try again.');
+        setFailure({ code: null, message: 'The upload did not finish. Please try again.' });
         setStep({ kind: 'choose-file', caseId });
         return;
       }
 
       // 3. Have the server inspect what arrived.
-      setStep({ kind: 'uploading', caseId, note: 'Checking the file…' });
+      setStep({ kind: 'uploading', caseId, stage: 'checking' });
       const fin = await fetch(`/api/documents/${documentId}/finalize`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: '{}',
       });
       if (!fin.ok) {
-        setError(await readError(fin, 'The file could not be checked.'));
+        setFailure(await readApiError(fin, 'The file could not be checked.'));
         setStep({ kind: 'choose-file', caseId });
         return;
       }
@@ -190,9 +262,10 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
         setStep({ kind: 'rejected', caseId, message: finJson.message ?? 'The file was not accepted.' });
         return;
       }
+      const document: DocumentSummary = { ...finJson.document, documentType: finJson.document.documentType ?? chosen.documentType };
 
       // 4. Read it.
-      setStep({ kind: 'reading', caseId });
+      setStep({ kind: 'uploading', caseId, stage: 'reading' });
       const ext = await fetch(`/api/documents/${documentId}/extract`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -200,14 +273,16 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
       });
       if (!ext.ok) {
         // Reading failed but the upload stood. Offer the empty form.
-        setError(await readError(ext, 'We could not read the document. You can enter the figures yourself.'));
+        setFailure(await readApiError(ext, 'We could not read the document. You can enter the figures yourself.'));
         setStep({
           kind: 'review',
           caseId,
           documentId,
-          document: finJson.document,
+          document,
           draft: EMPTY_DRAFT,
           caseTitle: titleFromFilename(file.name),
+          intake: kind,
+          unread: true,
         });
         return;
       }
@@ -217,14 +292,44 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
         caseId,
         documentId,
         draft: extJson.draft,
-        document: finJson.document,
+        document,
         caseTitle: extJson.caseTitle ?? titleFromFilename(file.name),
+        intake: kind,
+        unread: false,
       });
     } catch {
-      setError('We could not reach the service. Please check your connection.');
+      setFailure(offlineFailure());
       setStep({ kind: 'choose-file', caseId });
     }
-  }, []);
+  }, [rememberCase]);
+
+  /**
+   * A document that is here but was not read: ask for another read. The
+   * server refuses while one is already running and says so; that sentence
+   * is shown as it is.
+   */
+  const reread = useCallback(async (): Promise<void> => {
+    if (step.kind !== 'review' || step.documentId === null) return;
+    setRereading(true);
+    setFailure(null);
+    try {
+      const ext = await fetch(`/api/documents/${step.documentId}/extract`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ adoptTitle: false }),
+      });
+      if (!ext.ok) {
+        setFailure(await readApiError(ext, 'We could not read the document. You can enter the figures yourself.'));
+        return;
+      }
+      const extJson = (await ext.json()) as { draft: ExtractionDraft };
+      setStep({ ...step, draft: extJson.draft, unread: false });
+    } catch {
+      setFailure(offlineFailure());
+    } finally {
+      setRereading(false);
+    }
+  }, [step]);
 
   /**
    * No document: the person would rather type the figures than upload. Same
@@ -233,10 +338,10 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
    * nothing, so a signed-in person lost their result for choosing the keyboard.
    */
   const typeIn = useCallback(async (existingCaseId: string | null, draft: ExtractionDraft = EMPTY_DRAFT): Promise<void> => {
-    setError(null);
+    setFailure(null);
     setHasResult(false);
     let caseId = existingCaseId;
-    let caseTitle = cases?.find((c) => c.id === caseId)?.title ?? 'Typed-in bill';
+    let caseTitle = cases?.find((c) => c.id === caseId)?.title ?? initialCaseTitle ?? 'Typed-in bill';
     if (caseId === null) {
       setStarting(true);
       try {
@@ -246,21 +351,22 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
           body: JSON.stringify({ title: 'Typed-in bill' }),
         });
         if (!created.ok) {
-          setError(await readError(created, 'We could not start a case for this bill.'));
+          setFailure(await readApiError(created, 'We could not start a case for this bill.'));
           return;
         }
         const json = (await created.json()) as { case: { id: string; title: string } };
         caseId = json.case.id;
         caseTitle = json.case.title;
+        rememberCase(caseId, 'BILL');
       } catch {
-        setError('We could not reach the service. Please check your connection.');
+        setFailure(offlineFailure());
         return;
       } finally {
         setStarting(false);
       }
     }
-    setStep({ kind: 'review', caseId, documentId: null, document: null, draft, caseTitle });
-  }, [cases]);
+    setStep({ kind: 'review', caseId, documentId: null, document: null, draft, caseTitle, intake: 'BILL', unread: false });
+  }, [cases, initialCaseTitle, rememberCase]);
 
   /** The stored figures become the form, in a case of their own. Cleared once the check has run. */
   const keepHandoff = useCallback(async (): Promise<void> => {
@@ -274,12 +380,20 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
     setHandoff(null);
   }, []);
 
-  const current: 1 | 2 | 3 = step.kind === 'review' ? (hasResult ? 3 : 2) : 1;
+  const chosen = intakeFor(step.kind === 'review' ? step.intake : intake);
+  const current: 1 | 2 | 3 = step.kind === 'review' ? (hasResult || step.intake !== 'BILL' ? 3 : 2) : 1;
   const pickedCase = step.kind === 'choose-file' && step.caseId !== null ? cases?.find((c) => c.id === step.caseId) : undefined;
+  const caseName = pickedCase?.title ?? initialCaseTitle ?? null;
 
   return (
     <div className="stack--lg">
-      <Stepper current={current} />
+      <Stepper current={current} intake={chosen.key} />
+
+      {notice !== null && step.kind === 'choose-file' ? (
+        <p className="notice notice--info" role="status">
+          {notice}
+        </p>
+      ) : null}
 
       {step.kind === 'choose-file' && handoff !== null ? (
         <div className="card stack">
@@ -303,67 +417,86 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
 
       {step.kind === 'choose-file' ? (
         <div className="stack">
-          <div className="card stack">
+          <div
+            className="card stack"
+            data-drag={dragging ? 'true' : 'false'}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!dragging) setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) void upload(step.caseId, file, intake);
+            }}
+          >
+            <Segmented label="What is it?" options={INTAKE_OPTIONS} value={intake} onChange={setIntake} />
             <div>
-              <h2 className="card__title">Upload the bill</h2>
+              <h2 className="card__title">{chosen.heading}</h2>
               <p className="muted card__lead">
-                A PDF from a patient portal works best. A clear photo of a paper bill also works.
-                Nothing is analysed until you have checked the figures.
+                {chosen.support}{' '}
+                {chosen.key === 'BILL' ? 'A PDF from a patient portal works best. A clear photo of a paper bill also works. Nothing is analysed until you have checked the figures.' : null}
+                {chosen.key === 'EOB' ? 'A PDF from your insurer’s portal or a clear photo of the paper one.' : null}
               </p>
             </div>
-            {/* The whole box is the file input: tap it, or drop a file on it.
-                A dropped file follows exactly the same path as a chosen one. */}
-            <div
-              className="dropzone"
-              data-drag={dragging ? 'true' : 'false'}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (!dragging) setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                const file = e.dataTransfer.files?.[0];
-                if (file) void upload(step.caseId, file);
-              }}
-            >
-              <div className="dropzone__icon" aria-hidden>
+            {/* Two big ways in. The camera is offered where there is one to
+                hold; a dropped file follows exactly the same path as a chosen one. */}
+            <div className="intake">
+              <label className="intake__choice intake__choice--camera">
+                <Icon name="camera" />
+                <span>
+                  Take a photo
+                  <small>Lay the page flat, in good light</small>
+                </span>
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept="image/*"
+                  capture="environment"
+                  aria-label="Take a photo of the document"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void upload(step.caseId, file, intake);
+                  }}
+                />
+              </label>
+              <label className="intake__choice">
                 <Icon name="upload" />
-              </div>
-              <p className="dropzone__title">
-                <span>Choose a file</span> or drag it here
-              </p>
-              <p className="dropzone__hint">PDF, JPG, PNG, HEIC or TIFF</p>
-              <input
-                ref={fileInput}
-                type="file"
-                accept={ACCEPT}
-                aria-label="Choose a bill to upload"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void upload(step.caseId, file);
-                }}
-              />
+                <span>
+                  Choose a file
+                  <small>PDF, JPG, PNG, HEIC or TIFF</small>
+                </span>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  className="sr-only"
+                  accept={ACCEPT}
+                  aria-label="Choose a document to upload"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void upload(step.caseId, file, intake);
+                  }}
+                />
+              </label>
             </div>
-            {error && (
-              <p className="notice notice--error" role="alert">
-                {error}
+            <ApiNotice failure={failure} />
+            {chosen.key === 'BILL' ? (
+              <p className="small card__last">
+                Prefer to type the numbers in?{' '}
+                <button
+                  type="button"
+                  className="btn btn--link"
+                  onClick={() => void typeIn(step.caseId)}
+                  disabled={starting}
+                  aria-busy={starting}
+                >
+                  {starting ? 'Starting a case…' : 'Enter the figures yourself'}
+                </button>{' '}
+                — it is saved to {step.caseId !== null ? 'this case' : 'a new case'} just the same.
               </p>
-            )}
-            <p className="caption card__last">
-              Prefer to type the numbers in?{' '}
-              <button
-                type="button"
-                className="btn btn--link"
-                onClick={() => void typeIn(step.caseId)}
-                disabled={starting}
-                aria-busy={starting}
-              >
-                {starting ? 'Starting a case…' : 'Enter the figures yourself'}
-              </button>{' '}
-              — it is saved to {step.caseId !== null ? 'this case' : 'a new case'} just the same.
-            </p>
+            ) : null}
           </div>
 
           {step.caseId === null && cases !== null && cases.length > 0 ? (
@@ -384,27 +517,31 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
               </ul>
             </details>
           ) : null}
-          {step.caseId !== null && initialCaseId === null ? (
+          {step.caseId !== null ? (
             <p className="notice notice--info">
-              This document will be added to{' '}
-              <strong>{pickedCase?.title ?? 'the case you picked'}</strong>.{' '}
-              <button type="button" className="btn btn--link" onClick={() => setStep({ kind: 'choose-file', caseId: null })}>
-                Start a new case instead
-              </button>
+              This document will be added to <strong>{caseName ?? 'the case you picked'}</strong>.{' '}
+              {initialCaseId === null ? (
+                <button type="button" className="btn btn--link" onClick={() => setStep({ kind: 'choose-file', caseId: null })}>
+                  Start a new case instead
+                </button>
+              ) : (
+                <Link href={`/cases/${step.caseId}`}>Open the case</Link>
+              )}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      {step.kind === 'uploading' || step.kind === 'reading' ? (
-        <Waiting
-          note={step.kind === 'uploading' ? step.note : 'Reading the document…'}
-          detail={
-            step.kind === 'reading'
+      {step.kind === 'uploading' ? (
+        <div className="card stack" role="status" aria-live="polite">
+          <h2 className="card__title">Bringing your document in</h2>
+          <UploadProgress stage={step.stage} />
+          <p className="small muted card__last">
+            {step.stage === 'reading'
               ? 'Usually a few seconds; a photo can take longer. You will check every figure before anything is analysed.'
-              : 'The file goes straight to secure storage and is checked before anything reads it.'
-          }
-        />
+              : 'The file goes straight to secure storage and is checked before anything reads it.'}
+          </p>
+        </div>
       ) : null}
 
       {step.kind === 'rejected' ? (
@@ -421,28 +558,29 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
                 className="btn btn--primary"
                 onClick={() => setStep({ kind: 'choose-file', caseId: step.caseId })}
               >
-                Try another file
+                Choose another file
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {step.kind === 'review' ? (
+      {step.kind === 'review' && step.intake === 'BILL' ? (
         <div className="stack--lg">
           <div className="card stack">
             <CaseName caseId={step.caseId} initial={step.caseTitle} />
             <div>
-              <h2 className="card__title">{step.document === null ? 'Enter the figures' : 'Check these figures'}</h2>
+              <h2 className="card__title">
+                {step.document === null ? 'Enter the figures' : step.unread ? 'We couldn’t read this document' : 'Check these figures'}
+              </h2>
               <p className="muted card__lead">
                 {step.document === null
-                  ? 'Copy the numbers exactly as they are printed on the statement. You do not need every line for the checks to be useful. '
-                  : step.draft.lineItems.length > 0
-                    ? `We read ${step.draft.lineItems.length} line item${step.draft.lineItems.length === 1 ? '' : 's'} from “${step.document.filename ?? 'your document'}”. `
-                    : `We could not read line items from “${step.document.filename ?? 'your document'}”. `}
-                {step.document === null
-                  ? 'The result is saved to the case, and you can upload the bill itself later.'
-                  : 'Compare every value against the document. Correct anything that is wrong, add anything that is missing, then run the check.'}
+                  ? 'Copy the numbers exactly as they are printed on the statement. You do not need every line for the checks to be useful. The result is saved to the case, and you can upload the bill itself later.'
+                  : step.unread
+                    ? `“${step.document.filename ?? 'Your document'}” is kept on the case, but no figures came out of it. Type them in below, or try reading it again.`
+                    : step.draft.lineItems.length > 0
+                      ? `We read ${step.draft.lineItems.length} line item${step.draft.lineItems.length === 1 ? '' : 's'} from “${step.document.filename ?? 'your document'}”. Compare every value against the document. Correct anything that is wrong, add anything that is missing, then run the check.`
+                      : `We could not read line items from “${step.document.filename ?? 'your document'}”. Compare every value against the document, add anything that is missing, then run the check.`}
               </p>
             </div>
             {step.draft.notes.length > 0 && (
@@ -452,16 +590,24 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
                 ))}
               </ul>
             )}
-            {error && (
-              <p className="notice notice--warning" role="alert">
-                {error}
-              </p>
-            )}
+            <ApiNotice failure={failure} tone="warning" />
+            {step.unread && step.documentId !== null ? (
+              <div className="cluster">
+                <button type="button" className="btn btn--secondary" onClick={() => void reread()} disabled={rereading} aria-busy={rereading}>
+                  {rereading ? 'Reading…' : 'Try reading it again'}
+                </button>
+                <button type="button" className="btn btn--link" onClick={() => setStep({ kind: 'choose-file', caseId: step.caseId })}>
+                  Upload a clearer copy
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <BillCheckerTool
             initial={step.draft}
             caseId={step.caseId}
+            documentId={step.documentId}
+            inApp
             onResult={() => {
               setHasResult(true);
               // Saved to the case: the copy held in this tab has done its job.
@@ -470,10 +616,10 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
           />
 
           <div className="actions">
-            <a href={`/cases/${step.caseId}`} className="btn btn--secondary">
-              View this case
+            <Link href={`/cases/${step.caseId}`} className="btn btn--secondary">
+              Open the case
               <Icon name="arrow-right" />
-            </a>
+            </Link>
             <button
               type="button"
               className="btn btn--quiet"
@@ -482,9 +628,73 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
                 setStep({ kind: 'choose-file', caseId: step.caseId });
               }}
             >
-              {step.document === null ? 'Upload the bill to this case' : 'Upload another document to this case'}
+              {step.document === null ? 'Upload the bill to this case' : 'Add another document to this case'}
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {step.kind === 'review' && step.intake === 'EOB' ? (
+        <div className="stack--lg">
+          <div className="card stack">
+            <CaseName caseId={step.caseId} initial={step.caseTitle} />
+            <div>
+              <h2 className="card__title">{step.unread ? 'Your EOB is in, but could not be read' : 'Your EOB is in'}</h2>
+              <p className="muted card__lead">
+                {step.unread
+                  ? `“${step.document?.filename ?? 'The document'}” is kept on the case. The comparison can still run: you type the EOB’s figures beside the bill’s.`
+                  : `We read ${step.draft.lineItems.length} line item${step.draft.lineItems.length === 1 ? '' : 's'} from “${step.document?.filename ?? 'your EOB'}”. Next, set it against the bill: you confirm both sides, and the check shows where they disagree.`}
+              </p>
+            </div>
+            <ApiNotice failure={failure} tone="warning" />
+            {step.unread && step.documentId !== null ? (
+              <div className="cluster">
+                <button type="button" className="btn btn--secondary" onClick={() => void reread()} disabled={rereading} aria-busy={rereading}>
+                  {rereading ? 'Reading…' : 'Try reading it again'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <ActionBar
+            secondary={
+              <Link href={`/cases/${step.caseId}`} className="btn btn--link">
+                Open the case
+              </Link>
+            }
+          >
+            <Link href={`/cases/${step.caseId}/compare`} className="btn btn--primary btn--lg">
+              Compare with the bill
+              <Icon name="arrow-right" />
+            </Link>
+          </ActionBar>
+        </div>
+      ) : null}
+
+      {step.kind === 'review' && step.intake === 'OTHER' ? (
+        <div className="stack--lg">
+          <div className="card stack">
+            <CaseName caseId={step.caseId} initial={step.caseTitle} />
+            <div>
+              <h2 className="card__title">Kept with the case</h2>
+              <p className="muted card__lead">
+                “{step.document?.filename ?? 'The document'}” is on the case now, for as long as your plan keeps documents.
+                Checks run on bills and EOBs; this one is here for the record.
+              </p>
+            </div>
+            <ApiNotice failure={failure} tone="warning" />
+          </div>
+          <ActionBar
+            secondary={
+              <button type="button" className="btn btn--link" onClick={() => setStep({ kind: 'choose-file', caseId: step.caseId })}>
+                Add another document
+              </button>
+            }
+          >
+            <Link href={`/cases/${step.caseId}`} className="btn btn--primary btn--lg">
+              Open the case
+              <Icon name="arrow-right" />
+            </Link>
+          </ActionBar>
         </div>
       ) : null}
     </div>
@@ -493,23 +703,29 @@ export function UploadFlow({ initialCaseId = null }: { initialCaseId?: string | 
 
 // ------------------------------------------------------------------ parts
 
-const STEPS = ['Upload', 'Confirm figures', 'Results'] as const;
+const STEPS: Record<IntakeKey, readonly string[]> = {
+  BILL: ['Upload', 'Confirm figures', 'Results'],
+  EOB: ['Upload', 'Compare', 'Results'],
+  OTHER: ['Upload', 'Kept'],
+};
 
-/** Where the person is in the three steps. Said, not implied. */
-function Stepper({ current }: { current: 1 | 2 | 3 }): React.ReactElement {
+/** Where the person is in the steps. Said, not implied. */
+function Stepper({ current, intake }: { current: 1 | 2 | 3; intake: IntakeKey }): React.ReactElement {
+  const labels = STEPS[intake];
+  const at = Math.min(current, labels.length);
   return (
     <ol className="stepper" aria-label="Progress">
-      {STEPS.map((label, i) => {
+      {labels.map((label, i) => {
         const n = i + 1;
-        const state = n < current ? 'done' : n === current ? 'current' : 'todo';
+        const state = n < at ? 'done' : n === at ? 'current' : 'todo';
         return (
           <li
             key={label}
             className={`stepper__step stepper__step--${state}`}
-            aria-current={n === current ? 'step' : undefined}
+            aria-current={n === at ? 'step' : undefined}
           >
             <span className="stepper__num" aria-hidden>
-              {n < current ? '✓' : n}
+              {n < at ? '✓' : n}
             </span>
             <span className="stepper__label">
               <span className="sr-only">{state === 'done' ? 'Done: ' : state === 'current' ? 'Current step: ' : ''}</span>
@@ -519,19 +735,6 @@ function Stepper({ current }: { current: 1 | 2 | 3 }): React.ReactElement {
         );
       })}
     </ol>
-  );
-}
-
-/** Something is happening. Say what, and what comes next. */
-function Waiting({ note, detail }: { note: string; detail: string }): React.ReactElement {
-  return (
-    <div className="wait" role="status" aria-live="polite">
-      <div className="progress" aria-hidden>
-        <div className="progress__bar" />
-      </div>
-      <p className="wait__note">{note}</p>
-      <p className="small muted card__last">{detail}</p>
-    </div>
   );
 }
 

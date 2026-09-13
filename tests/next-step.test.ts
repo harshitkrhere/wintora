@@ -110,9 +110,33 @@ describe('nextStepFor: checking the figures', () => {
     }
   });
 
-  it('does not treat a check on typed figures as a check of the document', () => {
-    const f = facts({ documents: [doc({ id: 'a' })], analyses: [check({ documentId: null })] });
+  it('does not treat a typed-figures check from before the bill arrived as its check', () => {
+    const f = facts({
+      documents: [doc({ id: 'a', createdAt: '2026-09-05T00:00:00Z' })],
+      analyses: [check({ documentId: null, createdAt: '2026-09-02T00:00:00Z' })],
+    });
     expect(nextStepFor(f)?.key).toBe('check-figures');
+  });
+
+  it('takes an unattributed check that ran after the bill arrived as its check (older rows)', () => {
+    const f = facts({
+      documents: [doc({ id: 'a', createdAt: '2026-09-01T00:00:00Z' })],
+      analyses: [check({ documentId: null, createdAt: '2026-09-02T00:00:00Z', worstSeverity: 'INFO' })],
+    });
+    expect(nextStepFor(f)?.key).toBe('add-eob');
+  });
+
+  it('does not let an unattributed check cover a bill that arrived after it', () => {
+    const f = facts({
+      documents: [
+        doc({ id: 'old', createdAt: '2026-09-01T00:00:00Z' }),
+        doc({ id: 'new', createdAt: '2026-09-03T00:00:00Z' }),
+      ],
+      analyses: [check({ documentId: null, createdAt: '2026-09-02T00:00:00Z' })],
+    });
+    const step = nextStepFor(f);
+    expect(step?.key).toBe('check-figures');
+    expect(step?.href).toContain('document=new');
   });
 
   it('counts a bill as checked when a check names it as either document', () => {
@@ -126,7 +150,7 @@ describe('nextStepFor: checking the figures', () => {
     const older = doc({ id: 'old', createdAt: '2026-08-01T00:00:00Z' });
     const newer = doc({ id: 'new', createdAt: '2026-09-01T00:00:00Z' });
     const checked = doc({ id: 'done', createdAt: '2026-07-01T00:00:00Z' });
-    const f = facts({ documents: [newer, checked, older], analyses: [check({ documentId: 'done' })] });
+    const f = facts({ documents: [newer, checked, older], analyses: [check({ documentId: 'done', createdAt: '2026-07-02T00:00:00Z' })] });
     const step = nextStepFor(f);
     expect(step?.key).toBe('check-figures');
     expect(step?.href).toContain('document=old');

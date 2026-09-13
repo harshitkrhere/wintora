@@ -71,6 +71,42 @@ export async function loadOwnedDocument(
   return data as unknown as DocumentRow;
 }
 
+/**
+ * A kept document on one of this user's cases, or null. The document must
+ * be on that case, not deleted, and its scan CLEAN; anything else reads as
+ * absent, so a guessed or foreign id looks exactly like a missing one.
+ */
+export async function loadKeptDocumentOnCase(
+  admin: SupabaseClient,
+  userId: string,
+  caseId: string,
+  documentId: string,
+): Promise<DocumentRow | null> {
+  const { data } = await admin
+    .from('documents')
+    .select(DOCUMENT_COLUMNS)
+    .eq('id', documentId)
+    .eq('user_id', userId)
+    .eq('case_id', caseId)
+    .eq('scan_status', 'CLEAN')
+    .is('deleted_at', null)
+    .maybeSingle();
+  return (data as unknown as DocumentRow | null) ?? null;
+}
+
+/** The most recent draft read from a document, or null when nothing was. */
+export async function latestDraft(admin: SupabaseClient, userId: string, documentId: string): Promise<unknown | null> {
+  const { data } = await admin
+    .from('document_extractions')
+    .select('payload, created_at')
+    .eq('document_id', documentId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as { payload: unknown } | null)?.payload ?? null;
+}
+
 /** Live bytes stored by this user, for the STORAGE_LIMIT_MB check. */
 export async function storedBytesFor(admin: SupabaseClient, userId: string): Promise<number> {
   const { data } = await admin
