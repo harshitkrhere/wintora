@@ -11,6 +11,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Contents } from '@/components/Contents';
 import { OPERATOR, SELLER_OF_RECORD } from '@/config/disclosures';
 import { POLICY } from '@/config/policy';
 
@@ -23,6 +24,14 @@ export const metadata: Metadata = {
 
 const REFUNDS_LAST_UPDATED = '2026-09-12';
 
+/** The page's sections, for the contents list. Ids match the sections below. */
+const CONTENTS = [
+  { id: 'cancelling', label: "Cancelling" },
+  { id: 'refunds', label: "Refunds" },
+  { id: 'how-to-ask', label: "How to ask" },
+  { id: 'on-your-statement', label: "On your statement" },
+] as const;
+
 export default function RefundsPage(): React.ReactElement {
   const { customer } = POLICY.refunds;
 
@@ -34,7 +43,10 @@ export default function RefundsPage(): React.ReactElement {
         <time dateTime={REFUNDS_LAST_UPDATED}>{REFUNDS_LAST_UPDATED}</time>.
       </p>
 
-      <section>
+      <Contents items={CONTENTS} />
+
+      <div className="legal__body">
+      <section id="cancelling">
         <h2>Cancelling</h2>
         <ul>
           <li>
@@ -56,7 +68,7 @@ export default function RefundsPage(): React.ReactElement {
         </ul>
       </section>
 
-      <section>
+      <section id="refunds">
         <h2>Refunds</h2>
         <ul>
           <li>
@@ -90,7 +102,7 @@ export default function RefundsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="how-to-ask">
         <h2>How to ask</h2>
         <p>
           Email <a href={`mailto:${OPERATOR.contactEmail ?? ''}`}>{OPERATOR.contactEmail}</a>{' '}
@@ -104,7 +116,7 @@ export default function RefundsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="on-your-statement">
         <h2>On your statement</h2>
         <p>
           Charges appear as &ldquo;{SELLER_OF_RECORD.statementDescriptor}&rdquo;. Payments
@@ -112,6 +124,7 @@ export default function RefundsPage(): React.ReactElement {
           made under this policy.
         </p>
       </section>
+      </div>
     </div>
   );
 }

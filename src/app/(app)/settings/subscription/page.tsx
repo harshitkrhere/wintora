@@ -15,6 +15,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ManageSubscription } from '@/components/ManageSubscription';
+import { SettingsNav } from '@/components/SettingsNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Icon } from '@/components/Icons';
 import { BILLING_PAGE_DISCLOSURES } from '@/config/disclosures';
@@ -143,11 +144,9 @@ export default async function SubscriptionPage(): Promise<React.ReactElement> {
 
   return (
     <div className="shell page stack--lg">
+      <SettingsNav current="subscription" />
       <div className="page-head">
         <div className="page-head__text">
-          <p className="eyebrow">
-            Settings · <Link href="/settings/privacy">Your data</Link>
-          </p>
           <h1 className="page__title">
             {summary.planDisplayName}
             <span className={`badge ${statusTone(summary.status)} badge--dot`}>{summary.status}</span>

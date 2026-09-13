@@ -14,6 +14,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Contents } from '@/components/Contents';
 import { CAPABILITY_STATEMENT, GLOBAL_DISCLAIMER } from '@/config/disclaimers';
 import { OPERATOR, SELLER_OF_RECORD } from '@/config/disclosures';
 import { POLICY } from '@/config/policy';
@@ -30,6 +31,20 @@ const TERMS_LAST_UPDATED = '2026-09-12';
 
 const operatorName = OPERATOR.legalName ?? `${OPERATOR.tradingName}, operated by an individual`;
 
+/** The page's sections, for the contents list. Ids match the sections below. */
+const CONTENTS = [
+  { id: 'who-we-are', label: "1. Who we are" },
+  { id: 'what-the-service-is-and-is-not', label: "2. What the service is, and is not" },
+  { id: 'your-account', label: "3. Your account" },
+  { id: 'free-and-paid-plans', label: "4. Free and paid plans" },
+  { id: 'your-documents-and-your-data', label: "5. Your documents and your data" },
+  { id: 'acceptable-use', label: "6. Acceptable use" },
+  { id: 'changes-to-the-service', label: "7. Changes to the service" },
+  { id: 'what-we-are-responsible-for-and-what-we-are-not', label: "8. What we are responsible for, and what we are not" },
+  { id: 'disputes-and-governing-law', label: "9. Disputes and governing law" },
+  { id: 'changes-to-these-terms', label: "10. Changes to these terms" },
+] as const;
+
 export default function TermsPage(): React.ReactElement {
   return (
     <div className="narrow page legal">
@@ -40,7 +55,10 @@ export default function TermsPage(): React.ReactElement {
         <time dateTime={TERMS_LAST_UPDATED}>{TERMS_LAST_UPDATED}</time>.
       </p>
 
-      <section>
+      <Contents items={CONTENTS} />
+
+      <div className="legal__body">
+      <section id="who-we-are">
         <h2>1. Who we are</h2>
         <p>
           {OPERATOR.tradingName} is provided by {operatorName}, established in India, and
@@ -52,7 +70,7 @@ export default function TermsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="what-the-service-is-and-is-not">
         <h2>2. What the service is, and is not</h2>
         <p>{GLOBAL_DISCLAIMER}</p>
         <p>What it does:</p>
@@ -75,7 +93,7 @@ export default function TermsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="your-account">
         <h2>3. Your account</h2>
         <ul>
           <li>You must be at least 18 and able to enter a contract where you live.</li>
@@ -99,7 +117,7 @@ export default function TermsPage(): React.ReactElement {
         </ul>
       </section>
 
-      <section>
+      <section id="free-and-paid-plans">
         <h2>4. Free and paid plans</h2>
         <p>
           The free plan is a real, permanent plan with published limits. Paid plans add
@@ -145,7 +163,7 @@ export default function TermsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="your-documents-and-your-data">
         <h2>5. Your documents and your data</h2>
         <ul>
           <li>
@@ -172,7 +190,7 @@ export default function TermsPage(): React.ReactElement {
         </ul>
       </section>
 
-      <section>
+      <section id="acceptable-use">
         <h2>6. Acceptable use</h2>
         <p>
           Do not use the service to harass anyone, to submit documents you have no right
@@ -182,7 +200,7 @@ export default function TermsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="changes-to-the-service">
         <h2>7. Changes to the service</h2>
         <p>
           We may add, change or remove features. If a change removes something you pay
@@ -193,7 +211,7 @@ export default function TermsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="what-we-are-responsible-for-and-what-we-are-not">
         <h2>8. What we are responsible for, and what we are not</h2>
         <p>
           We are responsible for providing the service as described and for handling your
@@ -212,7 +230,7 @@ export default function TermsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="disputes-and-governing-law">
         <h2>9. Disputes and governing law</h2>
         <p>
           If something goes wrong, contact us first: most problems are resolved by email
@@ -224,7 +242,7 @@ export default function TermsPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="changes-to-these-terms">
         <h2>10. Changes to these terms</h2>
         <p>
           When these terms change in substance we update the date at the top and, for a
@@ -233,6 +251,7 @@ export default function TermsPage(): React.ReactElement {
           if you do not, cancel and export your data at any time.
         </p>
       </section>
+      </div>
     </div>
   );
 }

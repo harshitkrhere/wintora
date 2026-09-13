@@ -14,6 +14,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Contents } from '@/components/Contents';
 import { OPERATOR, SELLER_OF_RECORD } from '@/config/disclosures';
 import { ALL_PLANS } from '@/config/plans';
 import { POLICY } from '@/config/policy';
@@ -78,6 +79,20 @@ const SUBPROCESSORS: readonly {
   },
 ];
 
+/** The page's sections, for the contents list. Ids match the sections below. */
+const CONTENTS = [
+  { id: 'who-is-responsible', label: "Who is responsible" },
+  { id: 'what-is-collected', label: "What is collected" },
+  { id: 'how-it-is-used', label: "How it is used" },
+  { id: 'ai-and-what-it-never-sees', label: "AI, and what it never sees" },
+  { id: 'subprocessors', label: "Who processes it" },
+  { id: 'retention', label: "How long it is kept" },
+  { id: 'your-rights', label: "Your rights" },
+  { id: 'security', label: "Security" },
+  { id: 'children', label: "Children" },
+  { id: 'changes', label: "Changes" },
+] as const;
+
 export default function PrivacyPage(): React.ReactElement {
   return (
     <div className="narrow page legal">
@@ -89,7 +104,10 @@ export default function PrivacyPage(): React.ReactElement {
         <time dateTime={PRIVACY_LAST_UPDATED}>{PRIVACY_LAST_UPDATED}</time>.
       </p>
 
-      <section>
+      <Contents items={CONTENTS} />
+
+      <div className="legal__body">
+      <section id="who-is-responsible">
         <h2>Who is responsible</h2>
         <p>
           {OPERATOR.tradingName}, provided by{' '}
@@ -99,7 +117,7 @@ export default function PrivacyPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="what-is-collected">
         <h2>What is collected</h2>
         <table>
           <caption className="sr-only">Categories of data, with examples and purpose</caption>
@@ -157,7 +175,7 @@ export default function PrivacyPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="how-it-is-used">
         <h2>How it is used</h2>
         <ul>
           <li>To provide the service you asked for: reading, checking and organising your documents, and preparing drafts you review.</li>
@@ -175,7 +193,7 @@ export default function PrivacyPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="ai-and-what-it-never-sees">
         <h2>AI, and what it never sees</h2>
         <p>
           Every finding is produced by fixed arithmetic rules, not by a language model.
@@ -257,7 +275,7 @@ export default function PrivacyPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="your-rights">
         <h2>Your rights</h2>
         <p>
           Available on every plan, including free and expired accounts. No plan can
@@ -318,12 +336,12 @@ export default function PrivacyPage(): React.ReactElement {
         </p>
       </section>
 
-      <section>
+      <section id="children">
         <h2>Children</h2>
         <p>The service is for adults. We do not knowingly collect information from anyone under 18.</p>
       </section>
 
-      <section>
+      <section id="changes">
         <h2>Changes</h2>
         <p>
           When this policy changes in substance we update the date at the top and, for a
@@ -331,6 +349,7 @@ export default function PrivacyPage(): React.ReactElement {
           effect.
         </p>
       </section>
+      </div>
     </div>
   );
 }

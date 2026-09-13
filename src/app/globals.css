@@ -622,6 +622,30 @@ section[id] {
   }
 }
 
+/* Two or three pages of one area, as text tabs under a rule. The current
+   page is underlined in ink; the others are quiet. */
+.subnav {
+  display: flex;
+  gap: var(--sp-5);
+  border-bottom: 1px solid var(--line);
+}
+.subnav a {
+  padding: 0.5rem 0 0.75rem;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-500);
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease);
+}
+.subnav a:hover {
+  color: var(--ink-900);
+}
+.subnav a[aria-current="page"] {
+  color: var(--ink-900);
+  border-bottom-color: var(--ink-900);
+}
 /* A heading with a quiet figure or a link beside it. */
 .section-head {
   display: flex;
@@ -1639,10 +1663,65 @@ tbody tr:last-child th {
 }
 
 /* Long-form policy pages: readable measure, generous section spacing, and
-   tables that scroll rather than break the page on a phone. */
+   tables that scroll rather than break the page on a phone. On a wide
+   screen the contents list sits beside the text and stays put while the
+   text scrolls; below that it is a list under the lede. */
 .legal section {
   margin-top: var(--sp-8);
   padding-block: 0;
+}
+.legal section:first-child {
+  margin-top: 0;
+}
+.legal__body {
+  margin-top: var(--sp-8);
+}
+.contents {
+  margin-top: var(--sp-6);
+  font-size: var(--text-small);
+}
+.contents__label {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.contents ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+.contents a {
+  display: inline-block;
+  padding: 0.1rem 0;
+  color: var(--ink-500);
+  text-decoration: none;
+}
+.contents a:hover {
+  color: var(--ink-900);
+}
+@media (min-width: 1120px) {
+  .legal.narrow {
+    width: min(1000px, 100% - 3rem);
+    display: grid;
+    grid-template-columns: 200px minmax(0, 720px);
+    column-gap: var(--sp-12);
+    align-items: start;
+  }
+  .legal.narrow > * {
+    grid-column: 2;
+  }
+  .legal.narrow > .contents {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    position: sticky;
+    top: calc(var(--header-h) + var(--sp-6));
+    margin-top: 0.5rem;
+  }
 }
 .legal h2 {
   font-size: 1.25rem;

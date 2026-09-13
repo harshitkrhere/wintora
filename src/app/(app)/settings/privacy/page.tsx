@@ -11,9 +11,9 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { POLICY } from '@/config/policy';
 import { DeleteAction, ExportAction } from '@/components/PrivacyActions';
+import { SettingsNav } from '@/components/SettingsNav';
 import { SignOutOthersButton } from '@/components/SignOutOthersButton';
 import { Icon } from '@/components/Icons';
 
@@ -23,10 +23,8 @@ export const dynamic = 'force-dynamic';
 export default function PrivacySettingsPage(): React.ReactElement {
   return (
     <div className="medium stack--lg page">
+      <SettingsNav current="privacy" />
       <div className="page-head__text">
-        <p className="eyebrow">
-          Settings · <Link href="/settings/subscription">Subscription</Link>
-        </p>
         <h1>Your data</h1>
         <p className="lede">
           Everything Wintora holds about you is yours to take or remove. Neither depends
