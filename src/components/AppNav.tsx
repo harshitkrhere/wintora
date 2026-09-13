@@ -24,13 +24,18 @@ const ITEMS: readonly { href: string; label: string; icon: IconName }[] = [
   { href: '/dashboard', label: 'Home', icon: 'home' },
   { href: '/cases', label: 'Cases', icon: 'cases' },
   { href: '/documents', label: 'Documents', icon: 'documents' },
-  { href: '/settings', label: 'Account', icon: 'user' },
+  // Straight to the first settings page: /settings itself only redirects
+  // there, and a hop through a redirect is a blank screen on a phone.
+  { href: '/settings/subscription', label: 'Account', icon: 'user' },
 ];
 
 function isCurrent(path: string, href: string): boolean {
   if (path === href || path.startsWith(`${href}/`)) return true;
-  // Billing pages belong to Account too: they are about the account.
-  if (href === '/settings' && (path.startsWith('/checkout') || path.startsWith('/billing'))) return true;
+  // Every settings page lights Account, and so do the billing pages: they
+  // are about the account.
+  if (href === '/settings/subscription') {
+    return path.startsWith('/settings') || path.startsWith('/checkout') || path.startsWith('/billing');
+  }
   return false;
 }
 
