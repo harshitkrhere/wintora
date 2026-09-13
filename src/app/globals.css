@@ -2591,8 +2591,9 @@ details[open] > summary::before {
   }
 }
 /* The menu's own account row: only inside the phone menu, and set apart
-   from the three pages by a rule above it. */
-.site-nav__account {
+   from the three pages by a rule above it. Hidden with the same weight as
+   the rule that shows every link, or it would win and appear in the bar. */
+.site-nav__links .site-nav__account {
   display: none;
 }
 @media (max-width: 820px) {
