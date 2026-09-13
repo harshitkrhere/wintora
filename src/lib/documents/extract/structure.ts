@@ -19,12 +19,7 @@
  */
 
 import { z } from 'zod';
-import {
-  type ExtractionDraft,
-  emptyDraft,
-  parseDateToIso,
-  parseMoneyToCents,
-} from '@/domain/documents/draft';
+import { type ExtractionDraft, emptyDraft, parseDateToIso, parseMoneyToCents, tidyProviderName } from '@/domain/documents/draft';
 import { backfillTotals } from '@/domain/documents/totals';
 import { redact } from '@/domain/redaction/redact';
 import { type AiProvider, getProvider } from '@/lib/ai/provider';
@@ -62,6 +57,8 @@ const SYSTEM_PROMPT = [
   '  "insurancePaid": string | null,',
   '  "adjustments": string | null,',
   '  "previousBalance": string | null,',
+  '  "tax": string | null,',
+  '  "payments": string | null,',
   '  "lineItems": [ { "description": string, "amount": string | null,',
   '                   "code": string | null, "quantity": number | null,',
   '                   "serviceDate": string | null } ]',
@@ -81,6 +78,8 @@ const responseSchema = z.object({
   insurancePaid: nullableString,
   adjustments: nullableString,
   previousBalance: nullableString,
+  tax: nullableString,
+  payments: nullableString,
   lineItems: z
     .array(
       z.object({
@@ -211,10 +210,17 @@ export async function structureText(
       insurancePaid: money(r.insurancePaid),
       adjustments: money(r.adjustments),
       previousBalance: money(r.previousBalance),
+      tax: money(r.tax),
+      payments: money(r.payments),
     },
     redacted.text,
   );
   if (!totals.total && !totals.amountDue && !totals.subtotal) notes.push('No total was found.');
+  if (/[\u20b9\u20ac\u00a3]|\bINR\b|\bRs\.?\s*\d/.test(redacted.text)) {
+    notes.push(
+      'This document appears to use a currency other than US or Canadian dollars. Wintora supports US and Canadian bills; the figures below are shown as if in US dollars.',
+    );
+  }
   notes.push('Every figure below was read automatically. Check each one against your document.');
 
   const statementIso = parseDateToIso(r.statementDate);
@@ -226,7 +232,7 @@ export async function structureText(
     lineItems,
     ...totals,
     statementDate: statementIso ? { value: statementIso, confidence: 'LOW' } : null,
-    providerName: text(r.providerName),
+    providerName: r.providerName ? text(tidyProviderName(r.providerName)) : null,
     accountReference: text(r.accountReference),
     pageCount: options.pageCount,
     overallConfidence: 'LOW',

@@ -145,8 +145,11 @@ export function checkTotalReconciliation(
   const insurancePaid = bill.insurancePaidCents ?? 0;
   const payments = bill.paymentsCents ?? 0;
   const previousBalance = bill.previousBalanceCents ?? 0;
+  const tax = bill.taxCents ?? 0;
 
-  const computed = base + previousBalance - adjustments - insurancePaid - payments;
+  // Tax is added after the discount, which is how every bill that prints one
+  // lays it out: subtotal, less discount, plus tax, less what has been paid.
+  const computed = base + previousBalance - adjustments + tax - insurancePaid - payments;
   const difference = computed - due;
   if (Math.abs(difference) <= tolerance) return null;
 
@@ -159,6 +162,7 @@ export function checkTotalReconciliation(
       (previousBalance !== 0
         ? ` plus a previous balance of ${formatMoney(previousBalance, bill.currency)}`
         : '') +
+      (tax !== 0 ? ` plus tax of ${formatMoney(tax, bill.currency)}` : '') +
       `, subtracting adjustments of ${formatMoney(adjustments, bill.currency)}, ` +
       `insurance payments of ${formatMoney(insurancePaid, bill.currency)} and ` +
       `payments of ${formatMoney(payments, bill.currency)} gives ` +
@@ -175,6 +179,7 @@ export function checkTotalReconciliation(
         observed: {
           base: formatMoney(base, bill.currency),
           previousBalance: formatMoney(previousBalance, bill.currency),
+          tax: formatMoney(tax, bill.currency),
           adjustments: formatMoney(adjustments, bill.currency),
           insurancePaid: formatMoney(insurancePaid, bill.currency),
           payments: formatMoney(payments, bill.currency),

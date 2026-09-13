@@ -90,6 +90,8 @@ describe('backfillTotals', () => {
       insurancePaid: null,
       adjustments: null,
       previousBalance: null,
+      tax: null,
+      payments: null,
     };
     const out = backfillTotals(draft, 'TOTAL CHARGES $999.00\nAMOUNT DUE $50.00');
     expect(out.total?.amountCents).toBe(1); // reader's, untouched
@@ -181,9 +183,27 @@ describe('the real photographed-statement layout', () => {
     expect(t.total).toBeNull();
   });
 
-  it('keeps patient payments out of insurance paid', () => {
+  it('keeps patient payments out of insurance paid, and records them as payments', () => {
     const t = findTotalsInText('Insurance Payments Received\n$840.00\nPatient Payments Received\n$25.00');
     expect(t.insurancePaid?.amountCents).toBe(84000);
+    expect(t.payments?.amountCents).toBe(2500);
+  });
+
+  // From a real upload: a bill that printed GST with its rate, and was paid
+  // in full. Without these two fields the engine reported the tax as an
+  // unexplained difference and could not tell the bill was settled.
+  it('reads a tax line with its rate, and an amount paid', () => {
+    const t = findTotalsInText('Subtotal 14,370.00\nDiscount 870.00\nTotal (Before Tax) 13,500.00\nGST @ 5% 675.00\nGrand Total 14,175.00\nAmount Paid : 14,175.00');
+    expect(t.tax?.amountCents).toBe(67500);
+    expect(t.payments?.amountCents).toBe(1417500);
+    expect(t.subtotal?.amountCents).toBe(1437000);
+    expect(t.adjustments?.amountCents).toBe(87000);
+    expect(t.total?.amountCents).toBe(1417500);
+  });
+
+  it('reads "Sales tax (7.25%)" and a bare "Tax" line', () => {
+    expect(findTotalsInText('Sales tax (7.25%) $12.34').tax?.amountCents).toBe(1234);
+    expect(findTotalsInText('Tax: $3.00\nTotal: $53.00').tax?.amountCents).toBe(300);
   });
 
   it('matches a label whose leading word was clipped off the photo', () => {

@@ -12,6 +12,7 @@ import {
   lowestConfidence,
   parseDateToIso,
   parseMoneyToCents,
+  tidyProviderName,
 } from '@/domain/documents/draft';
 import { type AzureAnalyzeResult, mapAzureInvoice } from '@/lib/documents/extract/azure';
 import { structureText } from '@/lib/documents/extract/structure';
@@ -56,6 +57,27 @@ describe('parseDateToIso', () => {
     expect(parseDateToIso('13/40/2026')).toBeNull();
     expect(parseDateToIso('sometime')).toBeNull();
     expect(parseDateToIso('')).toBeNull();
+  });
+});
+
+describe('tidyProviderName', () => {
+  it('drops a logo read as an all-caps prefix when the name repeats it', () => {
+    // Exactly what Azure returned for a hospital letterhead.
+    expect(tidyProviderName('CITYCARE HOSPITALCityCare Multispeciality Hospital')).toBe(
+      'CityCare Multispeciality Hospital',
+    );
+    expect(tidyProviderName('MERCY GENERAL Mercy General Hospital')).toBe('Mercy General Hospital');
+  });
+
+  it('leaves a name alone when the prefix is not a repeat', () => {
+    expect(tidyProviderName('UCSF Medical Center')).toBe('UCSF Medical Center');
+    expect(tidyProviderName("ST. LUKE'S HOSPITAL")).toBe("ST. LUKE'S HOSPITAL");
+    expect(tidyProviderName('Mercy General Hospital')).toBe('Mercy General Hospital');
+  });
+
+  it('only splits the glue between an all-caps run and a cased word', () => {
+    expect(tidyProviderName('ACME  Radiology   Group')).toBe('ACME Radiology Group');
+    expect(tidyProviderName('McKesson')).toBe('McKesson');
   });
 });
 

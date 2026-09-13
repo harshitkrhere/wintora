@@ -77,7 +77,7 @@ export function titleFromFilename(filename: string): string {
 const EMPTY_DRAFT: ExtractionDraft = {
   engine: 'none', engineVersion: '0', currency: null, lineItems: [],
   subtotal: null, total: null, amountDue: null, insurancePaid: null,
-  adjustments: null, previousBalance: null, statementDate: null,
+  adjustments: null, previousBalance: null, tax: null, payments: null, statementDate: null,
   providerName: null, accountReference: null, pageCount: null,
   overallConfidence: 'LOW', notes: [],
 };

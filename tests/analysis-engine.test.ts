@@ -133,6 +133,36 @@ describe('total reconciliation', () => {
     expect(checkTotalReconciliation(consistent)).toBeNull();
   });
 
+  // From a real upload: subtotal, less a discount, plus 5% tax, paid in full.
+  // Before tax and payments were fields, the tax was reported as a $675
+  // discrepancy and the settled bill looked like $14,175 still owed.
+  it('adds tax after the discount and subtracts what was already paid', () => {
+    const paidWithTax = bill({
+      subtotalCents: 1_437_000,
+      adjustmentsCents: 87_000,
+      taxCents: 67_500,
+      paymentsCents: 1_417_500,
+      amountDueCents: 0,
+    });
+    expect(checkTotalReconciliation(paidWithTax)).toBeNull();
+
+    const unpaidWithTax = bill({
+      subtotalCents: 1_437_000,
+      adjustmentsCents: 87_000,
+      taxCents: 67_500,
+      amountDueCents: 1_417_500,
+    });
+    expect(checkTotalReconciliation(unpaidWithTax)).toBeNull();
+
+    const withoutTaxField = bill({
+      subtotalCents: 1_437_000,
+      adjustmentsCents: 87_000,
+      amountDueCents: 1_417_500,
+    });
+    const finding = checkTotalReconciliation(withoutTaxField);
+    expect(finding?.explanation).toContain('$675.00');
+  });
+
   it('reports the working when it does not reconcile', () => {
     const finding = checkTotalReconciliation(
       bill({

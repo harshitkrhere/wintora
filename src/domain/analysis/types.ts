@@ -37,6 +37,8 @@ export interface BillDocument {
   readonly adjustmentsCents?: Cents;
   readonly insurancePaidCents?: Cents;
   readonly paymentsCents?: Cents;
+  /** Sales tax or GST/HST as printed. Rare on a medical bill, but printed when it applies. */
+  readonly taxCents?: Cents;
   readonly totalCents?: Cents;
   readonly amountDueCents?: Cents;
   readonly previousBalanceCents?: Cents;

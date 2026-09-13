@@ -33,6 +33,7 @@ export const billDocumentSchema = z.object({
   adjustmentsCents: z.number().int().min(-MAX_MONEY_CENTS).max(MAX_MONEY_CENTS).optional(),
   insurancePaidCents: z.number().int().min(-MAX_MONEY_CENTS).max(MAX_MONEY_CENTS).optional(),
   paymentsCents: z.number().int().min(-MAX_MONEY_CENTS).max(MAX_MONEY_CENTS).optional(),
+  taxCents: z.number().int().min(-MAX_MONEY_CENTS).max(MAX_MONEY_CENTS).optional(),
   totalCents: z.number().int().min(-MAX_MONEY_CENTS).max(MAX_MONEY_CENTS).optional(),
   amountDueCents: z.number().int().min(-MAX_MONEY_CENTS).max(MAX_MONEY_CENTS).optional(),
   previousBalanceCents: z.number().int().min(-MAX_MONEY_CENTS).max(MAX_MONEY_CENTS).optional(),

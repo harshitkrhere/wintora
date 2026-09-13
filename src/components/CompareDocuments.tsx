@@ -104,6 +104,8 @@ export function CompareDocuments({
   const [total, setTotal] = useState('');
   const [amountDue, setAmountDue] = useState('');
   const [insurancePaid, setInsurancePaid] = useState('');
+  const [tax, setTax] = useState('');
+  const [payments, setPayments] = useState('');
   const [statementDate, setStatementDate] = useState('');
   const [eobBilled, setEobBilled] = useState('');
   const [eobAllowed, setEobAllowed] = useState('');
@@ -123,6 +125,8 @@ export function CompareDocuments({
     setTotal(fromCents(d?.total?.amountCents));
     setAmountDue(fromCents(d?.amountDue?.amountCents));
     setInsurancePaid(fromCents(d?.insurancePaid?.amountCents));
+    setTax(fromCents(d?.tax?.amountCents));
+    setPayments(fromCents(d?.payments?.amountCents));
     setStatementDate(d?.statementDate?.value ?? '');
     if (d?.currency) setCurrency(d.currency);
   }, [bill]);
@@ -177,6 +181,8 @@ export function CompareDocuments({
           ...opt('totalCents', total),
           ...opt('amountDueCents', amountDue),
           ...opt('insurancePaidCents', insurancePaid),
+          ...opt('taxCents', tax),
+          ...opt('paymentsCents', payments),
           ...(statementDate.length > 0 ? { statementDate } : {}),
           overallConfidence: 'HIGH' as const,
         },
@@ -220,7 +226,7 @@ export function CompareDocuments({
         setBusy(false);
       }
     },
-    [billLines, eobLines, caseId, idempotencyKey, billId, eobId, currency, subtotal, total, amountDue, insurancePaid, statementDate, eobBilled, eobAllowed, eobPlanPaid, eobResponsibility],
+    [billLines, eobLines, caseId, idempotencyKey, billId, eobId, currency, subtotal, total, amountDue, insurancePaid, tax, payments, statementDate, eobBilled, eobAllowed, eobPlanPaid, eobResponsibility],
   );
 
   const label = (d: ReadDocument): string => `${d.filename ?? 'Document'}${d.draft ? ` · ${d.draft.lineItems.length} lines read` : ' · not read'}`;
@@ -293,6 +299,14 @@ export function CompareDocuments({
             <div className="field">
               <label htmlFor={`${formId}-ins`}>Insurance paid</label>
               <input id={`${formId}-ins`} value={insurancePaid} inputMode="decimal" placeholder="0.00" onChange={(e) => setInsurancePaid(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor={`${formId}-tax`}>Tax, if printed</label>
+              <input id={`${formId}-tax`} value={tax} inputMode="decimal" placeholder="0.00" onChange={(e) => setTax(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor={`${formId}-paid`}>Already paid by you</label>
+              <input id={`${formId}-paid`} value={payments} inputMode="decimal" placeholder="0.00" onChange={(e) => setPayments(e.target.value)} />
             </div>
             <div className="field">
               <label htmlFor={`${formId}-due`}>Amount due</label>

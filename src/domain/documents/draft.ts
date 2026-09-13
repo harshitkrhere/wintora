@@ -45,6 +45,10 @@ export interface ExtractionDraft {
   readonly insurancePaid: DraftMoney | null;
   readonly adjustments: DraftMoney | null;
   readonly previousBalance: DraftMoney | null;
+  /** Sales tax or GST/HST, when the bill prints one. */
+  readonly tax: DraftMoney | null;
+  /** What the patient has already paid, when the bill prints it. */
+  readonly payments: DraftMoney | null;
   readonly statementDate: DraftText | null;
   readonly providerName: DraftText | null;
   readonly accountReference: DraftText | null;
@@ -111,6 +115,33 @@ export function parseMoneyToCents(raw: string | null | undefined): number | null
   const cents = Math.round(Number(s) * 100);
   if (!Number.isFinite(cents)) return null;
   return negative ? -cents : cents;
+}
+
+/**
+ * A provider name as a reader hands it back, tidied.
+ *
+ * Invoice models read the logo and the letterhead as one field, so a real
+ * upload produced "CITYCARE HOSPITALCityCare Multispeciality Hospital": an
+ * all-caps run glued to the properly cased name. When an all-caps prefix's
+ * words all reappear in what follows, the prefix is the logo and the rest is
+ * the name. Anything else is returned as is, with the glue split.
+ */
+export function tidyProviderName(raw: string): string {
+  const spaced = raw
+    .replace(/\s+/g, ' ')
+    // "HOSPITALCityCare" -> "HOSPITAL CityCare"
+    .replace(/([A-Z]{2,})([A-Z][a-z])/g, '$1 $2')
+    .trim();
+  const words = spaced.split(' ');
+  let caps = 0;
+  while (caps < words.length && /^[A-Z0-9&'.-]{2,}$/.test(words[caps]!)) caps += 1;
+  if (caps === 0 || caps === words.length) return spaced;
+  const rest = words.slice(caps);
+  const restLower = new Set(rest.map((w) => w.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  const prefixDuplicated = words
+    .slice(0, caps)
+    .every((w) => restLower.has(w.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  return prefixDuplicated ? rest.join(' ') : spaced;
 }
 
 /** ISO date (YYYY-MM-DD) from the formats bills print, or null. */
@@ -183,6 +214,8 @@ export function emptyDraft(engine: string, engineVersion: string, note: string):
     insurancePaid: null,
     adjustments: null,
     previousBalance: null,
+    tax: null,
+    payments: null,
     statementDate: null,
     providerName: null,
     accountReference: null,

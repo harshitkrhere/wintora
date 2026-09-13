@@ -41,6 +41,8 @@ export interface FoundTotals {
   readonly insurancePaid: DraftMoney | null;
   readonly adjustments: DraftMoney | null;
   readonly previousBalance: DraftMoney | null;
+  readonly tax: DraftMoney | null;
+  readonly payments: DraftMoney | null;
 }
 
 /**
@@ -71,6 +73,8 @@ interface LabelRule {
   readonly key: keyof FoundTotals | null;
   readonly labels: readonly string[];
   readonly pick: 'first' | 'last';
+  /** A raw pattern allowed between the label and the filler: "GST @ 5%". */
+  readonly suffix?: string;
 }
 
 /**
@@ -80,12 +84,23 @@ interface LabelRule {
  * "total". A rule that runs too early steals the number.
  */
 const RULES: readonly LabelRule[] = [
-  // Consumed, not stored. The form has no "patient payments" field, and
-  // these must not be mistaken for insurance payments.
+  // What the patient has already paid. Runs first so "patient payments" is
+  // never mistaken for the insurer's, and so "amount paid" is not read as due.
   {
-    key: null,
+    key: 'payments',
     pick: 'last',
-    labels: ['patient payments received', 'patient payments', 'patient payment', 'payments by patient', 'you paid', 'paid by patient'],
+    labels: [
+      'patient payments received', 'patient payments', 'patient payment', 'payments by patient',
+      'you paid', 'paid by patient', 'amount paid', 'total paid', 'payments made', 'payment made',
+    ],
+  },
+  // Tax, when a bill prints one. The rate often sits between the label and
+  // the amount ("GST @ 5%", "Sales tax (7.25%)"), hence the suffix.
+  {
+    key: 'tax',
+    pick: 'last',
+    labels: ['sales tax', 'gst/hst', 'hst', 'gst', 'pst', 'qst', 'vat', 'tax'],
+    suffix: String.raw`(?:[ \t]*\(?[ \t]*@?[ \t]*\d{1,2}(?:\.\d+)?[ \t]*%[ \t]*\)?)?`,
   },
   {
     key: 'previousBalance',
@@ -170,6 +185,7 @@ export function findTotalsInText(text: string): FoundTotals {
   const found: Record<keyof FoundTotals, DraftMoney | null> = {
     subtotal: null, total: null, amountDue: null,
     insurancePaid: null, adjustments: null, previousBalance: null,
+    tax: null, payments: null,
   };
   if (text.trim().length === 0) return found;
 
@@ -178,7 +194,7 @@ export function findTotalsInText(text: string): FoundTotals {
   for (const rule of RULES) {
     // Longest label first, so "total amount due" is tried before "total".
     const labels = [...rule.labels].sort((a, b) => b.length - a.length).map(labelPattern);
-    const re = new RegExp(String.raw`\b(?:${labels.join('|')})\b${FILLER}${MONEY}`, 'gi');
+    const re = new RegExp(String.raw`\b(?:${labels.join('|')})\b${rule.suffix ?? ''}${FILLER}${MONEY}`, 'gi');
 
     const matches: { index: number; length: number; cents: number }[] = [];
     for (const m of working.matchAll(re)) {
@@ -214,5 +230,7 @@ export function backfillTotals<T extends FoundTotals>(draft: T, text: string): T
     insurancePaid: draft.insurancePaid ?? scanned.insurancePaid,
     adjustments: draft.adjustments ?? scanned.adjustments,
     previousBalance: draft.previousBalance ?? scanned.previousBalance,
+    tax: draft.tax ?? scanned.tax,
+    payments: draft.payments ?? scanned.payments,
   };
 }

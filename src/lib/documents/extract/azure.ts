@@ -17,15 +17,7 @@
  * them this reader is simply not offered and photos fail with a clear note.
  */
 
-import {
-  type DraftLine,
-  type DraftMoney,
-  type DraftText,
-  type ExtractionDraft,
-  confidenceFromScore,
-  lowestConfidence,
-  parseDateToIso,
-} from '@/domain/documents/draft';
+import { type DraftLine, type DraftMoney, type DraftText, type ExtractionDraft, confidenceFromScore, lowestConfidence, parseDateToIso, tidyProviderName } from '@/domain/documents/draft';
 import { backfillTotals } from '@/domain/documents/totals';
 import { log } from '@/lib/logging';
 import type { DocumentReader, ReaderInput } from './port';
@@ -76,6 +68,13 @@ function textField(f: AzureField | undefined): DraftText | null {
   return v ? { value: v, confidence: confidenceFromScore(f?.confidence) } : null;
 }
 
+/** The vendor field as Azure reads it, with the logo text taken off the front. */
+function tidyText(t: DraftText | null): DraftText | null {
+  if (t === null) return null;
+  const value = tidyProviderName(t.value);
+  return value.length > 0 ? { value, confidence: t.confidence } : null;
+}
+
 function dateField(f: AzureField | undefined): DraftText | null {
   const iso = parseDateToIso(f?.valueDate ?? f?.content);
   return iso ? { value: iso, confidence: confidenceFromScore(f?.confidence) } : null;
@@ -116,12 +115,19 @@ export function mapAzureInvoice(
     fields.SubTotal?.valueCurrency?.currencyCode ??
     null;
   const currency = currencyCode === 'USD' || currencyCode === 'CAD' ? currencyCode : null;
+  if (currencyCode !== null && currency === null) {
+    // The reader knows the currency and it is not one the product handles.
+    // Say so, rather than letting the form quietly show the figures as dollars.
+    notes.push(
+      `This document appears to be in ${currencyCode}. Wintora supports US and Canadian bills; the figures below are shown as if in US dollars.`,
+    );
+  }
 
   // The invoice model returns line items well and totals unreliably: hospital
   // statements print "TOTAL CHARGES" and "BALANCE DUE" in layouts it was not
   // trained on. It also returns the full OCR text, which carries those labels.
   // Structured fields win; the label scan fills only what they left empty.
-  const { subtotal, total, amountDue, insurancePaid, adjustments, previousBalance } =
+  const { subtotal, total, amountDue, insurancePaid, adjustments, previousBalance, tax, payments } =
     backfillTotals(
       {
         subtotal: moneyField(fields.SubTotal),
@@ -130,6 +136,8 @@ export function mapAzureInvoice(
         insurancePaid: null,
         adjustments: null,
         previousBalance: moneyField(fields.PreviousUnpaidBalance),
+        tax: moneyField(fields.TotalTax),
+        payments: null,
       },
       result.analyzeResult?.content ?? '',
     );
@@ -158,8 +166,10 @@ export function mapAzureInvoice(
     insurancePaid,
     adjustments,
     previousBalance,
+    tax,
+    payments,
     statementDate: dateField(fields.InvoiceDate),
-    providerName: textField(fields.VendorName),
+    providerName: tidyText(textField(fields.VendorName)),
     accountReference: textField(fields.InvoiceId) ?? textField(fields.CustomerId),
     pageCount,
     overallConfidence: overall,

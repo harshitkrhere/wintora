@@ -146,6 +146,8 @@ export function BillCheckerTool({
   const [amountDue, setAmountDue] = useState(fromCents(initial?.amountDue?.amountCents));
   const [insurancePaid, setInsurancePaid] = useState(fromCents(initial?.insurancePaid?.amountCents));
   const [adjustments, setAdjustments] = useState(fromCents(initial?.adjustments?.amountCents));
+  const [tax, setTax] = useState(fromCents(initial?.tax?.amountCents));
+  const [payments, setPayments] = useState(fromCents(initial?.payments?.amountCents));
   const [statementDate, setStatementDate] = useState(initial?.statementDate?.value ?? '');
   const [eobPatientResponsibility, setEobPatientResponsibility] = useState('');
   const [eobPlanPaid, setEobPlanPaid] = useState('');
@@ -232,6 +234,8 @@ export function BillCheckerTool({
         ...(toCents(adjustments) !== null
           ? { adjustmentsCents: toCents(adjustments)! }
           : {}),
+        ...(toCents(tax) !== null ? { taxCents: toCents(tax)! } : {}),
+        ...(toCents(payments) !== null ? { paymentsCents: toCents(payments)! } : {}),
         ...(statementDate.length > 0 ? { statementDate } : {}),
         overallConfidence: 'HIGH' as const,
       };
@@ -299,6 +303,8 @@ export function BillCheckerTool({
       amountDue,
       insurancePaid,
       adjustments,
+      tax,
+      payments,
       statementDate,
       currency,
       showEob,
@@ -444,6 +450,26 @@ export function BillCheckerTool({
                 id={`${formId}-insurance`}
                 value={insurancePaid}
                 onChange={(e) => setInsurancePaid(e.target.value)}
+                inputMode="decimal"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`${formId}-tax`}>Tax, if printed</label>
+              <input
+                id={`${formId}-tax`}
+                value={tax}
+                onChange={(e) => setTax(e.target.value)}
+                inputMode="decimal"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`${formId}-paid`}>Already paid by you</label>
+              <input
+                id={`${formId}-paid`}
+                value={payments}
+                onChange={(e) => setPayments(e.target.value)}
                 inputMode="decimal"
                 placeholder="0.00"
               />
