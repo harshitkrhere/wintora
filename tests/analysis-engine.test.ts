@@ -411,6 +411,16 @@ describe('bill against EOB', () => {
     expect(notOnEob!.explanation).toMatch(/starting point for a question/i);
   });
 
+  // An EOB entered as two totals has no lines. Saying every charge is missing
+  // from it would be a statement about the form, not the documents.
+  it('stays silent about line coverage when the EOB has no lines', () => {
+    const findings = checkLineCoverage(
+      bill({ lineItems: [line({ index: 0, description: 'Anaesthesia', code: '00840' })] }),
+      eob({ lines: [], totalPatientResponsibilityCents: 10_000 }),
+    );
+    expect(findings).toHaveLength(0);
+  });
+
   it('compares the same code across both documents', () => {
     const findings = checkBilledAmountAgreement(
       bill({ lineItems: [line({ index: 0, code: '70450', amountCents: 45_000 })] }),

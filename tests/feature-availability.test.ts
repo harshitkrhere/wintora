@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ALL_FEATURES, FEATURES } from '@/config/features';
+import { SUPPORT, prioritySupportAvailable } from '@/config/support';
 import {
   CONFIG_PLAN_MATRIX,
   benefitList,
@@ -38,29 +39,47 @@ describe('feature availability', () => {
     expect(available).toEqual(
       [
         'ACCOUNT_DELETION',
+        'ADVANCED_DOCUMENT_ANALYSIS',
+        'ADVANCED_EXPORT',
+        'ADVANCED_LETTERS',
         'BASIC_BILL_ANALYSIS',
         'CASE_TIMELINE',
         'CASE_TRACKING',
         'DATA_EXPORT',
+        'DEADLINE_TRACKING',
         'DOCUMENT_UPLOAD',
         'EOB_COMPARISON',
+        'EXTENDED_HISTORY',
+        'HOUSEHOLD_CASES',
+        'HOUSEHOLD_MEMBERS',
+        'LETTER_GENERATION',
         'MAX_ACTIVE_CASES',
         'MAX_FILE_SIZE_MB',
         'MONTHLY_ANALYSES',
         'MONTHLY_DOCUMENTS',
+        'MONTHLY_EXPORTS',
+        'MONTHLY_LETTERS',
         'MULTIPLE_CASES',
+        'PREMIUM_TEMPLATES',
+        'REMINDERS',
         'RETENTION_DAYS',
         'STORAGE_LIMIT_MB',
+        ...(prioritySupportAvailable() ? ['PRIORITY_SUPPORT'] : []),
       ].sort(),
     );
   });
 
-  it('letters, reminders and household are not claimed while unbuilt', () => {
-    expect(FEATURES.LETTER_GENERATION.available).toBe(false);
-    expect(FEATURES.REMINDERS.available).toBe(false);
-    expect(FEATURES.DEADLINE_TRACKING.available).toBe(false);
-    expect(FEATURES.HOUSEHOLD_CASES.available).toBe(false);
-    expect(FEATURES.ADVANCED_EXPORT.available).toBe(false);
+  // Priority support is a promise about time. It is sold only once a number
+  // exists in src/config/support.ts, and the flag follows that file rather
+  // than being set by hand somewhere else.
+  it('priority support is claimed only once a response target is written down', () => {
+    expect(FEATURES.PRIORITY_SUPPORT.available).toBe(prioritySupportAvailable());
+    if (SUPPORT.priorityHours === null) {
+      expect(FEATURES.PRIORITY_SUPPORT.available).toBe(false);
+    } else {
+      expect(SUPPORT.priorityHours).toBeGreaterThan(0);
+      expect(FEATURES.PRIORITY_SUPPORT.available).toBe(true);
+    }
   });
 
   it('benefit lines carry availability so pages cannot lose it', () => {
@@ -84,11 +103,10 @@ describe('feature availability', () => {
     const letters = lines.find((l) => l.key === 'LETTER_GENERATION');
     const upload = lines.find((l) => l.key === 'DOCUMENT_UPLOAD');
 
-    expect(letters?.available).toBe(false);
+    expect(letters?.available).toBe(true);
     expect(upload?.available).toBe(true);
-    // A paid plan today has more promised than delivered. That is a fact the
-    // pages must be able to state, so both kinds must be present in the list.
-    expect(lines.some((l) => l.available)).toBe(true);
-    expect(lines.some((l) => !l.available)).toBe(true);
+    // Every line carries the flag, so a page can always split the list into
+    // "available now" and "included, not yet available" without guessing.
+    for (const line of lines) expect(typeof line.available).toBe('boolean');
   });
 });

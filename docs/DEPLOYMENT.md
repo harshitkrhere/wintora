@@ -361,6 +361,10 @@ constant time.
 | --- | --- | --- |
 | Retention sweep | `POST /api/cron/retention-sweep` | Hourly |
 | Billing reconciliation | `POST /api/cron/reconcile-billing` | Every 6 hours |
+| Reminder emails | `POST /api/cron/send-reminders` | Hourly |
+
+All three also accept `GET`, which is what Vercel's scheduler sends (with the
+same bearer header, taken from the `CRON_SECRET` environment variable).
 
 **Vercel Hobby runs cron jobs at most once per day.** `vercel.json` in this
 repository is therefore set to daily schedules, which work on every plan. Daily
@@ -374,7 +378,8 @@ tighten them to hourly and every six hours respectively.
 {
   "crons": [
     { "path": "/api/cron/retention-sweep", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/reconcile-billing", "schedule": "0 4 * * *" }
+    { "path": "/api/cron/reconcile-billing", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/send-reminders", "schedule": "0 13 * * *" }
   ]
 }
 ```

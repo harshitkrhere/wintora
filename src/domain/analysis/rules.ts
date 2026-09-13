@@ -552,6 +552,12 @@ export function checkLineCoverage(
 ): Finding[] {
   const findings: Finding[] = [];
 
+  // Totals only. An EOB entered as two figures has no lines to match against,
+  // and "none of your charges appear on the EOB" would be a statement about
+  // the form, not about the documents. Line-level reconciliation is what
+  // ADVANCED_DOCUMENT_ANALYSIS adds: both documents read line by line.
+  if (eob.lines.length === 0) return findings;
+
   const eobKeys = new Set(
     eob.lines.map((l) => l.code ?? normalizeDescription(l.description)),
   );

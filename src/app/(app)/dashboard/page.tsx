@@ -11,8 +11,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { listCases } from '@/lib/cases/load';
+import { loadUpcoming } from '@/lib/cases/upcoming';
 import { createAdminClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/http/api';
+import { daysUntil } from '@/domain/reminders/notice';
 import { CaseCard } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icons';
@@ -24,6 +26,16 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+/** "Today", "Tomorrow", "In 3 days", "2 days ago", or the date. */
+function relativeDay(at: string, kind: 'reminder' | 'deadline', now: Date): { text: string; overdue: boolean } {
+  const day = kind === 'deadline' ? at : new Date(at).toISOString().slice(0, 10);
+  const days = daysUntil(day, now);
+  if (days === 0) return { text: 'Today', overdue: kind === 'reminder' && Date.parse(at) <= now.getTime() };
+  if (days === 1) return { text: 'Tomorrow', overdue: false };
+  if (days < 0) return { text: `${plural(-days, 'day')} ago`, overdue: true };
+  return { text: `In ${plural(days, 'day')}`, overdue: false };
+}
+
 export default async function DashboardPage(): Promise<React.ReactElement> {
   let user;
   try {
@@ -32,8 +44,11 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     redirect('/signin?next=%2Fdashboard');
   }
 
-  const cases = await listCases(createAdminClient(), user.id);
+  const admin = createAdminClient();
+  const cases = await listCases(admin, user.id);
   const open = cases.filter((c) => c.status === 'OPEN');
+  const now = new Date();
+  const coming = await loadUpcoming(admin, user.id, open, now);
   const closedCases = cases.filter((c) => c.status !== 'OPEN');
   const closed = closedCases.length;
 
@@ -56,6 +71,30 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           Upload a bill
         </Link>
       </div>
+
+      {coming.length > 0 ? (
+        <section className="card stack" aria-labelledby="coming-heading">
+          <div className="section-head">
+            <h2 id="coming-heading">Coming up</h2>
+            <span className="caption">Reminders you set and dates you entered</span>
+          </div>
+          <ul className="upcoming">
+            {coming.slice(0, 8).map((item) => {
+              const rel = relativeDay(item.at, item.kind, now);
+              return (
+                <li key={item.id}>
+                  <span className={`upcoming__when${rel.overdue ? ' upcoming__when--overdue' : ''}`}>{rel.text}</span>
+                  <span>
+                    <Link href={`/cases/${item.caseId}`}>{item.label}</Link>
+                    <span className="muted"> · {item.caseTitle}</span>
+                    {item.verified ? <span className="badge badge--success"> Verified</span> : null}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {open.length > 0 ? (
         <section className="stack">

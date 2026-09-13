@@ -42,6 +42,9 @@ const bodySchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   bill: billDocumentSchema,
   eob: eobDocumentSchema.optional(),
+  /** The uploaded documents the figures were confirmed from, when there are any. */
+  documentId: z.string().uuid().optional(),
+  compareDocumentId: z.string().uuid().optional(),
 });
 
 export const POST = handler('/api/analyses', async (request: NextRequest, context) => {
@@ -61,6 +64,26 @@ export const POST = handler('/api/analyses', async (request: NextRequest, contex
     });
   }
 
+  // An EOB with lines is the two documents reconciled line by line, which is
+  // what ADVANCED_DOCUMENT_ANALYSIS is. Totals alone are the basic comparison
+  // every plan includes.
+  const lineLevel = body.eob !== undefined && body.eob.lines.length > 0;
+  if (lineLevel) {
+    await authorize(user, {
+      feature: 'ADVANCED_DOCUMENT_ANALYSIS',
+      resource: { type: 'case', id: body.caseId },
+      action: 'execute',
+    });
+  }
+
+  // The documents named must be this user's and on this case; otherwise the
+  // run proceeds without the link rather than recording a foreign id.
+  const admin = createAdminClient();
+  const documentIds = await ownedDocumentsOnCase(admin, user.id, body.caseId, [
+    body.documentId,
+    body.compareDocumentId,
+  ]);
+
   const decision = await authorize(user, {
     feature: 'MONTHLY_ANALYSES',
     resource: { type: 'case', id: body.caseId },
@@ -68,7 +91,6 @@ export const POST = handler('/api/analyses', async (request: NextRequest, contex
     amount: 1,
   });
 
-  const admin = createAdminClient();
   const store = createEntitlementStore(admin);
   const usage = createUsageStore(admin);
 
@@ -102,7 +124,10 @@ export const POST = handler('/api/analyses', async (request: NextRequest, contex
             ? analyzeBillAgainstEob(bill, body.eob as EobDocument)
             : analyzeBill(bill);
 
-        await persistAnalysis(admin, user.id, body.caseId, result);
+        await persistAnalysis(admin, user.id, body.caseId, result, {
+          documentId: documentIds[0] ?? null,
+          compareDocumentId: documentIds[1] ?? null,
+        });
         await recordConfirmedFigures(admin, user.id, body.caseId, bill);
         return result;
       },
@@ -165,21 +190,44 @@ async function recordConfirmedFigures(
   await admin.from('cases').update(patch).eq('id', caseId).eq('user_id', userId);
 }
 
+/** Which of the named document ids are really this user's, on this case. */
+async function ownedDocumentsOnCase(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  caseId: string,
+  ids: readonly (string | undefined)[],
+): Promise<(string | null)[]> {
+  const wanted = ids.filter((id): id is string => id !== undefined);
+  if (wanted.length === 0) return ids.map(() => null);
+  const { data } = await admin
+    .from('documents')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('case_id', caseId)
+    .is('deleted_at', null)
+    .in('id', wanted);
+  const owned = new Set(((data ?? []) as { id: string }[]).map((d) => d.id));
+  return ids.map((id) => (id !== undefined && owned.has(id) ? id : null));
+}
+
 async function persistAnalysis(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
   caseId: string,
   result: AnalysisResult,
+  documents: { documentId: string | null; compareDocumentId: string | null },
 ): Promise<void> {
   const { data: analysis, error } = await admin
     .from('analyses')
     .insert({
       user_id: userId,
       case_id: caseId,
+      document_id: documents.documentId,
+      compare_document_id: documents.compareDocumentId,
       analysis_type: result.analysisType,
       engine_version: result.engineVersion,
       status: 'COMPLETED',
-      cost_level: 'LOW',
+      cost_level: result.analysisType === 'BILL_VS_EOB' ? 'MEDIUM' : 'LOW',
       started_at: new Date().toISOString(),
       completed_at: new Date().toISOString(),
     })

@@ -12,11 +12,15 @@
  */
 
 import { type NextRequest } from 'next/server';
-import { serverEnv } from '@/lib/env';
+import { publicEnv, serverEnv } from '@/lib/env';
 import { handler, ok } from '@/lib/http/api';
 import { assertCronAuthorized } from '@/lib/http/cron';
 import { log } from '@/lib/logging';
 import { createAdminClient } from '@/lib/supabase/server';
+import { createEntitlementStore, loadPlanMatrix } from '@/lib/supabase/stores';
+import { getEmailSender } from '@/lib/email';
+import { computeEntitlements, freeSnapshot } from '@/domain/entitlements/compute';
+import { retentionNoticeEmail } from '@/domain/reminders/notice';
 import { POLICY } from '@/config/policy';
 
 export const runtime = 'nodejs';
@@ -38,15 +42,18 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
 
   const { data: expiring } = await admin
     .from('documents')
-    .select('id, user_id, retention_until')
+    .select('id, user_id, case_id, retention_until')
     .is('deleted_at', null)
     .is('retention_notice_sent_at', null)
     .gt('retention_until', now.toISOString())
     .lte('retention_until', noticeThreshold.toISOString())
     .limit(BATCH_SIZE);
 
-  const toNotify = (expiring ?? []) as { id: string; user_id: string }[];
+  const toNotify = (expiring ?? []) as {
+    id: string; user_id: string; case_id: string | null; retention_until: string;
+  }[];
 
+  let notified = 0;
   if (toNotify.length > 0) {
     await admin
       .from('documents')
@@ -54,7 +61,8 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
       .in('id', toNotify.map((d) => d.id));
 
     // The notification itself says only that something needs attention. It
-    // never names a provider, a condition or an amount.
+    // never names a provider, a condition or an amount. The job row is the
+    // record; the send happens right here when a provider is configured.
     await admin.from('jobs').insert(
       toNotify.map((doc) => ({
         job_type: 'SEND_RETENTION_NOTICE',
@@ -63,7 +71,13 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
         idempotency_key: `retention_notice_${doc.id}`,
       })),
     );
+
+    notified = await sendRetentionNotices(admin, toNotify, now);
   }
+
+  // Which accounts keep the figures read from a document after the file is
+  // removed (EXTENDED_HISTORY). Computed once per account, not per document.
+  const keepsFigures = await extendedHistoryByUser(admin, now);
 
   // 2. Delete what has genuinely expired.
   const { data: expired } = await admin
@@ -97,7 +111,12 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
       }
     }
 
-    await admin.from('document_extractions').delete().eq('document_id', doc.id);
+    // The figures read from the file go with it, unless the plan keeps them.
+    // Keeping them is what EXTENDED_HISTORY means: the check can still show
+    // its working after the paperwork has been removed.
+    if (keepsFigures.get(doc.user_id) !== true) {
+      await admin.from('document_extractions').delete().eq('document_id', doc.id);
+    }
 
     await admin
       .from('documents')
@@ -118,10 +137,100 @@ export const POST = handler('/api/cron/retention-sweep', async (request: NextReq
     deleted += 1;
   }
 
+  // 3. Case exports whose links have expired. The row stays as a record; the
+  //    object goes, because a bundle of someone's paperwork should not sit in
+  //    storage after the link that justified it has died.
+  const { data: staleExports } = await admin
+    .from('case_exports')
+    .select('id, storage_path')
+    .is('deleted_at', null)
+    .not('storage_path', 'is', null)
+    .lte('expires_at', now.toISOString())
+    .limit(BATCH_SIZE);
+
+  let exportsRemoved = 0;
+  for (const exp of (staleExports ?? []) as { id: string; storage_path: string }[]) {
+    const { error } = await admin.storage.from(bucket).remove([exp.storage_path]);
+    if (error !== null) continue;
+    await admin
+      .from('case_exports')
+      .update({ storage_path: null, deleted_at: now.toISOString() })
+      .eq('id', exp.id);
+    exportsRemoved += 1;
+  }
+
   return ok(context, {
-    notified: toNotify.length,
+    noticesQueued: toNotify.length,
+    noticesSent: notified,
     deleted,
+    exportsRemoved,
     // True when there is more work than one batch; the scheduler runs again.
     more: toDelete.length === BATCH_SIZE,
   });
 });
+
+/**
+ * Send the retention notices that were just queued. Best effort: a failed
+ * send leaves the job QUEUED for the next run, and the in-app "kept until"
+ * date on the case page has said the same thing all along.
+ */
+async function sendRetentionNotices(
+  admin: ReturnType<typeof createAdminClient>,
+  docs: readonly { id: string; user_id: string; case_id: string | null; retention_until: string }[],
+  now: Date,
+): Promise<number> {
+  const sender = getEmailSender();
+  if (sender === null) return 0;
+  const appUrl = publicEnv().NEXT_PUBLIC_APP_URL;
+
+  let sent = 0;
+  for (const doc of docs) {
+    const { data } = await admin.auth.admin.getUserById(doc.user_id);
+    const to = data?.user?.email ?? null;
+    if (to === null) continue;
+    const message = retentionNoticeEmail({ appUrl, caseId: doc.case_id, removesOn: new Date(doc.retention_until) });
+    try {
+      await sender.send({ to, ...message });
+      await admin
+        .from('jobs')
+        .update({ status: 'SUCCEEDED', completed_at: now.toISOString(), attempts: 1 })
+        .eq('idempotency_key', `retention_notice_${doc.id}`);
+      sent += 1;
+    } catch (error) {
+      log.warn('retention notice not sent', {
+        route: '/api/cron/retention-sweep',
+        errorClass: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
+  }
+  return sent;
+}
+
+/** user_id -> whether EXTENDED_HISTORY is enabled on their current plan. */
+async function extendedHistoryByUser(
+  admin: ReturnType<typeof createAdminClient>,
+  now: Date,
+): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>();
+  const { data } = await admin
+    .from('documents')
+    .select('user_id')
+    .is('deleted_at', null)
+    .not('retention_until', 'is', null)
+    .lte('retention_until', now.toISOString())
+    .limit(BATCH_SIZE);
+  const users = new Set(((data ?? []) as { user_id: string }[]).map((d) => d.user_id));
+  if (users.size === 0) return out;
+
+  const store = createEntitlementStore(admin);
+  const matrix = await loadPlanMatrix(admin);
+  for (const userId of users) {
+    const subscription = (await store.getSubscription(userId)) ?? freeSnapshot(now);
+    const entitlements = computeEntitlements(subscription, { matrix, now });
+    out.set(userId, entitlements.EXTENDED_HISTORY.enabled);
+  }
+  return out;
+}
+
+// Vercel's scheduler calls cron routes with GET and the same bearer header.
+export const GET = POST;

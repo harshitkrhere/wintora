@@ -80,7 +80,7 @@ function newLine(id: string): DraftLine {
 }
 
 /** Parse a typed amount to integer cents. Rejects anything ambiguous. */
-function toCents(value: string): number | null {
+export function toCents(value: string): number | null {
   const cleaned = value.replace(/[$,\s]/g, '');
   if (cleaned.length === 0) return null;
   if (!/^-?\d+(\.\d{1,2})?$/.test(cleaned)) return null;
@@ -88,7 +88,7 @@ function toCents(value: string): number | null {
 }
 
 /** Cents to the string a person would type: 123456 -> "1234.56". */
-function fromCents(cents: number | null | undefined): string {
+export function fromCents(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return '';
   const sign = cents < 0 ? '-' : '';
   const abs = Math.abs(cents);

@@ -269,3 +269,6 @@ async function recordMismatch(
     detail: { mismatchType },
   });
 }
+
+// Vercel's scheduler calls cron routes with GET and the same bearer header.
+export const GET = POST;

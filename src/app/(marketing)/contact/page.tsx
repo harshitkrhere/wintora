@@ -10,6 +10,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { OPERATOR, SELLER_OF_RECORD } from '@/config/disclosures';
+import { prioritySupportAvailable, responseTargetSentence } from '@/config/support';
 import { Icon } from '@/components/Icons';
 
 export const metadata: Metadata = {
@@ -20,6 +21,11 @@ export const metadata: Metadata = {
 
 export default function ContactPage(): React.ReactElement {
   const email = OPERATOR.contactEmail ?? '';
+  // The response targets come from src/config/support.ts. Until a number is
+  // written there, the standard target below is the one this page has always
+  // stated, and priority support is not mentioned because it is not sold.
+  const standard = responseTargetSentence(false) ?? 'We aim to answer within two business days.';
+  const priority = prioritySupportAvailable() ? responseTargetSentence(true) : null;
 
   return (
     <div className="narrow page legal">
@@ -43,10 +49,16 @@ export default function ContactPage(): React.ReactElement {
               </a>
             </p>
             <p className="small muted card__last">
-              We aim to answer within two business days. Include the email address on your
-              account so we can find you; never include a card number or a password in an
-              email.
+              {standard} Include the email address on your account so we can find you; never
+              include a card number or a password in an email.
             </p>
+            {priority !== null ? (
+              <p className="small muted card__last">
+                On the Pro plan, priority support applies: {priority.charAt(0).toLowerCase()}
+                {priority.slice(1)} Write from the email address on your account and the plan is
+                recognised.
+              </p>
+            ) : null}
           </div>
         </div>
       </section>

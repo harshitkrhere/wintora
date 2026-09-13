@@ -1,10 +1,11 @@
 /**
- * /cases/{id} — one bill: its documents, what the checks found, and what
- * happened when.
+ * /cases/{id} — one bill: its documents, what the checks found, the letters
+ * written about it, the dates it is waiting on, and what happened when.
  *
- * Everything on this page is read from tables that already existed. The
- * findings render through the same FindingCard as the free tool, so a saved
- * result looks exactly like it did the moment it was produced.
+ * The findings render through the same FindingCard as the free tool, so a
+ * saved result looks exactly like it did the moment it was produced. What
+ * the plan allows is passed to the client parts for display only; every
+ * action re-checks on the server.
  */
 
 import type { Metadata } from 'next';
@@ -18,9 +19,14 @@ import type { AnalysisResult } from '@/domain/analysis/types';
 import { FindingCard } from '@/components/FindingCard';
 import { NextSteps, type Step } from '@/components/NextSteps';
 import { CaseStatusButton } from '@/components/CaseStatusButton';
+import { CaseDates } from '@/components/CaseDates';
+import { CaseMember } from '@/components/CaseMember';
+import { ExportCase } from '@/components/ExportCase';
 import { money } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icons';
+import { buildSubscriptionSummary } from '@/lib/billing/summary';
+import { isConfigured } from '@/lib/env';
 
 export const metadata: Metadata = { title: 'Case', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -99,15 +105,25 @@ export default async function CasePage({
     redirect(`/signin?next=${encodeURIComponent(`/cases/${id}`)}`);
   }
 
-  const detail = await loadCase(createAdminClient(), user.id, id);
+  const admin = createAdminClient();
+  const [detail, plan] = await Promise.all([loadCase(admin, user.id, id), buildSubscriptionSummary(admin, user.id)]);
   if (detail === null) notFound();
 
-  const { summary, documents, analyses, events } = detail;
+  const { summary, documents, removedDocuments, analyses, events, letters, reminders, deadlines, member } = detail;
   const completed = analyses.filter((a) => a.status === 'COMPLETED');
   const latest = completed[0];
   const steps = latest !== undefined ? checklistFor(latest, events) : null;
   const amount = money(summary.amountCents, summary.currency);
   const isOpen = summary.status === 'OPEN';
+  const readDocuments = documents.filter((d) => d.scanStatus === 'CLEAN' && d.extractionStatus === 'COMPLETED');
+  const can = {
+    letters: plan.features.LETTER_GENERATION === true,
+    reminders: plan.features.REMINDERS === true,
+    deadlines: plan.features.DEADLINE_TRACKING === true,
+    household: plan.features.HOUSEHOLD_CASES === true,
+    export: plan.features.ADVANCED_EXPORT === true,
+  };
+  const exportsLeft = plan.usage.find((u) => u.featureKey === 'MONTHLY_EXPORTS')?.remaining ?? null;
 
   return (
     <div className="shell stack--lg page">
@@ -142,9 +158,13 @@ export default async function CasePage({
                   Statement {summary.statementDate}
                 </span>
               ) : null}
+              <CaseMember caseId={summary.id} current={member} enabled={can.household} />
             </p>
           ) : (
-            <p className="muted m-0">Add details by uploading the bill.</p>
+            <p className="meta">
+              <span className="muted">Add details by uploading the bill.</span>
+              <CaseMember caseId={summary.id} current={member} enabled={can.household} />
+            </p>
           )}
         </div>
         <div className="page-head__actions">
@@ -152,6 +172,12 @@ export default async function CasePage({
             <Icon name="upload" />
             Upload a document
           </Link>
+          {can.letters ? (
+            <Link href={`/cases/${summary.id}/letters/new`} className="btn btn--secondary">
+              <Icon name="mail" />
+              Write a letter
+            </Link>
+          ) : null}
           <CaseStatusButton caseId={summary.id} status={summary.status} />
         </div>
       </div>
@@ -173,6 +199,11 @@ export default async function CasePage({
         <div className="section-head">
           <h2>Checks</h2>
           <span className="section-head__count">{completed.length}</span>
+          {readDocuments.length >= 2 ? (
+            <Link href={`/cases/${summary.id}/compare`} className="small">
+              Compare two documents
+            </Link>
+          ) : null}
         </div>
         {completed.length === 0 ? (
           <EmptyState
@@ -208,6 +239,84 @@ export default async function CasePage({
             </details>
           ))
         )}
+      </section>
+
+      {/* ------------------------------------------------------ letters */}
+      <section className="stack">
+        <div className="section-head">
+          <h2>Letters</h2>
+          <span className="section-head__count">{letters.length}</span>
+          {can.letters && letters.length > 0 ? (
+            <Link href={`/cases/${summary.id}/letters/new`} className="small">
+              Write another
+            </Link>
+          ) : null}
+        </div>
+        {letters.length === 0 ? (
+          <EmptyState
+            compact
+            title="No letters yet"
+            body={
+              can.letters
+                ? 'Ask for an itemised statement, question a charge, request a payment plan. A draft from a reviewed template, filled with your facts, for you to check and send.'
+                : 'Request letters are part of every plan once you are signed in with a case. Your plan does not currently include them.'
+            }
+            action={can.letters ? { href: `/cases/${summary.id}/letters/new`, label: 'Write a letter' } : { href: '/pricing', label: 'See plans' }}
+          />
+        ) : (
+          <div className="table-scroll table--responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Letter</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Last changed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {letters.map((l) => (
+                  <tr key={l.id}>
+                    <td data-label="Letter">
+                      <Link href={`/cases/${summary.id}/letters/${l.id}`}>
+                        <strong>{l.title}</strong>
+                      </Link>
+                      {l.attachmentCount > 0 ? (
+                        <span className="cell-sub">
+                          {l.attachmentCount} item{l.attachmentCount === 1 ? '' : 's'} of evidence attached
+                        </span>
+                      ) : null}
+                    </td>
+                    <td data-label="Status">
+                      <span className={`badge ${l.status === 'FINALIZED' ? 'badge--success' : 'badge--neutral'}`}>
+                        {l.status === 'FINALIZED' ? 'Reviewed' : 'Draft'}
+                      </span>
+                    </td>
+                    <td data-label="Last changed" className="small">{when(l.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="caption m-0">
+          Wintora prepares drafts. You read, change and send them yourself; nothing goes anywhere
+          without you.
+        </p>
+      </section>
+
+      {/* -------------------------------------------------------- dates */}
+      <section className="stack">
+        <div className="section-head">
+          <h2>Dates</h2>
+          <span className="section-head__count">{reminders.filter((r) => r.completedAt === null).length + deadlines.filter((d) => d.completedAt === null).length}</span>
+        </div>
+        <CaseDates
+          caseId={summary.id}
+          reminders={reminders}
+          deadlines={deadlines}
+          can={{ reminders: can.reminders, deadlines: can.deadlines }}
+          emailOn={isConfigured('email')}
+        />
       </section>
 
       {/* ---------------------------------------------------- documents */}
@@ -268,10 +377,25 @@ export default async function CasePage({
             </table>
           </div>
         )}
+        {removedDocuments.length > 0 ? (
+          <ul className="x-list small">
+            {removedDocuments.map((d) => (
+              <li key={d.id}>
+                <strong>{d.filename ?? 'Document'}</strong> was removed on{' '}
+                {new Date(d.removedAt).toLocaleDateString('en-US', { dateStyle: 'medium' })} at the end of its
+                retention period.{' '}
+                {d.figuresKept
+                  ? 'The figures read from it are kept with this case (extended history).'
+                  : 'The figures read from it were removed with it; the checks that used them are unaffected.'}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <p className="caption m-0">
           Documents are deleted automatically on the date shown, set by your plan. Nothing is
           deleted because a plan changes; you are told first.
         </p>
+        <ExportCase caseId={summary.id} enabled={can.export} remaining={exportsLeft} hasDocuments={documents.some((d) => d.scanStatus === 'CLEAN')} />
       </section>
 
       {/* ----------------------------------------------------- timeline */}
@@ -294,8 +418,8 @@ export default async function CasePage({
           </ol>
         </div>
         <p className="caption m-0">
-          Only things that actually happened appear here. No reminders or deadlines are
-          invented.
+          Only things that actually happened appear here: what the product did, and what you told
+          it you did. Nothing is invented from a document.
         </p>
       </section>
     </div>

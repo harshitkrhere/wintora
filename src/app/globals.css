@@ -3817,3 +3817,253 @@ details[open] > summary::before {
     transform 200ms ease-out,
     opacity 200ms ease-in 150ms;
 }
+
+/* ==========================================================================
+   Working features: letters, dates, household, export, compare
+   ========================================================================== */
+
+/* The template library: one card per template, the whole card a button.
+   Premium ones say so in a chip; the plan gate is on the server. */
+.template-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+}
+.template-list button {
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  cursor: pointer;
+  font: inherit;
+}
+.template-list button[aria-pressed="true"] {
+  border-color: var(--ink-900);
+  box-shadow: 0 0 0 1px var(--ink-900);
+}
+.template__name {
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.template__desc {
+  font-size: 0.875rem;
+  color: var(--ink-500);
+}
+.template__meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+/* The letter itself. A textarea while it is being edited, so the words are
+   the customer's; the same face when read back, so nothing looks different
+   once it is confirmed. Always plain text, never rendered as markup. */
+.letter-text {
+  width: 100%;
+  min-height: 28rem;
+  font-family: var(--font-body, inherit);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  resize: vertical;
+}
+pre.letter-text {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-x: auto;
+}
+.letter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.letter-actions .spacer {
+  flex: 1;
+}
+
+/* Two statements, ticked one at a time, before a letter is confirmed. */
+.confirm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.confirm-list label {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.confirm-list input {
+  margin-top: 0.2rem;
+  width: auto;
+}
+
+/* Dates on a case: reminders and deadlines in one list, each row saying
+   which it is and whether it came from a verified source. */
+.dates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.dates__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.dates__row--done {
+  background: var(--surface-2);
+}
+.dates__row--done .dates__label {
+  color: var(--ink-500);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-300);
+}
+.dates__when {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  color: var(--ink-700);
+  white-space: nowrap;
+}
+.dates__when--overdue {
+  color: var(--error-fg);
+  font-weight: 600;
+}
+.dates__label {
+  display: grid;
+  gap: 0.15rem;
+}
+.dates__sub {
+  font-size: 0.8125rem;
+  color: var(--ink-500);
+}
+.dates__actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.dates__row input[type="checkbox"] {
+  width: auto;
+}
+@media (max-width: 40rem) {
+  .dates__row {
+    grid-template-columns: auto 1fr;
+  }
+  .dates__actions {
+    grid-column: 2;
+    justify-content: flex-end;
+  }
+}
+
+/* Inline add forms under a list: a row of fields and one button. */
+.inline-form {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  align-items: end;
+  padding: 1rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+@media (min-width: 40rem) {
+  .inline-form {
+    grid-template-columns: 2fr 1fr auto;
+  }
+  .inline-form--wide {
+    grid-template-columns: 2fr 1fr 1fr auto;
+  }
+}
+.inline-form .field {
+  margin: 0;
+}
+
+/* Who the bill is for. A select, and a name field when it is someone new. */
+.member-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.member-picker select,
+.member-picker input {
+  width: auto;
+  min-width: 10rem;
+}
+
+/* Comparing two documents: the two forms side by side on a wide screen. */
+.compare {
+  display: grid;
+  gap: 1.25rem;
+}
+@media (min-width: 64rem) {
+  .compare {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+.compare__pick {
+  display: grid;
+  gap: 0.5rem;
+}
+.compare-lines {
+  display: grid;
+  gap: 0.5rem;
+}
+.compare-line {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 0.5rem;
+  align-items: end;
+}
+@media (max-width: 40rem) {
+  .compare-line {
+    grid-template-columns: 1fr 1fr;
+  }
+  .compare-line > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Home: what is coming up across cases. */
+.upcoming {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.upcoming li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.9375rem;
+}
+.upcoming__when {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-500);
+  font-size: 0.875rem;
+}
+.upcoming__when--overdue {
+  color: var(--error-fg);
+  font-weight: 600;
+}

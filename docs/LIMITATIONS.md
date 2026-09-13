@@ -135,7 +135,7 @@ These fail closed rather than degrading silently.
 | OCR | `none` | Extraction from scanned documents does not run. The manual-entry path and the anonymous tool work fully. |
 | Malware scanning | `structural` | Byte sniffing plus PDF structure checks, in-process. Not signature antivirus; see above. |
 | OCR | `none` | Photos and scans are stored but not read until Azure Document Intelligence is configured. |
-| Email | `none` | Notification jobs queue but do not send. |
+| Email | `none` | Reminders and retention notices are shown in the app but not sent. Set `EMAIL_PROVIDER=hostinger` (the domain's own mailbox, via Hostinger's Email API; already paid for) or `resend` (free tier) to send them. Every message is a link to the case and names nothing from it. |
 | Analytics | Not configured | No marketing analytics loads. |
 
 ---
@@ -174,13 +174,33 @@ and used.
 revenue and margin dashboards, and content editor are specified in the docs and
 modelled in the schema, with no UI.
 
-**Household cases are modelled, not implemented.** `case_members` and
-`HOUSEHOLD_MEMBERS` exist; no UI assigns a case to a household member. Pro
-should not be sold on that feature until it does.
+**Household cases.** A case can be assigned to a person on the account ("For
+Maya"), and `HOUSEHOLD_MEMBERS` counts distinct people across cases. There is
+no separate person record: a member exists because a case names them.
 
-**Priority support is a plan feature with no staffed queue.** It must not be
-advertised until there is one. This is exactly the "do not sell what you do not
-provide" rule, and it currently fails.
+**Priority support has no number yet.** `src/config/support.ts` holds the
+response targets and both are `null`. While they are, `PRIORITY_SUPPORT` is
+marked unavailable, the pricing and subscription pages say "included, not yet
+available", and the contact page does not mention it. Writing a number there
+is the whole of switching it on; `tests/feature-availability.test.ts` asserts
+the flag follows the file. Decide what can honestly be met first.
+
+**Extended history is defined narrowly.** Case records, findings and letters
+are never subject to plan retention (POLICY.retention). What
+`EXTENDED_HISTORY` adds is that the figures read from a document
+(`document_extractions`) survive the file's removal by retention, so a check
+can still show its working after the paperwork is gone. Without it they are
+removed with the file, as before. The case page says which happened.
+
+**Exports live as long as their link.** A case bundle is written to the
+private bucket and handed out as a signed URL (`POLICY.export.linkTtlMinutes`);
+the retention sweep removes the object once the link has expired. The bundle
+stops adding uploads at 45 MB (Supabase's free tier caps an object at 50 MB)
+and lists what it left out in its README.
+
+**Reminder email is daily on Vercel Hobby.** `send-reminders` runs once a day
+there (13:00 UTC), so a reminder set for 09:00 arrives on the next run after
+09:00. On Pro, tighten the schedule to hourly.
 
 **No French localisation.** The architecture supports it; no translation exists,
 and machine-translating regulatory content for Quebec would be worse than not

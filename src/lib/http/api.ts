@@ -267,3 +267,17 @@ export function refFor(user: { id: string }): string {
 }
 
 export const uuidSchema = z.string().uuid();
+
+/**
+ * The id that follows a path segment: for /api/cases/{id}/letters and
+ * "cases", the case id. Validated as a UUID; anything else is a 404, which is
+ * also what a foreign id produces, so the two are indistinguishable.
+ */
+export function pathIdAfter(request: NextRequest, segment: string): string {
+  const segments = request.nextUrl.pathname.split('/').filter((s) => s.length > 0);
+  const index = segments.indexOf(segment);
+  const raw = index >= 0 ? segments[index + 1] : undefined;
+  const parsed = uuidSchema.safeParse(raw);
+  if (!parsed.success) throw new AppError('NOT_FOUND', 'We could not find that item.');
+  return parsed.data;
+}

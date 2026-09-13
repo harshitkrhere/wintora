@@ -10,6 +10,8 @@
  * never drift apart.
  */
 
+import { prioritySupportAvailable } from './support';
+
 export const FEATURE_TYPES = [
   'BOOLEAN',
   'LIMIT',
@@ -109,9 +111,9 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   ADVANCED_DOCUMENT_ANALYSIS: {
     key: 'ADVANCED_DOCUMENT_ANALYSIS',
-    available: false,
+    available: true,
     name: 'Advanced document analysis',
-    description: 'Cross-document reconciliation and richer line-item comparison.',
+    description: 'Reconcile two uploaded documents line by line: a bill against its EOB.',
     benefitText: 'Advanced cross-document analysis',
     type: 'BOOLEAN',
     costLevel: 'HIGH',
@@ -129,7 +131,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   LETTER_GENERATION: {
     key: 'LETTER_GENERATION',
-    available: false,
+    available: true,
     name: 'Request letters',
     description: 'Generate administrative request drafts you review and send.',
     benefitText: 'Prepare request letters to review and send yourself',
@@ -139,7 +141,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   ADVANCED_LETTERS: {
     key: 'ADVANCED_LETTERS',
-    available: false,
+    available: true,
     name: 'Advanced letter drafts',
     description: 'Multi-part correspondence with evidence attachments.',
     benefitText: 'Advanced correspondence drafts',
@@ -149,7 +151,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   PREMIUM_TEMPLATES: {
     key: 'PREMIUM_TEMPLATES',
-    available: false,
+    available: true,
     name: 'Premium templates',
     description: 'The full reviewed template library.',
     benefitText: 'The full template library',
@@ -189,7 +191,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   REMINDERS: {
     key: 'REMINDERS',
-    available: false,
+    available: true,
     name: 'Reminders',
     description: 'Schedule follow-up reminders on a case.',
     benefitText: 'Follow-up reminders so nothing is missed',
@@ -199,7 +201,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   DEADLINE_TRACKING: {
     key: 'DEADLINE_TRACKING',
-    available: false,
+    available: true,
     name: 'Deadline tracking',
     description: 'Track verified and user-entered dates, clearly distinguished.',
     benefitText: 'Track your important dates',
@@ -209,7 +211,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   ADVANCED_EXPORT: {
     key: 'ADVANCED_EXPORT',
-    available: false,
+    available: true,
     name: 'Advanced export',
     description: 'Export a full case bundle as PDF or DOCX with attachments.',
     benefitText: 'Export a complete case bundle',
@@ -219,7 +221,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   HOUSEHOLD_CASES: {
     key: 'HOUSEHOLD_CASES',
-    available: false,
+    available: true,
     name: 'Household cases',
     description: 'Track cases for more than one person in the household.',
     benefitText: 'Manage bills for your whole household',
@@ -229,9 +231,10 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   EXTENDED_HISTORY: {
     key: 'EXTENDED_HISTORY',
-    available: false,
+    available: true,
     name: 'Extended history',
-    description: 'Longer retention of case and analysis history.',
+    description:
+      'Keep the figures read from a document, and every check that used them, after the file itself is removed by retention.',
     benefitText: 'Keep your history for longer',
     type: 'BOOLEAN',
     costLevel: 'LOW',
@@ -239,7 +242,8 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   PRIORITY_SUPPORT: {
     key: 'PRIORITY_SUPPORT',
-    available: false,
+    // Follows src/config/support.ts: sold only once a response target exists.
+    available: prioritySupportAvailable(),
     name: 'Priority support',
     description: 'Support queue priority with a published response target.',
     benefitText: 'Priority support with a published response target',
@@ -304,7 +308,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MONTHLY_LETTERS: {
     key: 'MONTHLY_LETTERS',
-    available: false,
+    available: true,
     name: 'Letters per period',
     description: 'Letter drafts per billing period.',
     benefitText: 'Letter drafts per billing period',
@@ -315,7 +319,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   MONTHLY_EXPORTS: {
     key: 'MONTHLY_EXPORTS',
-    available: false,
+    available: true,
     name: 'Exports per period',
     description: 'Case exports per billing period.',
     benefitText: 'Case exports per billing period',
@@ -356,7 +360,7 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   },
   HOUSEHOLD_MEMBERS: {
     key: 'HOUSEHOLD_MEMBERS',
-    available: false,
+    available: true,
     name: 'Household members',
     description: 'How many people may be tracked on this account.',
     benefitText: 'People covered',

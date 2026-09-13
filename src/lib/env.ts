@@ -111,8 +111,25 @@ const serverSchema = z.object({
    * refuses extraction, which is the fail-closed default for a fresh install.
    */
   MALWARE_SCAN_PROVIDER: z.enum(['none', 'structural']).default('none'),
-  EMAIL_PROVIDER: z.string().default('none'),
+  /**
+   * Transactional email: reminders and the retention notice. Two adapters:
+   *
+   *   hostinger  the mailbox that comes with the domain's hosting, sent
+   *              through Hostinger's Email API. Already paid for, so it costs
+   *              nothing extra, and the mail comes from the real address.
+   *   resend     a free tier of 3,000 messages a month on a verified domain,
+   *              for when the mailbox API is not available.
+   *   none       nothing is sent. Reminders still show in the app.
+   *
+   * Every message is a nudge to open the app; none carries a provider, an
+   * amount or a condition. See docs/PRIVACY.md.
+   */
+  EMAIL_PROVIDER: z.enum(['none', 'hostinger', 'resend']).default('none'),
   EMAIL_FROM: z.string().default('Wintora <info@wintora.online>'),
+  /** Hostinger Email API: a bearer token for one mailbox, and that mailbox's resource id. */
+  HOSTINGER_EMAIL_TOKEN: z.string().optional(),
+  HOSTINGER_MAILBOX_ID: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
 
   CRON_SECRET: z.string().optional(),
   LOG_HASH_SECRET: z.string().optional(),
@@ -278,7 +295,14 @@ export function isConfigured(
     case 'malwareScan':
       return env.MALWARE_SCAN_PROVIDER !== 'none';
     case 'email':
-      return env.EMAIL_PROVIDER !== 'none';
+      switch (env.EMAIL_PROVIDER) {
+        case 'hostinger':
+          return env.HOSTINGER_EMAIL_TOKEN !== undefined && env.HOSTINGER_MAILBOX_ID !== undefined;
+        case 'resend':
+          return env.RESEND_API_KEY !== undefined;
+        default:
+          return false;
+      }
   }
 }
 
