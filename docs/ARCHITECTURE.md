@@ -302,9 +302,26 @@ supabase/tests/      RLS isolation tests (require a live Postgres)
 src/config/          feature registry, plan catalog, policy constants, disclaimers
 src/domain/          pure business logic, no I/O
 src/lib/             adapters: supabase, payments (Razorpay), ai, http, logging, rate limiting
-src/app/             routes: public content, tools, dashboard, billing, API handlers
+src/app/             routes: public content, tools, the signed-in app, billing, API handlers
 tests/               vitest suites: entitlements, metering, state machine, webhooks, analysis, redaction, retention
 scripts/             CI gates: SQL invariants, secret-leak scan
+```
+
+The signed-in app (`src/app/(app)`) is one screen per decision, phone
+first (see `docs/MOBILE.md`):
+
+```
+/dashboard                    Home: the next step, the cases, quick tools, recent documents
+/cases                        every case
+/cases/[id]                   one case: amount, next step, the latest check, the checklist
+/cases/[id]/letters           the requests written about it, and /letters/new, /letters/[letterId]
+/cases/[id]/documents         everything given to it, kept or not; export
+/cases/[id]/dates             reminders and deadlines
+/cases/[id]/activity          what happened when
+/cases/[id]/compare           a bill set against its EOB, line by line
+/documents                    every kept document and letter across cases
+/upload                       Review a document: ?case, ?document (resume), ?type (BILL, EOB, OTHER)
+/settings/...                 Account: subscription, your data
 ```
 
 ---

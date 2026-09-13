@@ -3,12 +3,17 @@
  * tool, the saved analysis on a case, and the demonstration on the landing
  * page.
  *
+ * The order is the product's signature (docs/MOBILE.md): the finding, why
+ * it is being shown, the numbers it rests on, then what the person can do.
  * The evidence is the important part. A finding a person cannot verify is a
  * finding they should not trust, so every card can show the numbers it is
  * based on, as a short ledger in words and amounts rather than as the
- * engine's field names. See docs/AI_SAFETY.md section 6.
+ * engine's field names. See docs/AI_SAFETY.md section 6. On a case the
+ * next step can be a real button to the letter that finding calls for;
+ * the free tool and the landing page show the words alone.
  */
 
+import Link from 'next/link';
 import type { Evidence, Finding, Severity } from '@/domain/analysis/types';
 
 export const SEVERITY_LABEL: Record<Severity, string> = {
@@ -58,7 +63,14 @@ function where(evidence: Evidence): string | null {
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
-export function FindingCard({ finding }: { finding: Finding }): React.ReactElement {
+export function FindingCard({
+  finding,
+  action = null,
+}: {
+  finding: Finding;
+  /** The letter this finding calls for, when the finding sits on a case. */
+  action?: { href: string; label: string } | null;
+}): React.ReactElement {
   const modifier =
     finding.severity === 'ATTENTION'
       ? 'finding--attention'
@@ -76,17 +88,12 @@ export function FindingCard({ finding }: { finding: Finding }): React.ReactEleme
         {SEVERITY_LABEL[finding.severity]}
       </p>
       <h3>{finding.title}</h3>
+      {finding.severity !== 'INFO' ? <p className="finding__why">Why we&rsquo;re showing this</p> : null}
       <p>{finding.explanation}</p>
 
       {finding.confidence !== 'HIGH' ? (
         <p className="small muted">
           The engine is less sure about this one. Check it against the statement first.
-        </p>
-      ) : null}
-
-      {finding.recommendedAction !== undefined ? (
-        <p className="small">
-          <strong>Suggested next step:</strong> {finding.recommendedAction}
         </p>
       ) : null}
 
@@ -121,6 +128,25 @@ export function FindingCard({ finding }: { finding: Finding }): React.ReactEleme
             );
           })}
         </details>
+      ) : null}
+
+      {/* What the person can do: a real button when the finding sits on a
+          case and calls for a letter, otherwise the words. */}
+      {action !== null ? (
+        <div className="finding__action">
+          <p className="finding__why">What you can do</p>
+          {finding.recommendedAction !== undefined ? <p className="small">{finding.recommendedAction}</p> : null}
+          <div>
+            <Link href={action.href} className="btn btn--secondary">
+              {action.label}
+            </Link>
+          </div>
+        </div>
+      ) : finding.recommendedAction !== undefined ? (
+        <div className="finding__action">
+          <p className="finding__why">What you can do</p>
+          <p className="small">{finding.recommendedAction}</p>
+        </div>
       ) : null}
     </article>
   );

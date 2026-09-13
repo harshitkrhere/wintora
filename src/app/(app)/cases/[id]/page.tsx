@@ -1,6 +1,13 @@
 /**
- * /cases/{id} — one bill: its documents, what the checks found, the letters
- * written about it, the dates it is waiting on, and what happened when.
+ * /cases/{id} — one bill, as an overview: what it is, how much, the one
+ * thing to do next, what the latest check found, the checklist, and the
+ * way to everything else about it (letters, documents, dates, activity),
+ * each on its own screen.
+ *
+ * The first screenful on a phone answers what is this, how much, and what
+ * do I do; the action bar under the thumb carries that one action, and
+ * the More button the quieter ones. On a wide screen the side column
+ * holds the rows and the header holds the buttons, as before.
  *
  * The findings render through the same FindingCard as the free tool, so a
  * saved result looks exactly like it did the moment it was produced. What
@@ -13,51 +20,37 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { requireUser } from '@/lib/http/api';
 import { createAdminClient } from '@/lib/supabase/server';
-import { loadCase } from '@/lib/cases/load';
-import { checklistFor } from '@/lib/cases/next-step';
+import { loadCase, type CaseAnalysis } from '@/lib/cases/load';
+import { actionForFinding, checklistFor } from '@/lib/cases/next-step';
+import { ActionBar } from '@/components/ActionBar';
+import { CaseMenu } from '@/components/CaseMenu';
+import { CaseMember } from '@/components/CaseMember';
+import { CaseStatusButton } from '@/components/CaseStatusButton';
 import { FindingCard } from '@/components/FindingCard';
 import { NextSteps } from '@/components/NextSteps';
-import { CaseStatusButton } from '@/components/CaseStatusButton';
-import { CaseDates } from '@/components/CaseDates';
-import { CaseMember } from '@/components/CaseMember';
-import { ExportCase } from '@/components/ExportCase';
+import { NextStepCard } from '@/components/NextStepCard';
 import { money } from '@/components/CaseCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icons';
+import { dateTime, shortDate } from '@/components/documentStatus';
 import { buildSubscriptionSummary } from '@/lib/billing/summary';
-import { isConfigured } from '@/lib/env';
 
 export const metadata: Metadata = { title: 'Case', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
-
-function when(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function bytes(n: number): string {
-  return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
-}
-
-const SCAN_LABEL: Record<string, string> = {
-  CLEAN: 'Checked',
-  PENDING: 'Waiting to be checked',
-  INFECTED: 'Refused',
-  FAILED: 'Could not be checked',
-  SKIPPED: 'Not checked',
-};
-
-const SCAN_TONE: Record<string, string> = {
-  CLEAN: 'badge--success',
-  PENDING: 'badge--neutral',
-  INFECTED: 'badge--error',
-  FAILED: 'badge--warning',
-  SKIPPED: 'badge--neutral',
-};
 
 const TYPE_LABEL: Record<string, string> = {
   BILL_CONSISTENCY: 'Bill check',
   BILL_VS_EOB: 'Bill compared with EOB',
 };
+
+/** "2 things worth a closer look", "1 thing worth confirming", "Looks consistent". */
+function headline(analysis: CaseAnalysis): string {
+  const attention = analysis.findings.filter((f) => f.severity === 'ATTENTION').length;
+  const review = analysis.findings.filter((f) => f.severity === 'REVIEW').length;
+  if (attention > 0) return `${attention} thing${attention === 1 ? '' : 's'} worth a closer look`;
+  if (review > 0) return `${review} thing${review === 1 ? '' : 's'} worth confirming`;
+  return 'Looks consistent';
+}
 
 export default async function CasePage({
   params,
@@ -78,68 +71,51 @@ export default async function CasePage({
   const [detail, plan] = await Promise.all([loadCase(admin, user.id, id), buildSubscriptionSummary(admin, user.id)]);
   if (detail === null) notFound();
 
-  const { summary, documents, removedDocuments, analyses, events, letters, reminders, deadlines, member } = detail;
+  const { summary, documents, analyses, events, letters, reminders, deadlines, member } = detail;
   const completed = analyses.filter((a) => a.status === 'COMPLETED');
   const latest = completed[0];
+  const earlier = completed.slice(1);
   const steps = latest !== undefined ? checklistFor(latest, events) : null;
   const amount = money(summary.amountCents, summary.currency);
   const isOpen = summary.status === 'OPEN';
-  const readDocuments = documents.filter((d) => d.scanStatus === 'CLEAN' && d.extractionStatus === 'COMPLETED');
+  const next = summary.nextStep;
   const can = {
     letters: plan.features.LETTER_GENERATION === true,
-    reminders: plan.features.REMINDERS === true,
-    deadlines: plan.features.DEADLINE_TRACKING === true,
-    household: plan.features.HOUSEHOLD_CASES === true,
     export: plan.features.ADVANCED_EXPORT === true,
   };
-  const exportsLeft = plan.usage.find((u) => u.featureKey === 'MONTHLY_EXPORTS')?.remaining ?? null;
+  const openDates = reminders.filter((r) => r.completedAt === null).length + deadlines.filter((d) => d.completedAt === null).length;
+  const lastEvent = events[0];
 
   return (
     <div className="shell stack--lg page">
       <div className="page-head">
         <div className="page-head__text">
-          <p className="eyebrow">
-            <Link href="/cases">Cases</Link> · Case
-          </p>
+          <Link href="/cases" className="backlink">
+            <Icon name="chevron-left" />
+            Cases
+          </Link>
           <h1 className="page__title">
             {summary.title}
             <span className={`badge ${isOpen ? 'badge--success' : 'badge--neutral'} badge--dot`}>
               {isOpen ? 'Open' : 'Closed'}
             </span>
           </h1>
-          {summary.providerName || amount || summary.statementDate ? (
-            <p className="meta">
-              {summary.providerName ? (
-                <span className="meta__item">
-                  <Icon name="document" />
-                  {summary.providerName}
-                </span>
-              ) : null}
-              {amount ? (
-                <span className="meta__item">
-                  <Icon name="receipt" />
-                  {amount}
-                </span>
-              ) : null}
-              {summary.statementDate ? (
-                <span className="meta__item">
-                  <Icon name="calendar" />
-                  Statement {summary.statementDate}
-                </span>
-              ) : null}
-              <CaseMember caseId={summary.id} current={member} enabled={can.household} />
-            </p>
-          ) : (
-            <p className="meta">
+          <p className="meta">
+            {summary.providerName ? (
+              <span className="meta__item">
+                <Icon name="document" />
+                {summary.providerName}
+              </span>
+            ) : (
               <span className="muted">Add details by uploading the bill.</span>
-              <CaseMember caseId={summary.id} current={member} enabled={can.household} />
-            </p>
-          )}
+            )}
+            <CaseMember caseId={summary.id} current={member} enabled={plan.features.HOUSEHOLD_CASES === true} />
+          </p>
         </div>
-        <div className="page-head__actions">
+        <div className="page-head__actions hide-narrow">
           <Link href={`/upload?case=${summary.id}`} className="btn btn--primary">
             <Icon name="upload" />
-            Upload a document
+            Add a document
           </Link>
           {can.letters ? (
             <Link href={`/cases/${summary.id}/letters/new`} className="btn btn--secondary">
@@ -151,254 +127,160 @@ export default async function CasePage({
         </div>
       </div>
 
-      {/* --------------------------------------------------- next steps */}
-      {steps !== null ? (
-        steps.length > 0 ? (
-          <NextSteps caseId={summary.id} steps={steps} />
-        ) : (
-          <p className="notice notice--success">
-            Nothing to chase on this statement. Keep it on the case in case a later bill or an
-            EOB disagrees with it.
-          </p>
-        )
-      ) : null}
+      <div className="case-overview">
+        <div className="case-overview__main">
+          {/* ------------------------------------------------ how much */}
+          <section className="amount" aria-label="Bill total">
+            <span className="amount__value">{amount ?? '—'}</span>
+            <span className="amount__label">
+              {amount !== null ? 'Bill total' : 'No amount yet'}
+              {summary.statementDate ? ` · Statement ${summary.statementDate}` : ''}
+              {summary.accountReference ? ` · Account ${summary.accountReference}` : ''}
+            </span>
+          </section>
 
-      {/* ------------------------------------------------------- checks */}
-      <section className="stack">
-        <div className="section-head">
-          <h2>Checks</h2>
-          <span className="section-head__count">{completed.length}</span>
-          {readDocuments.length >= 2 ? (
-            <Link href={`/cases/${summary.id}/compare`} className="small">
-              Compare two documents
-            </Link>
-          ) : null}
-        </div>
-        {completed.length === 0 ? (
-          <EmptyState
-            compact
-            title="No checks yet"
-            body={
-              documents.length === 0
-                ? 'Upload the bill, confirm the figures it reads, and the check runs from there.'
-                : 'A document is here. Open it from the upload page, confirm the figures, and run the check.'
-            }
-            action={{ href: `/upload?case=${summary.id}`, label: documents.length === 0 ? 'Upload the bill' : 'Check a document' }}
-          />
-        ) : (
-          completed.map((a, i) => (
-            <details key={a.id} className="card accordion" open={i === 0}>
-              <summary>
-                <span className="accordion__title">
-                  <span>{TYPE_LABEL[a.analysisType] ?? a.analysisType}</span>
-                  <span className="accordion__sub">
-                    {when(a.completedAt ?? a.createdAt)} · {a.findings.length} finding{a.findings.length === 1 ? '' : 's'}
-                  </span>
+          {/* ------------------------------------------------ what to do */}
+          {isOpen ? (
+            next !== null ? (
+              <NextStepCard eyebrow="Your next step" label={next.label} hint={next.hint} />
+            ) : (
+              <NextStepCard
+                tone="quiet"
+                eyebrow="Your next step"
+                label="Nothing waiting on you"
+                hint="Every document is checked and every draft has gone. Add a document if another arrives."
+              />
+            )
+          ) : (
+            <NextStepCard
+              tone="quiet"
+              eyebrow="Status"
+              label="This case is closed"
+              hint="Everything on it is kept. Reopen it if a new bill or an EOB disagrees with it."
+            />
+          )}
+
+          {/* ------------------------------------------------ the latest check */}
+          {latest === undefined ? (
+            <EmptyState
+              compact
+              title="No checks yet"
+              body={
+                documents.length === 0
+                  ? 'Upload the bill, confirm the figures it reads, and the check runs from there.'
+                  : 'A document is here. Check its figures and the check runs from there.'
+              }
+              action={next !== null ? { href: next.href, label: next.label } : { href: `/upload?case=${summary.id}`, label: 'Add a document' }}
+            />
+          ) : (
+            <section className="stack" aria-labelledby="latest-heading">
+              <div className="latest-check__head">
+                <h2 id="latest-heading">{headline(latest)}</h2>
+                <span className="latest-check__when">
+                  {TYPE_LABEL[latest.analysisType] ?? latest.analysisType} · {shortDate(latest.completedAt ?? latest.createdAt)}
                 </span>
-              </summary>
-              <div className="accordion__body stack">
-                {a.findings.map((f, j) => (
-                  <FindingCard key={j} finding={f} />
-                ))}
-                <p className="caption m-0">
-                  Engine {a.engineVersion}. These checks compare what is printed. They cannot
-                  tell you whether a charge was appropriate or what your insurer will decide.
-                </p>
               </div>
-            </details>
-          ))
-        )}
-      </section>
+              {latest.findings.map((f, j) => (
+                <FindingCard key={j} finding={f} action={isOpen && can.letters ? actionForFinding(f.code, summary.id) : null} />
+              ))}
+              <p className="small muted m-0">
+                Engine {latest.engineVersion}. These checks compare what is printed. They cannot tell you whether a
+                charge was appropriate or what your insurer will decide.
+              </p>
+            </section>
+          )}
 
-      {/* ------------------------------------------------------ letters */}
-      <section className="stack">
-        <div className="section-head">
-          <h2>Letters</h2>
-          <span className="section-head__count">{letters.length}</span>
-          {can.letters && letters.length > 0 ? (
-            <Link href={`/cases/${summary.id}/letters/new`} className="small">
-              Write another
-            </Link>
+          {/* ------------------------------------------------ the checklist */}
+          {steps !== null ? (
+            steps.length > 0 ? (
+              <NextSteps caseId={summary.id} steps={steps} />
+            ) : (
+              <p className="notice notice--success">
+                Nothing to chase on this statement. Keep it on the case in case a later bill or an EOB disagrees with it.
+              </p>
+            )
           ) : null}
         </div>
-        {letters.length === 0 ? (
-          <EmptyState
-            compact
-            title="No letters yet"
-            body={
-              can.letters
-                ? 'Ask for an itemised statement, question a charge, request a payment plan. A draft from a reviewed template, filled with your facts, for you to check and send.'
-                : 'Request letters are part of every plan once you are signed in with a case. Your plan does not currently include them.'
-            }
-            action={can.letters ? { href: `/cases/${summary.id}/letters/new`, label: 'Write a letter' } : { href: '/pricing', label: 'See plans' }}
-          />
-        ) : (
-          <div className="table-scroll table--responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Letter</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Last changed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {letters.map((l) => (
-                  <tr key={l.id}>
-                    <td data-label="Letter">
-                      <Link href={`/cases/${summary.id}/letters/${l.id}`}>
-                        <strong>{l.title}</strong>
-                      </Link>
-                      {l.attachmentCount > 0 ? (
-                        <span className="cell-sub">
-                          {l.attachmentCount} item{l.attachmentCount === 1 ? '' : 's'} of evidence attached
-                        </span>
-                      ) : null}
-                    </td>
-                    <td data-label="Status">
-                      <span>
-                        <span className={`badge ${l.sentAt !== null ? 'badge--success' : l.status === 'FINALIZED' ? 'badge--info' : 'badge--neutral'}`}>
-                          {l.sentAt !== null ? 'Sent' : l.status === 'FINALIZED' ? 'Ready to send' : 'Draft'}
-                        </span>
-                        {l.sentAt !== null ? (
-                          <span className="cell-sub">
-                            {new Date(l.sentAt).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' })}
-                            {l.sentVia ? ` · ${l.sentVia === 'portal' ? 'patient portal' : l.sentVia}` : ''}
-                          </span>
-                        ) : null}
-                      </span>
-                    </td>
-                    <td data-label="Last changed" className="small">{when(l.updatedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="caption m-0">
-          Wintora prepares drafts. You read, change and send them yourself; nothing goes anywhere
-          without you.
-        </p>
-      </section>
 
-      {/* -------------------------------------------------------- dates */}
-      <section className="stack">
-        <div className="section-head">
-          <h2>Dates</h2>
-          <span className="section-head__count">{reminders.filter((r) => r.completedAt === null).length + deadlines.filter((d) => d.completedAt === null).length}</span>
-        </div>
-        <CaseDates
-          caseId={summary.id}
-          reminders={reminders}
-          deadlines={deadlines}
-          can={{ reminders: can.reminders, deadlines: can.deadlines }}
-          emailOn={isConfigured('email')}
-        />
-      </section>
+        <div className="case-overview__side">
+          {/* ------------------------------------------------ everything else */}
+          <nav className="row-list" aria-label="This case">
+            <Link href={`/cases/${summary.id}/letters`} className="row-link">
+              <Icon name="mail" className="row-link__icon" />
+              <span className="row-link__text">Letters</span>
+              <span className="row-link__count">{letters.length}</span>
+              <Icon name="chevron-right" className="row-link__chevron" />
+            </Link>
+            <Link href={`/cases/${summary.id}/documents`} className="row-link">
+              <Icon name="documents" className="row-link__icon" />
+              <span className="row-link__text">Documents</span>
+              <span className="row-link__count">{summary.documentCount}</span>
+              <Icon name="chevron-right" className="row-link__chevron" />
+            </Link>
+            <Link href={`/cases/${summary.id}/dates`} className="row-link">
+              <Icon name="calendar" className="row-link__icon" />
+              <span className="row-link__text">Dates</span>
+              <span className="row-link__count">{openDates}</span>
+              <Icon name="chevron-right" className="row-link__chevron" />
+            </Link>
+            <Link href={`/cases/${summary.id}/activity`} className="row-link">
+              <Icon name="clock" className="row-link__icon" />
+              <span className="row-link__text">
+                Activity
+                {lastEvent !== undefined ? <span className="row-link__sub">Last: {dateTime(lastEvent.occurredAt)}</span> : null}
+              </span>
+              <Icon name="chevron-right" className="row-link__chevron" />
+            </Link>
+          </nav>
 
-      {/* ---------------------------------------------------- documents */}
-      <section className="stack">
-        <div className="section-head">
-          <h2>Documents</h2>
-          <span className="section-head__count">{documents.length}</span>
+          {earlier.length > 0 ? (
+            <section className="stack" aria-labelledby="earlier-heading">
+              <div className="section-head">
+                <h2 id="earlier-heading">Earlier checks</h2>
+                <span className="section-head__count">{earlier.length}</span>
+              </div>
+              {earlier.map((a) => (
+                <details key={a.id} className="card accordion">
+                  <summary>
+                    <span className="accordion__title">
+                      <span>{TYPE_LABEL[a.analysisType] ?? a.analysisType}</span>
+                      <span className="accordion__sub">
+                        {dateTime(a.completedAt ?? a.createdAt)} · {a.findings.length} finding{a.findings.length === 1 ? '' : 's'}
+                      </span>
+                    </span>
+                  </summary>
+                  <div className="accordion__body stack">
+                    {a.findings.map((f, j) => (
+                      <FindingCard key={j} finding={f} />
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </section>
+          ) : null}
         </div>
-        {documents.length === 0 ? (
-          <EmptyState
-            compact
-            title="Nothing uploaded yet"
-            body="A PDF from a patient portal reads best. A clear photo of a paper bill also works."
-            action={{ href: `/upload?case=${summary.id}`, label: 'Upload a document' }}
-          />
-        ) : (
-          <div className="table-scroll table--responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">File</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Uploaded</th>
-                  <th scope="col">Kept until</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((d) => (
-                  <tr key={d.id}>
-                    <td data-label="File">
-                      <span>
-                        <strong>{d.filename ?? 'Document'}</strong>
-                        <span className="cell-sub">
-                          {d.mimeType.replace('application/', '').replace('image/', '').toUpperCase()} · {bytes(d.byteSize)}
-                          {d.pageCount !== null ? ` · ${d.pageCount} page${d.pageCount === 1 ? '' : 's'}` : ''}
-                        </span>
-                      </span>
-                    </td>
-                    <td data-label="Status">
-                      <span>
-                        <span className={`badge ${SCAN_TONE[d.scanStatus] ?? 'badge--neutral'}`}>
-                          {SCAN_LABEL[d.scanStatus] ?? d.scanStatus}
-                        </span>
-                        {d.scanStatus === 'CLEAN' ? (
-                          <span className="cell-sub">
-                            {d.extractionStatus === 'COMPLETED' ? 'Figures read' : d.extractionStatus === 'FAILED' ? 'Could not be read' : 'Not read yet'}
-                          </span>
-                        ) : null}
-                      </span>
-                    </td>
-                    <td data-label="Uploaded" className="small">{when(d.createdAt)}</td>
-                    <td data-label="Kept until" className="small muted">
-                      {d.retentionUntil ? new Date(d.retentionUntil).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {removedDocuments.length > 0 ? (
-          <ul className="x-list small">
-            {removedDocuments.map((d) => (
-              <li key={d.id}>
-                <strong>{d.filename ?? 'Document'}</strong> was removed on{' '}
-                {new Date(d.removedAt).toLocaleDateString('en-US', { dateStyle: 'medium' })} at the end of its
-                retention period.{' '}
-                {d.figuresKept
-                  ? 'The figures read from it are kept with this case (extended history).'
-                  : 'The figures read from it were removed with it; the checks that used them are unaffected.'}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <p className="caption m-0">
-          Documents are deleted automatically on the date shown, set by your plan. Nothing is
-          deleted because a plan changes; you are told first.
-        </p>
-        <ExportCase caseId={summary.id} enabled={can.export} remaining={exportsLeft} hasDocuments={documents.some((d) => d.scanStatus === 'CLEAN')} />
-      </section>
+      </div>
 
-      {/* ----------------------------------------------------- timeline */}
-      <section className="stack">
-        <div className="section-head">
-          <h2>Timeline</h2>
-        </div>
-        <div className="card">
-          <ol className="timeline">
-            {events.map((e) => (
-              <li key={e.id}>
-                <span className="timeline__when">{when(e.occurredAt)}</span>
-                <span>
-                  <span className="timeline__event">{e.title}</span>
-                  {e.detail ? <span className="muted"> — {e.detail}</span> : null}
-                  {e.origin === 'USER' ? <span className="muted"> · you</span> : null}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
-        <p className="caption m-0">
-          Only things that actually happened appear here: what the product did, and what you told
-          it you did. Nothing is invented from a document.
-        </p>
-      </section>
+      {/* The one action, under the thumb. The wide screen has the header buttons. */}
+      <ActionBar
+        className="show-narrow"
+        more={<CaseMenu caseId={summary.id} status={summary.status} canLetters={can.letters} canExport={can.export} />}
+      >
+          {isOpen ? (
+            next !== null ? (
+              <Link href={next.href} className="btn btn--primary btn--lg">
+                {next.label}
+                <Icon name="arrow-right" />
+              </Link>
+            ) : (
+              <Link href={`/upload?case=${summary.id}`} className="btn btn--secondary btn--lg">
+                Add a document
+              </Link>
+            )
+          ) : (
+            <CaseStatusButton caseId={summary.id} status={summary.status} className="btn btn--primary btn--lg" />
+          )}
+      </ActionBar>
     </div>
   );
 }

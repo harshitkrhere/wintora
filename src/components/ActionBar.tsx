@@ -12,6 +12,7 @@ export function ActionBar({
   secondary,
   more,
   inCard = false,
+  className,
 }: {
   /** The primary action: one button or link with .btn--primary. */
   children: React.ReactNode;
@@ -21,9 +22,12 @@ export function ActionBar({
   more?: React.ReactNode;
   /** Rendered as the last thing inside a card, flush with its edges. */
   inCard?: boolean;
+  /** Extra classes, such as show-narrow for a bar the wide screen does without. */
+  className?: string;
 }): React.ReactElement {
+  const classes = ['action-bar', inCard ? 'action-bar--in-card' : null, className ?? null].filter(Boolean).join(' ');
   return (
-    <div className={`action-bar${inCard ? ' action-bar--in-card' : ''}`} role="group" aria-label="Actions">
+    <div className={classes} role="group" aria-label="Actions">
       {secondary !== undefined ? <div className="action-bar__secondary">{secondary}</div> : null}
       {children}
       {more !== undefined ? <div className="action-bar__more">{more}</div> : null}

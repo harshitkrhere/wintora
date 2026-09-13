@@ -53,7 +53,7 @@ export function NextSteps({ caseId, steps }: { caseId: string; steps: readonly S
   return (
     <section className="card stack" aria-labelledby="next-steps-heading">
       <div className="section-head">
-        <h2 id="next-steps-heading">What to do next</h2>
+        <h2 id="next-steps-heading">Your checklist</h2>
         <span className={`badge ${allDone ? 'badge--success' : 'badge--neutral'}`} aria-live="polite">
           {allDone ? 'All done' : `${doneCount} of ${items.length} done`}
         </span>

@@ -5129,6 +5129,13 @@ html:has(dialog.sheet[open]) {
   }
 }
 
+/* --- shown only until the sidebar arrives --- */
+@media (min-width: 64rem) {
+  .show-narrow {
+    display: none;
+  }
+}
+
 /* --- the phone's More button beside the action bar --- */
 .action-bar__more {
   flex: none;

@@ -3,7 +3,18 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function CaseStatusButton({ caseId, status }: { caseId: string; status: string }): React.ReactElement {
+export function CaseStatusButton({
+  caseId,
+  status,
+  className = 'btn btn--secondary',
+  onDone,
+}: {
+  caseId: string;
+  status: string;
+  className?: string;
+  /** Told once the change has taken, so a sheet holding the button can close. */
+  onDone?: () => void;
+}): React.ReactElement {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,16 +35,17 @@ export function CaseStatusButton({ caseId, status }: { caseId: string; status: s
         return;
       }
       router.refresh();
+      onDone?.();
     } catch {
       setError('We could not reach the service.');
     } finally {
       setBusy(false);
     }
-  }, [caseId, next, router]);
+  }, [caseId, next, router, onDone]);
 
   return (
     <>
-      <button type="button" className="btn btn--secondary" onClick={change} disabled={busy} aria-busy={busy}>
+      <button type="button" className={className} onClick={change} disabled={busy} aria-busy={busy}>
         {busy ? 'Saving…' : next === 'CLOSED' ? 'Close case' : 'Reopen case'}
       </button>
       {error ? (

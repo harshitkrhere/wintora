@@ -126,6 +126,8 @@ export interface RemovedDocument {
 
 export interface CaseDetail {
   readonly summary: CaseSummary;
+  /** The rows the next step was decided from, for screens that reason per document. */
+  readonly facts: CaseFacts;
   readonly notes: string | null;
   readonly documents: readonly CaseDocument[];
   readonly removedDocuments: readonly RemovedDocument[];
@@ -452,6 +454,7 @@ export async function loadCase(
       attention: latest ? worst(latest.findings.map((f) => f.severity)) : null,
       nextStep: nextStepFor(facts),
     },
+    facts,
     notes: c.notes,
     documents: docRows.map((d) => ({
       id: d.id,
